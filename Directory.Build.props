@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Authors>TorrWind contributors</Authors>
+    <Company>TorrWind</Company>
+    <Product>TorrWind</Product>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/torrwind/torrwind</RepositoryUrl>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,534 @@
+<Window x:Class="TorrWind.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding L[WindowTitle]}"
+        Width="1220"
+        Height="760"
+        MinWidth="980"
+        MinHeight="620"
+        Closing="OnClosing"
+        Loaded="OnLoaded">
+  <Grid Background="{DynamicResource AppBackgroundBrush}">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="238" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}" Padding="22">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Top">
+          <TextBlock Text="TorrWind" Foreground="White" FontSize="26" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding ActiveServerLabel}" Foreground="#B9C3D0" Margin="0,4,0,24" TextWrapping="Wrap" />
+
+          <Button Content="{Binding L[ActionRefresh]}" Command="{Binding RefreshCommand}" Margin="0,0,0,8" />
+          <Button Content="{Binding L[ActionAddTorrent]}" Click="OnAddTorrentFile" Margin="0,0,0,8" />
+          <Button Content="{Binding L[ActionOpenWeb]}" Click="OnOpenWebUi" Margin="0,0,0,8" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom">
+          <TextBlock Text="{Binding StatusMessage}" Foreground="#D9E2EC" TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="24">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <DockPanel Grid.Row="0" Margin="0,0,0,18">
+        <StackPanel DockPanel.Dock="Left">
+          <TextBlock Text="{Binding L[DashboardTitle]}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+          <TextBlock Text="{Binding L[DashboardSubtitle]}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+          <ComboBox Width="110" ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding SelectedLanguage}" Margin="0,0,8,0" />
+          <Button Content="{Binding L[ActionApplyLanguage]}" Command="{Binding ApplyLanguageCommand}" />
+        </StackPanel>
+      </DockPanel>
+
+      <TabControl x:Name="RootTabs" Grid.Row="1">
+        <TabItem Header="{Binding L[NavLibrary]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14" Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Text="{Binding NewMagnet, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="1" Content="{Binding L[ActionAddMagnet]}" Command="{Binding AddMagnetCommand}" Style="{StaticResource PrimaryButton}" Margin="10,0,8,0" />
+                <Button Grid.Column="2" Content="{Binding L[ActionOpenPlayer]}" Command="{Binding OpenSelectedCommand}" />
+                <Button Grid.Column="3" Content="{Binding L[ActionCopyPlaybackUrl]}" Command="{Binding CopyPlaybackUrlCommand}" />
+                <Button Grid.Column="4" Content="{Binding L[ActionRemoveTorrent]}" Command="{Binding RemoveTorrentCommand}" />
+              </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="*" MinWidth="330" />
+              </Grid.ColumnDefinitions>
+
+              <ListView Grid.Column="0" ItemsSource="{Binding Torrents}" SelectedItem="{Binding SelectedTorrent}">
+                <ListView.View>
+                  <GridView>
+                    <GridViewColumn Header="{Binding L[ColumnName]}" DisplayMemberBinding="{Binding Title}" Width="360" />
+                    <GridViewColumn Header="{Binding L[ColumnSize]}" DisplayMemberBinding="{Binding SizeText}" Width="110" />
+                    <GridViewColumn Header="{Binding L[ColumnProgress]}" DisplayMemberBinding="{Binding ProgressText}" Width="100" />
+                    <GridViewColumn Header="{Binding L[ColumnSeeds]}" DisplayMemberBinding="{Binding Seeders}" Width="70" />
+                    <GridViewColumn Header="{Binding L[ColumnStatus]}" DisplayMemberBinding="{Binding Status}" Width="130" />
+                  </GridView>
+                </ListView.View>
+              </ListView>
+
+              <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Text="{Binding L[ColumnFile]}" FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                  <ListView Grid.Row="1" ItemsSource="{Binding SelectedTorrentFiles}" SelectedItem="{Binding SelectedTorrentFile}">
+                    <ListView.View>
+                      <GridView>
+                        <GridViewColumn Header="{Binding L[ColumnName]}" DisplayMemberBinding="{Binding Path}" Width="210" />
+                        <GridViewColumn Header="{Binding L[ColumnSize]}" DisplayMemberBinding="{Binding SizeText}" Width="90" />
+                        <GridViewColumn Header="{Binding L[ColumnMime]}" DisplayMemberBinding="{Binding MimeType}" Width="120" />
+                      </GridView>
+                    </ListView.View>
+                  </ListView>
+                </Grid>
+              </Border>
+            </Grid>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{Binding L[NavSearch]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14" Margin="0,0,0,12">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="210" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="170" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ComboBox Grid.Row="0" Grid.Column="0" ItemsSource="{Binding SearchProviderOptions}" SelectedItem="{Binding SelectedSearchProviderOption}" DisplayMemberPath="DisplayName" Margin="0,0,10,10" />
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,10,10" />
+                <ComboBox Grid.Row="0" Grid.Column="2" ItemsSource="{Binding SearchHistory}" SelectedItem="{Binding SelectedSearchHistoryItem}" Margin="0,0,10,10" />
+                <Button Grid.Row="0" Grid.Column="3" Content="{Binding L[ActionSearch]}" Command="{Binding SearchCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,10" />
+                <Button Grid.Row="0" Grid.Column="4" Content="{Binding L[ActionAddSelected]}" Command="{Binding AddSelectedSearchResultCommand}" Margin="0,0,0,10" />
+
+                <Grid Grid.Row="1" Grid.ColumnSpan="5">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="180" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+
+                  <TextBlock Grid.Column="0" Text="{Binding L[FieldCategories]}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <TextBox Grid.Column="1" Text="{Binding SearchCategories, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
+                  <TextBlock Grid.Column="2" Text="{Binding L[FieldMinSeeders]}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <TextBox Grid.Column="3" Text="{Binding SearchMinSeeders, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
+                  <TextBlock Grid.Column="4" Text="{Binding L[FieldMaxSizeGb]}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <TextBox Grid.Column="5" Text="{Binding SearchMaxSizeGb, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+              </Grid>
+            </Border>
+
+            <ListView Grid.Row="1" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}">
+              <ListView.View>
+                <GridView>
+                  <GridViewColumn Header="{Binding L[ColumnProvider]}" DisplayMemberBinding="{Binding ProviderName}" Width="140" />
+                  <GridViewColumn Header="{Binding L[ColumnName]}" DisplayMemberBinding="{Binding Title}" Width="420" />
+                  <GridViewColumn Header="{Binding L[ColumnSize]}" DisplayMemberBinding="{Binding SizeText}" Width="110" />
+                  <GridViewColumn Header="{Binding L[ColumnSeeds]}" DisplayMemberBinding="{Binding Seeders}" Width="80" />
+                  <GridViewColumn Header="{Binding L[ColumnLeechers]}" DisplayMemberBinding="{Binding Leechers}" Width="80" />
+                  <GridViewColumn Header="{Binding L[ColumnCategory]}" DisplayMemberBinding="{Binding Category}" Width="100" />
+                  <GridViewColumn Header="{Binding L[ColumnPublished]}" DisplayMemberBinding="{Binding PublishedAt}" Width="180" />
+                </GridView>
+              </ListView.View>
+            </ListView>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{Binding L[NavIndexers]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="310" />
+              <ColumnDefinition Width="18" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ListView Grid.Column="0" ItemsSource="{Binding SearchProviders}" SelectedItem="{Binding SelectedSearchProvider}" DisplayMemberPath="Name" />
+
+            <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="150" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,14">
+                  <Button Content="{Binding L[ActionAddProvider]}" Command="{Binding AddSearchProviderCommand}" Style="{StaticResource PrimaryButton}" />
+                  <Button Content="{Binding L[ActionRemoveProvider]}" Command="{Binding RemoveSearchProviderCommand}" />
+                  <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldName]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedSearchProvider.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldUrl]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedSearchProvider.Url, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldApiKey]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedSearchProvider.ApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldCategories]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedSearchProvider.Categories, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldTimeoutSeconds]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding SelectedSearchProvider.TimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <CheckBox Content="{Binding L[FieldEnabled]}" IsChecked="{Binding SelectedSearchProvider.Enabled}" />
+                  <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedSearchProvider.IgnoreCertificateErrors}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{Binding L[NavDiagnostics]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14" Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="{Binding ActiveServerLabel}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="{Binding L[ActionRunDiagnostics]}" Command="{Binding RunDiagnosticsCommand}" Style="{StaticResource PrimaryButton}" Margin="10,0,8,0" />
+                <Button Grid.Column="2" Content="{Binding L[ActionCheckServer]}" Command="{Binding CheckServerCommand}" />
+              </Grid>
+            </Border>
+
+            <ListView Grid.Row="1" ItemsSource="{Binding DiagnosticItems}">
+              <ListView.View>
+                <GridView>
+                  <GridViewColumn Header="{Binding L[ColumnCheck]}" DisplayMemberBinding="{Binding Name}" Width="260" />
+                  <GridViewColumn Header="{Binding L[ColumnValue]}" DisplayMemberBinding="{Binding Value}" Width="760" />
+                </GridView>
+              </ListView.View>
+            </ListView>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{Binding L[NavLogs]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="14" Margin="0,0,0,12">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LogLocationText}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                <Button Grid.Row="0" Grid.Column="1" Content="{Binding L[ActionRefreshLogs]}" Command="{Binding RefreshLogsCommand}" Style="{StaticResource PrimaryButton}" Margin="10,0,8,0" />
+                <Button Grid.Row="0" Grid.Column="2" Content="{Binding L[ActionCopyLogPaths]}" Command="{Binding CopyLogPathsCommand}" />
+                <Button Grid.Row="0" Grid.Column="3" Content="{Binding L[ActionClearUserLog]}" Command="{Binding ClearUserLogCommand}" />
+              </Grid>
+            </Border>
+
+            <ListView Grid.Row="1" ItemsSource="{Binding LogEntries}">
+              <ListView.View>
+                <GridView>
+                  <GridViewColumn Header="{Binding L[ColumnTime]}" DisplayMemberBinding="{Binding TimestampText}" Width="150" />
+                  <GridViewColumn Header="{Binding L[ColumnLevel]}" DisplayMemberBinding="{Binding Level}" Width="90" />
+                  <GridViewColumn Header="{Binding L[ColumnSource]}" DisplayMemberBinding="{Binding Source}" Width="150" />
+                  <GridViewColumn Header="{Binding L[ColumnMessage]}" DisplayMemberBinding="{Binding Message}" Width="300" />
+                  <GridViewColumn Header="{Binding L[ColumnDetails]}" DisplayMemberBinding="{Binding Details}" Width="260" />
+                  <GridViewColumn Header="{Binding L[ColumnLogFile]}" DisplayMemberBinding="{Binding LogFile}" Width="320" />
+                </GridView>
+              </ListView.View>
+            </ListView>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{Binding L[NavServers]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="310" />
+              <ColumnDefinition Width="18" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ListView Grid.Column="0" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" DisplayMemberPath="Name" />
+
+            <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="150" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,14">
+                  <Button Content="{Binding L[ActionAddServer]}" Command="{Binding AddServerCommand}" Style="{StaticResource PrimaryButton}" />
+                  <Button Content="{Binding L[ActionRemoveServer]}" Command="{Binding RemoveServerCommand}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldName]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedServer.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldUrl]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedServer.BaseUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldUsername]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedServer.Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldPassword]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedServer.Password, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,14">
+                  <CheckBox Content="{Binding L[FieldLocal]}" IsChecked="{Binding SelectedServer.IsLocal}" />
+                  <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedServer.IgnoreCertificateErrors}" />
+                  <CheckBox Content="{Binding L[FieldReadOnly]}" IsChecked="{Binding SelectedServer.ReadOnly}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
+                  <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" />
+                  <Button Content="{Binding L[ActionCheckServer]}" Command="{Binding CheckServerCommand}" />
+                  <Button Content="{Binding L[ActionRefresh]}" Command="{Binding RefreshCommand}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{Binding L[NavSettings]}">
+          <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTorrServerExe]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LocalServer.ExecutablePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldDataPath]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LocalServer.DataDirectory, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <TextBox Width="150" Text="{Binding LocalServer.ListenAddress, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Width="90" Text="{Binding LocalServer.Port, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                  <CheckBox Content="{Binding L[FieldLan]}" IsChecked="{Binding LocalServer.AllowLanAccess}" Margin="14,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldCache]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <ComboBox Width="150" ItemsSource="{Binding CacheModes}" SelectedItem="{Binding LocalServer.CacheMode}" />
+                  <TextBox Width="90" Text="{Binding LocalServer.CacheSizeMb, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldLimits]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <TextBox Width="110" Text="{Binding LocalServer.DownloadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Width="110" Text="{Binding LocalServer.UploadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <CheckBox Content="{Binding L[FieldAuth]}" IsChecked="{Binding LocalServer.UseHttpAuth}" />
+                  <CheckBox Content="{Binding L[FieldSsl]}" IsChecked="{Binding LocalServer.UseSsl}" />
+                  <CheckBox Content="{Binding L[FieldDlna]}" IsChecked="{Binding LocalServer.EnableDlna}" />
+                  <CheckBox Content="{Binding L[FieldWebDav]}" IsChecked="{Binding LocalServer.EnableWebDav}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <TextBox Width="180" Text="{Binding LocalServer.Username, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Width="220" Text="{Binding LocalServer.Password, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                  <CheckBox Content="{Binding L[FieldSearchWithoutAuth]}" IsChecked="{Binding LocalServer.AllowSearchWithoutAuth}" Margin="14,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <Grid Grid.Row="7" Grid.Column="1" Margin="0,0,0,10">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBox Grid.Column="0" Text="{Binding LocalServer.SslPort, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Grid.Column="1" Text="{Binding LocalServer.CertificatePath, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                  <TextBox Grid.Column="2" Text="{Binding LocalServer.CertificateKeyPath, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                  <CheckBox Grid.Column="3" Content="{Binding L[FieldForceHttps]}" IsChecked="{Binding LocalServer.ForceHttps}" Margin="14,0,0,0" />
+                </Grid>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="8" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding LocalServer.ReadOnlyDatabase}" />
+                  <TextBlock Text="{Binding L[FieldMaxStreamSize]}" VerticalAlignment="Center" Margin="12,0,8,0" />
+                  <TextBox Width="110" Text="{Binding LocalServer.MaxStreamSizeMb, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldWhiteList]}" VerticalAlignment="Top" Margin="0,5,12,10" />
+                <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding LocalServer.WhiteList, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="58" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldBlackList]}" VerticalAlignment="Top" Margin="0,5,12,10" />
+                <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding LocalServer.BlackList, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="58" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10" />
+
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldProxy]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="11" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <TextBox Width="360" Text="{Binding LocalServer.ProxyUrl, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Width="140" Text="{Binding LocalServer.ProxyMode, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="{Binding L[FieldService]}" VerticalAlignment="Center" Margin="0,0,12,14" />
+                <StackPanel Grid.Row="12" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,14">
+                  <CheckBox Content="{Binding L[FieldRunAsService]}" IsChecked="{Binding LocalServer.RunAsWindowsService}" />
+                  <Button Content="{Binding L[ActionInstallService]}" Command="{Binding InstallServiceCommand}" />
+                  <Button Content="{Binding L[ActionUninstallService]}" Command="{Binding UninstallServiceCommand}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="13" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <Button Content="{Binding L[ActionDownloadTorrServer]}" Command="{Binding DownloadTorrServerCommand}" Style="{StaticResource PrimaryButton}" />
+                  <Button Content="{Binding L[ActionRollbackTorrServer]}" Command="{Binding RollbackTorrServerCommand}" />
+                  <Button Content="{Binding L[ActionStartLocalServer]}" Command="{Binding StartLocalServerCommand}" />
+                  <Button Content="{Binding L[ActionStopLocalServer]}" Command="{Binding StopLocalServerCommand}" />
+                  <Button Content="{Binding L[ActionApplyRuntimeSettings]}" Command="{Binding ApplyLocalServerSettingsCommand}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="14" Grid.Column="0" Text="{Binding L[FieldPlayer]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                <StackPanel Grid.Row="14" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                  <ComboBox Width="180" ItemsSource="{Binding ExternalPlayerKinds}" SelectedItem="{Binding Player.PreferredPlayer}" />
+                  <CheckBox Content="{Binding L[FieldPreferDirectStream]}" IsChecked="{Binding Player.PreferDirectStreamUrl}" Margin="14,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="15" Grid.Column="0" Text="{Binding L[FieldCustomPlayer]}" VerticalAlignment="Center" Margin="0,0,12,14" />
+                <TextBox Grid.Row="15" Grid.Column="1" Text="{Binding Player.CustomPlayerPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+
+                <StackPanel Grid.Row="16" Grid.Column="1" Orientation="Horizontal">
+                  <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </ScrollViewer>
+        </TabItem>
+
+        <TabItem x:Name="WebUiTab" Header="{Binding L[NavWebUi]}">
+          <Grid Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Button Grid.Row="0" Content="{Binding L[ActionOpenWeb]}" Click="OnOpenWebUi" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Margin="0,0,0,12" />
+            <WebBrowser x:Name="ServerWebBrowser" Grid.Row="1" />
+          </Grid>
+        </TabItem>
+      </TabControl>
+    </Grid>
+  </Grid>
+</Window>
