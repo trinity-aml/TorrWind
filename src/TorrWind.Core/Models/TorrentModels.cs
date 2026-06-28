@@ -11,7 +11,23 @@ public sealed class TorrentItem
 
     public string SourceLink { get; set; } = string.Empty;
 
+    public string Category { get; set; } = string.Empty;
+
+    public string Poster { get; set; } = string.Empty;
+
+    public string Data { get; set; } = string.Empty;
+
+    public string TorrsHash { get; set; } = string.Empty;
+
     public long SizeBytes { get; set; }
+
+    public long LoadedBytes { get; set; }
+
+    public long PreloadedBytes { get; set; }
+
+    public double DownloadSpeed { get; set; }
+
+    public double UploadSpeed { get; set; }
 
     public double Progress { get; set; }
 
@@ -25,23 +41,53 @@ public sealed class TorrentItem
 
     public string SizeText => FormatBytes(SizeBytes);
 
+    public string LoadedText => FormatBytes(LoadedBytes);
+
+    public string PreloadedText => FormatBytes(PreloadedBytes);
+
+    public string DownloadSpeedText => FormatBytes((long)Math.Max(DownloadSpeed, 0)) + "/s";
+
+    public string UploadSpeedText => FormatBytes((long)Math.Max(UploadSpeed, 0)) + "/s";
+
     public string ProgressText => Progress.ToString("0.##", CultureInfo.InvariantCulture) + "%";
 
     public static TorrentItem FromJson(JsonElement element)
     {
+        var sizeBytes = element.ReadInt64("size", "Size", "length", "Length", "torrent_size", "TorrentSize");
+        var loadedBytes = element.ReadInt64("loaded_size", "LoadedSize", "loaded", "Loaded");
+        var progress = element.ReadDouble("progress", "Progress");
+        if (progress <= 0 && sizeBytes > 0 && loadedBytes > 0)
+        {
+            progress = Math.Clamp((double)loadedBytes / sizeBytes * 100, 0, 100);
+        }
+
         var item = new TorrentItem
         {
             Hash = element.ReadString("hash", "Hash", "info_hash"),
             Title = element.ReadString("title", "Title", "name", "Name"),
             SourceLink = element.ReadString("link", "Link", "magnet", "Magnet"),
-            SizeBytes = element.ReadInt64("size", "Size", "length", "Length"),
-            Progress = element.ReadDouble("progress", "Progress", "loaded", "Loaded"),
-            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders"),
-            Peers = element.ReadInt32("peer", "Peer", "peers", "Peers"),
-            Status = element.ReadString("status", "Status", "stat", "Stat")
+            Category = element.ReadString("category", "Category"),
+            Poster = element.ReadString("poster", "Poster"),
+            Data = element.ReadString("data", "Data"),
+            TorrsHash = element.ReadString("torrs_hash", "TorrsHash"),
+            SizeBytes = sizeBytes,
+            LoadedBytes = loadedBytes,
+            PreloadedBytes = element.ReadInt64("preloaded_bytes", "PreloadedBytes", "preload_size", "PreloadSize"),
+            DownloadSpeed = element.ReadDouble("download_speed", "DownloadSpeed"),
+            UploadSpeed = element.ReadDouble("upload_speed", "UploadSpeed"),
+            Progress = progress,
+            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders", "connected_seeders", "ConnectedSeeders"),
+            Peers = element.ReadInt32("peer", "Peer", "peers", "Peers", "total_peers", "TotalPeers"),
+            Status = element.ReadString("status", "Status", "stat_string", "StatString", "stat", "Stat")
         };
 
         if (element.TryGetProperty("files", out var files) || element.TryGetProperty("Files", out files))
+        {
+            item.Files = files.ValueKind == JsonValueKind.Array
+                ? files.EnumerateArray().Select(TorrentFile.FromJson).ToArray()
+                : [];
+        }
+        else if (element.TryGetProperty("file_stats", out files) || element.TryGetProperty("FileStats", out files))
         {
             item.Files = files.ValueKind == JsonValueKind.Array
                 ? files.EnumerateArray().Select(TorrentFile.FromJson).ToArray()

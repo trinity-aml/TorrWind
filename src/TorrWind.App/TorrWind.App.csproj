@@ -7,6 +7,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>TorrWind</AssemblyName>
     <RootNamespace>TorrWind.App</RootNamespace>
+    <ApplicationIcon>..\..\assets\TorrWind.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,5 +16,6 @@
 
   <ItemGroup>
     <None Include="..\..\locales\**\*.json" CopyToOutputDirectory="PreserveNewest" LinkBase="locales" />
+    <Resource Include="..\..\assets\TorrWind.ico" Link="TorrWind.ico" />
   </ItemGroup>
 </Project>

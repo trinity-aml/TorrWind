@@ -2,7 +2,7 @@
 
 TorrWind is a Windows 10/11 x64 desktop client for local and remote TorrServer instances.
 
-The goal is to provide a native Windows experience similar to TorrServe: torrent and magnet management, external-player launch, TorrServer lifecycle management, tray mode, service installation for a local server, localization, and a fallback Web UI tab for TorrServer features that are not yet native.
+The goal is to provide a native Windows experience similar to TorrServe: torrent and magnet management, external-player launch, TorrServer lifecycle management, tray mode with quick local-server actions, service installation for a local server, localization, and a fallback Web UI tab for TorrServer features that are not yet native.
 
 ## Status
 
@@ -15,7 +15,7 @@ This repository currently contains the initial architecture and MVP scaffold:
 - Windows installer draft: `installers/windows`
 - Windows publish/package scripts: `scripts`
 
-Implemented MVP pieces include multi-server profiles, server connection testing, torrent and magnet add, torrent removal, file selection inside a torrent, playback URL copy, external-player launch, local TorrServer process start/stop, service install/uninstall commands, local auth/IP-list file generation, runtime cache/speed/DLNA settings apply, versioned TorrServer download, rollback to the previous configured TorrServer binary, direct Torznab/Jackett/Prowlarr provider search, search filters, search history, a diagnostics screen for server/runtime/service state, and an in-app event log.
+Implemented MVP pieces include multi-server profiles, server connection testing, torrent and magnet add, `.torrent`/`magnet:` shell integration, torrent removal, selected torrent details, metadata editing, source/hash copy, drop cache, guarded wipe-all, file selection inside a torrent, playback URL copy, external-player launch, local TorrServer process start/stop, service install/uninstall/start/stop/status commands, local auth/IP-list file generation, runtime cache/speed/DLNA settings apply, full runtime settings JSON editing, versioned TorrServer download, rollback to the previous configured TorrServer binary, direct Torznab/Jackett/Prowlarr provider search, search filters, search history, a diagnostics screen for server/runtime/service state, and an in-app event log.
 
 ## Target Platform
 
@@ -56,7 +56,32 @@ Build the Inno Setup installer:
 .\scripts\build-installer.ps1 -Version 0.1.0
 ```
 
-The installer can create a desktop icon, enable Windows startup, install `TorrWindService`, and optionally start the service after installation.
+On Linux, the same script can build the installer through PowerShell + Wine when Inno Setup is installed in a Wine prefix:
+
+```bash
+pwsh ./scripts/build-installer.ps1 -Version 0.1.0
+```
+
+By default the script checks `~/.wine-inno` and `~/.wine`. Custom paths can be passed with `-WinePrefix` or `-InnoCompilerPath`.
+
+Build all release artifacts and checksums:
+
+```powershell
+.\scripts\release-win-x64.ps1 -Version 0.1.0
+```
+
+The installer can create a desktop icon, enable Windows startup, associate `.torrent` files, register the `magnet:` protocol handler, install `TorrWindService`, and optionally start the service after installation.
+
+`TorrWind.exe` accepts startup arguments for shell integration:
+
+```powershell
+.\TorrWind.exe --minimized
+.\TorrWind.exe "C:\Downloads\movie.torrent"
+.\TorrWind.exe "magnet:?xt=urn:btih:..."
+.\TorrWind.exe "https://example.org/file.torrent"
+```
+
+Torrent arguments are added to the currently selected writable server profile. TorrWind runs as a single GUI instance; if it is already running, a later `.torrent` or `magnet:` activation is forwarded to the existing process and the existing window is restored.
 
 The service helper also supports direct commands:
 
@@ -66,6 +91,8 @@ The service helper also supports direct commands:
 .\TorrWind.Service.exe stop
 .\TorrWind.Service.exe uninstall
 ```
+
+The GUI exposes the same service lifecycle controls. Install/uninstall request UAC; start/stop/status use normal `sc.exe` calls and report permission errors in the status bar/log.
 
 ## TorrServer Integration
 
@@ -79,6 +106,10 @@ TorrWind uses the public TorrServer API:
 - `POST /settings` for server settings
 
 TorrServer Swagger is available from a running server at `/swagger/index.html`.
+
+The library screen uses `/torrents` actions `list`, `get`, `set`, `rem`, `drop`, and `wipe`. `wipe` is guarded by a confirmation dialog because it removes all torrents from the selected server.
+
+The Runtime JSON screen reads the full `POST /settings` object, formats it for editing, validates JSON locally, and applies it back through `action=set`. Server profiles marked read-only cannot apply edited runtime JSON.
 
 The search screen can use either the selected TorrServer search endpoint or configured Torznab-compatible providers. Jackett and Prowlarr can be added through their Torznab feed URLs with an optional API key, category list, timeout, and certificate-error override.
 

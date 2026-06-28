@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows.Input;
 using TorrWind.Core;
 using TorrWind.Core.Localization;
@@ -29,6 +30,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string? _selectedSearchHistoryItem;
     private string _selectedLanguage = "system";
     private string _newMagnet = string.Empty;
+    private string _selectedTorrentTitle = string.Empty;
+    private string _selectedTorrentCategory = string.Empty;
+    private string _selectedTorrentPoster = string.Empty;
+    private string _selectedTorrentData = string.Empty;
     private string _searchQuery = string.Empty;
     private string _searchCategories = string.Empty;
     private int _searchMinSeeders;
@@ -36,6 +41,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private int _lastSearchFailedProviders;
     private string _statusMessage = string.Empty;
     private string _logLocationText = string.Empty;
+    private string _runtimeSettingsJson = string.Empty;
+    private string _serviceStatusText = string.Empty;
 
     public MainWindowViewModel(AppSettingsStore settingsStore, JsonLocalizationService localization)
     {
@@ -45,12 +52,22 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         AddMagnetCommand = new AsyncRelayCommand(AddMagnetAsync);
         RemoveTorrentCommand = new AsyncRelayCommand(RemoveTorrentAsync);
+        RefreshSelectedTorrentCommand = new AsyncRelayCommand(RefreshSelectedTorrentAsync);
+        SaveTorrentMetadataCommand = new AsyncRelayCommand(SaveTorrentMetadataAsync);
+        DropTorrentCommand = new AsyncRelayCommand(DropTorrentAsync);
+        WipeTorrentsCommand = new AsyncRelayCommand(WipeTorrentsAsync);
         SearchCommand = new AsyncRelayCommand(SearchAsync);
         AddSelectedSearchResultCommand = new AsyncRelayCommand(AddSelectedSearchResultAsync);
         OpenSelectedCommand = new AsyncRelayCommand(OpenSelectedAsync);
         CopyPlaybackUrlCommand = new RelayCommand(CopyPlaybackUrl);
+        CopyTorrentSourceCommand = new RelayCommand(CopyTorrentSource);
+        CopyTorrentHashCommand = new RelayCommand(CopyTorrentHash);
         CheckServerCommand = new AsyncRelayCommand(CheckServerAsync);
         RunDiagnosticsCommand = new AsyncRelayCommand(RunDiagnosticsAsync);
+        LoadRuntimeSettingsCommand = new AsyncRelayCommand(LoadRuntimeSettingsAsync);
+        ApplyRuntimeSettingsJsonCommand = new AsyncRelayCommand(ApplyRuntimeSettingsJsonAsync);
+        FormatRuntimeSettingsJsonCommand = new RelayCommand(FormatRuntimeSettingsJson);
+        CopyRuntimeSettingsJsonCommand = new RelayCommand(CopyRuntimeSettingsJson);
         RefreshLogsCommand = new AsyncRelayCommand(RefreshLogsAsync);
         ClearUserLogCommand = new RelayCommand(ClearUserLog);
         CopyLogPathsCommand = new RelayCommand(CopyLogPaths);
@@ -61,6 +78,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         ApplyLocalServerSettingsCommand = new AsyncRelayCommand(ApplyLocalServerSettingsAsync);
         InstallServiceCommand = new AsyncRelayCommand(InstallServiceAsync);
         UninstallServiceCommand = new AsyncRelayCommand(UninstallServiceAsync);
+        StartServiceCommand = new AsyncRelayCommand(StartServiceAsync);
+        StopServiceCommand = new AsyncRelayCommand(StopServiceAsync);
+        QueryServiceStatusCommand = new AsyncRelayCommand(QueryServiceStatusAsync);
         StartLocalServerCommand = new AsyncRelayCommand(StartLocalServerAsync);
         StopLocalServerCommand = new RelayCommand(StopLocalServer);
         AddServerCommand = new RelayCommand(AddServer);
@@ -103,6 +123,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ICommand RemoveTorrentCommand { get; }
 
+    public ICommand RefreshSelectedTorrentCommand { get; }
+
+    public ICommand SaveTorrentMetadataCommand { get; }
+
+    public ICommand DropTorrentCommand { get; }
+
+    public ICommand WipeTorrentsCommand { get; }
+
     public ICommand SearchCommand { get; }
 
     public ICommand AddSelectedSearchResultCommand { get; }
@@ -111,9 +139,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ICommand CopyPlaybackUrlCommand { get; }
 
+    public ICommand CopyTorrentSourceCommand { get; }
+
+    public ICommand CopyTorrentHashCommand { get; }
+
     public ICommand CheckServerCommand { get; }
 
     public ICommand RunDiagnosticsCommand { get; }
+
+    public ICommand LoadRuntimeSettingsCommand { get; }
+
+    public ICommand ApplyRuntimeSettingsJsonCommand { get; }
+
+    public ICommand FormatRuntimeSettingsJsonCommand { get; }
+
+    public ICommand CopyRuntimeSettingsJsonCommand { get; }
 
     public ICommand RefreshLogsCommand { get; }
 
@@ -134,6 +174,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand InstallServiceCommand { get; }
 
     public ICommand UninstallServiceCommand { get; }
+
+    public ICommand StartServiceCommand { get; }
+
+    public ICommand StopServiceCommand { get; }
+
+    public ICommand QueryServiceStatusCommand { get; }
 
     public ICommand StartLocalServerCommand { get; }
 
@@ -175,6 +221,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(SelectedTorrentFiles));
                 SelectedTorrentFile = value?.Files.FirstOrDefault();
+                LoadSelectedTorrentEditor(value);
             }
         }
     }
@@ -233,6 +280,30 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _newMagnet, value);
     }
 
+    public string SelectedTorrentTitle
+    {
+        get => _selectedTorrentTitle;
+        set => SetProperty(ref _selectedTorrentTitle, value);
+    }
+
+    public string SelectedTorrentCategory
+    {
+        get => _selectedTorrentCategory;
+        set => SetProperty(ref _selectedTorrentCategory, value);
+    }
+
+    public string SelectedTorrentPoster
+    {
+        get => _selectedTorrentPoster;
+        set => SetProperty(ref _selectedTorrentPoster, value);
+    }
+
+    public string SelectedTorrentData
+    {
+        get => _selectedTorrentData;
+        set => SetProperty(ref _selectedTorrentData, value);
+    }
+
     public string SearchQuery
     {
         get => _searchQuery;
@@ -267,6 +338,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         get => _logLocationText;
         set => SetProperty(ref _logLocationText, value);
+    }
+
+    public string RuntimeSettingsJson
+    {
+        get => _runtimeSettingsJson;
+        set => SetProperty(ref _runtimeSettingsJson, value);
+    }
+
+    public string ServiceStatusText
+    {
+        get => _serviceStatusText;
+        set => SetProperty(ref _serviceStatusText, value);
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -306,6 +389,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RebuildSearchProviderOptions();
         LogLocationText = string.Format(L["LogLocations"], AppPaths.UserLogFile, AppPaths.ServiceLogFile);
         await RefreshLogsAsync().ConfigureAwait(true);
+        await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
         OnPropertyChanged(nameof(LocalServer));
         StatusMessage = L["StatusReady"];
         LogInfo("Application", "ViewModel initialized.");
@@ -345,12 +429,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public async Task AddTorrentFileAsync(string filePath)
+    public async Task<bool> AddTorrentFileAsync(string filePath)
     {
         if (SelectedServer is null || SelectedServer.ReadOnly)
         {
             StatusMessage = L["StatusReadOnly"];
-            return;
+            return false;
         }
 
         try
@@ -360,40 +444,90 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             StatusMessage = L["StatusTorrentAdded"];
             LogInfo("Library", "Torrent file added.", Path.GetFileName(filePath));
             await RefreshAsync().ConfigureAwait(true);
+            return true;
         }
         catch (Exception exception)
         {
             StatusMessage = exception.Message;
             LogError("Library", "Failed to add torrent file.", exception, Path.GetFileName(filePath));
+            return false;
+        }
+    }
+
+    public async Task ProcessStartupArgumentsAsync(IEnumerable<string> args)
+    {
+        var handled = 0;
+        foreach (var arg in args.Where(arg => !IsControlArgument(arg)))
+        {
+            var value = arg.Trim();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            if (IsTorrentFile(value))
+            {
+                if (await AddTorrentFileAsync(value).ConfigureAwait(true))
+                {
+                    handled++;
+                }
+            }
+            else if (IsTorrentLink(value))
+            {
+                if (await AddTorrentLinkAsync(value).ConfigureAwait(true))
+                {
+                    handled++;
+                }
+            }
+        }
+
+        if (handled > 0)
+        {
+            StatusMessage = string.Format(L["StatusStartupArgumentsHandled"], handled);
+            LogInfo("Startup", "Startup torrent arguments handled.", handled.ToString());
         }
     }
 
     private async Task AddMagnetAsync()
     {
-        if (SelectedServer is null || SelectedServer.ReadOnly)
-        {
-            StatusMessage = L["StatusReadOnly"];
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(NewMagnet))
         {
             return;
         }
 
+        if (await AddTorrentLinkAsync(NewMagnet.Trim()).ConfigureAwait(true))
+        {
+            NewMagnet = string.Empty;
+        }
+    }
+
+    private async Task<bool> AddTorrentLinkAsync(string link)
+    {
+        if (SelectedServer is null || SelectedServer.ReadOnly)
+        {
+            StatusMessage = L["StatusReadOnly"];
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(link))
+        {
+            return false;
+        }
+
         try
         {
             using var client = new TorrServerClient(SelectedServer);
-            await client.AddMagnetAsync(NewMagnet.Trim()).ConfigureAwait(true);
-            NewMagnet = string.Empty;
+            await client.AddMagnetAsync(link.Trim()).ConfigureAwait(true);
             StatusMessage = L["StatusTorrentAdded"];
-            LogInfo("Library", "Magnet link added.", SelectedServer.Name);
+            LogInfo("Library", "Torrent link added.", SelectedServer.Name);
             await RefreshAsync().ConfigureAwait(true);
+            return true;
         }
         catch (Exception exception)
         {
             StatusMessage = exception.Message;
-            LogError("Library", "Failed to add magnet link.", exception, SelectedServer.Name);
+            LogError("Library", "Failed to add torrent link.", exception, SelectedServer.Name);
+            return false;
         }
     }
 
@@ -423,6 +557,129 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             StatusMessage = exception.Message;
             LogError("Library", "Failed to remove torrent.", exception, SelectedTorrent?.Title ?? string.Empty);
+        }
+    }
+
+    private async Task RefreshSelectedTorrentAsync()
+    {
+        if (SelectedServer is null || SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return;
+        }
+
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            var updated = await client.GetTorrentAsync(SelectedTorrent.Hash).ConfigureAwait(true);
+            ReplaceSelectedTorrent(updated);
+            StatusMessage = L["StatusTorrentDetailsLoaded"];
+            LogInfo("Library", "Torrent details refreshed.", updated.Title);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Library", "Failed to refresh torrent details.", exception, SelectedTorrent.Title);
+        }
+    }
+
+    private async Task SaveTorrentMetadataAsync()
+    {
+        if (SelectedServer is null || SelectedServer.ReadOnly)
+        {
+            StatusMessage = L["StatusReadOnly"];
+            return;
+        }
+
+        if (SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return;
+        }
+
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            await client.SetTorrentMetadataAsync(
+                SelectedTorrent.Hash,
+                SelectedTorrentTitle.Trim(),
+                SelectedTorrentPoster.Trim(),
+                SelectedTorrentCategory.Trim(),
+                SelectedTorrentData).ConfigureAwait(true);
+
+            var updated = await client.GetTorrentAsync(SelectedTorrent.Hash).ConfigureAwait(true);
+            ReplaceSelectedTorrent(updated);
+            StatusMessage = L["StatusTorrentMetadataSaved"];
+            LogInfo("Library", "Torrent metadata saved.", updated.Title);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Library", "Failed to save torrent metadata.", exception, SelectedTorrent.Title);
+        }
+    }
+
+    private async Task DropTorrentAsync()
+    {
+        if (SelectedServer is null || SelectedServer.ReadOnly)
+        {
+            StatusMessage = L["StatusReadOnly"];
+            return;
+        }
+
+        if (SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return;
+        }
+
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            await client.DropTorrentAsync(SelectedTorrent.Hash).ConfigureAwait(true);
+            StatusMessage = L["StatusTorrentDropped"];
+            LogInfo("Library", "Torrent dropped from active cache.", SelectedTorrent.Title);
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Library", "Failed to drop torrent.", exception, SelectedTorrent.Title);
+        }
+    }
+
+    private async Task WipeTorrentsAsync()
+    {
+        if (SelectedServer is null || SelectedServer.ReadOnly)
+        {
+            StatusMessage = L["StatusReadOnly"];
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(
+            L["ConfirmWipeTorrents"],
+            L["WindowTitle"],
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            await client.WipeTorrentsAsync().ConfigureAwait(true);
+            Torrents.Clear();
+            SelectedTorrent = null;
+            StatusMessage = L["StatusTorrentsWiped"];
+            LogWarning("Library", "All torrents wiped.", SelectedServer.Name);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Library", "Failed to wipe torrents.", exception, SelectedServer.Name);
         }
     }
 
@@ -543,6 +800,37 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         LogInfo("Player", "Playback URL copied.", SelectedTorrent?.Title ?? string.Empty);
     }
 
+    private void CopyTorrentSource()
+    {
+        if (SelectedTorrent is null)
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return;
+        }
+
+        var value = FirstNotEmpty(SelectedTorrent.SourceLink, SelectedTorrent.TorrsHash);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            StatusMessage = L["StatusTorrentSourceUnavailable"];
+            return;
+        }
+
+        System.Windows.Clipboard.SetText(value);
+        StatusMessage = L["StatusTorrentSourceCopied"];
+    }
+
+    private void CopyTorrentHash()
+    {
+        if (SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return;
+        }
+
+        System.Windows.Clipboard.SetText(SelectedTorrent.Hash);
+        StatusMessage = L["StatusTorrentHashCopied"];
+    }
+
     private Uri? GetSelectedPlaybackUri()
     {
         if (SelectedServer is null || SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
@@ -558,6 +846,38 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         return client.GetPlaybackUri(SelectedTorrent.Hash, fileId);
+    }
+
+    private void ReplaceSelectedTorrent(TorrentItem updated)
+    {
+        if (string.IsNullOrWhiteSpace(updated.Hash))
+        {
+            return;
+        }
+
+        var index = Torrents
+            .Select((torrent, torrentIndex) => new { torrent, torrentIndex })
+            .FirstOrDefault(item => string.Equals(item.torrent.Hash, updated.Hash, StringComparison.OrdinalIgnoreCase))
+            ?.torrentIndex;
+
+        if (index is null)
+        {
+            Torrents.Add(updated);
+        }
+        else
+        {
+            Torrents[index.Value] = updated;
+        }
+
+        SelectedTorrent = updated;
+    }
+
+    private void LoadSelectedTorrentEditor(TorrentItem? torrent)
+    {
+        SelectedTorrentTitle = torrent?.Title ?? string.Empty;
+        SelectedTorrentCategory = torrent?.Category ?? string.Empty;
+        SelectedTorrentPoster = torrent?.Poster ?? string.Empty;
+        SelectedTorrentData = torrent?.Data ?? string.Empty;
     }
 
     private async Task SaveSettingsAsync()
@@ -670,6 +990,95 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             StatusMessage = string.Format(L["StatusServerOffline"], exception.Message);
             LogError("Diagnostics", "Server connection check failed.", exception, SelectedServer.Name);
         }
+    }
+
+    private async Task LoadRuntimeSettingsAsync()
+    {
+        if (SelectedServer is null)
+        {
+            StatusMessage = L["NoServerSelected"];
+            return;
+        }
+
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            RuntimeSettingsJson = await client.GetSettingsJsonAsync().ConfigureAwait(true);
+            StatusMessage = L["StatusRuntimeSettingsLoaded"];
+            LogInfo("RuntimeSettings", "Runtime settings loaded.", SelectedServer.Name);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("RuntimeSettings", "Failed to load runtime settings.", exception, SelectedServer.Name);
+        }
+    }
+
+    private async Task ApplyRuntimeSettingsJsonAsync()
+    {
+        if (SelectedServer is null)
+        {
+            StatusMessage = L["NoServerSelected"];
+            return;
+        }
+
+        if (SelectedServer.ReadOnly)
+        {
+            StatusMessage = L["StatusReadOnly"];
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(RuntimeSettingsJson))
+        {
+            StatusMessage = L["StatusRuntimeSettingsJsonEmpty"];
+            return;
+        }
+
+        try
+        {
+            RuntimeSettingsJson = FormatRuntimeSettingsJsonValue(RuntimeSettingsJson);
+            using var client = new TorrServerClient(SelectedServer);
+            await client.ApplySettingsJsonAsync(RuntimeSettingsJson).ConfigureAwait(true);
+            StatusMessage = L["StatusRuntimeSettingsApplied"];
+            LogInfo("RuntimeSettings", "Runtime settings JSON applied.", SelectedServer.Name);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusRuntimeSettingsJsonInvalid"], exception.Message);
+            LogError("RuntimeSettings", "Failed to apply runtime settings JSON.", exception, SelectedServer.Name);
+        }
+    }
+
+    private void FormatRuntimeSettingsJson()
+    {
+        if (string.IsNullOrWhiteSpace(RuntimeSettingsJson))
+        {
+            StatusMessage = L["StatusRuntimeSettingsJsonEmpty"];
+            return;
+        }
+
+        try
+        {
+            RuntimeSettingsJson = FormatRuntimeSettingsJsonValue(RuntimeSettingsJson);
+            StatusMessage = L["StatusRuntimeSettingsJsonFormatted"];
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusRuntimeSettingsJsonInvalid"], exception.Message);
+            LogError("RuntimeSettings", "Failed to format runtime settings JSON.", exception);
+        }
+    }
+
+    private void CopyRuntimeSettingsJson()
+    {
+        if (string.IsNullOrWhiteSpace(RuntimeSettingsJson))
+        {
+            StatusMessage = L["StatusRuntimeSettingsJsonEmpty"];
+            return;
+        }
+
+        System.Windows.Clipboard.SetText(RuntimeSettingsJson);
+        StatusMessage = L["StatusRuntimeSettingsJsonCopied"];
     }
 
     private async Task RefreshLogsAsync()
@@ -932,6 +1341,22 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         };
     }
 
+    private static string FormatRuntimeSettingsJsonValue(string json)
+    {
+        var node = JsonNode.Parse(json) as JsonObject
+            ?? throw new InvalidOperationException("JSON root must be an object.");
+
+        return node.ToJsonString(new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+    }
+
+    private static string FirstNotEmpty(params string[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
     private async Task<IReadOnlyList<SearchResult>> SearchSelectedServerAsync(string query)
     {
         if (SelectedServer is null)
@@ -1170,6 +1595,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             await SaveSettingsAsync().ConfigureAwait(true);
             var serviceExe = Path.Combine(AppContext.BaseDirectory, "TorrWind.Service.exe");
             await new WindowsServiceManager().InstallAsync(serviceExe).ConfigureAwait(true);
+            await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceInstalled"];
             LogInfo("Service", "Windows service installed.", serviceExe);
         }
@@ -1185,6 +1611,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await new WindowsServiceManager().UninstallAsync().ConfigureAwait(true);
+            await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceUninstalled"];
             LogInfo("Service", "Windows service uninstalled.");
         }
@@ -1193,6 +1620,96 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             StatusMessage = exception.Message;
             LogError("Service", "Failed to uninstall Windows service.", exception);
         }
+    }
+
+    private async Task StartServiceAsync()
+    {
+        try
+        {
+            await SaveSettingsAsync().ConfigureAwait(true);
+            await new WindowsServiceManager().StartAsync().ConfigureAwait(true);
+            await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
+            StatusMessage = L["StatusServiceStarted"];
+            LogInfo("Service", "Windows service start requested.");
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Service", "Failed to start Windows service.", exception);
+        }
+    }
+
+    private async Task StopServiceAsync()
+    {
+        try
+        {
+            await new WindowsServiceManager().StopAsync().ConfigureAwait(true);
+            await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
+            StatusMessage = L["StatusServiceStopped"];
+            LogInfo("Service", "Windows service stop requested.");
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Service", "Failed to stop Windows service.", exception);
+        }
+    }
+
+    private async Task QueryServiceStatusAsync()
+    {
+        await UpdateServiceStatusAsync(updateStatusMessage: true).ConfigureAwait(true);
+    }
+
+    private async Task UpdateServiceStatusAsync(bool updateStatusMessage)
+    {
+        try
+        {
+            var service = await new WindowsServiceManager().QueryStatusAsync().ConfigureAwait(true);
+            ServiceStatusText = service.IsInstalled
+                ? string.Format(L["ServiceStatusInstalled"], service.State)
+                : L["ServiceStatusNotInstalled"];
+
+            if (updateStatusMessage)
+            {
+                StatusMessage = string.Format(L["StatusServiceStatus"], ServiceStatusText);
+                LogInfo("Service", "Windows service status queried.", ServiceStatusText);
+            }
+        }
+        catch (Exception exception)
+        {
+            ServiceStatusText = exception.Message;
+            if (updateStatusMessage)
+            {
+                StatusMessage = exception.Message;
+                LogError("Service", "Failed to query Windows service status.", exception);
+            }
+        }
+    }
+
+    private static bool IsControlArgument(string arg)
+    {
+        return string.Equals(arg, "--minimized", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(arg, "--tray", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(arg, "/minimized", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsTorrentFile(string arg)
+    {
+        return string.Equals(Path.GetExtension(arg), ".torrent", StringComparison.OrdinalIgnoreCase) &&
+               File.Exists(arg);
+    }
+
+    private static bool IsTorrentLink(string arg)
+    {
+        if (arg.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ||
+            arg.StartsWith("torrs://", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Uri.TryCreate(arg, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+               uri.AbsolutePath.EndsWith(".torrent", StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

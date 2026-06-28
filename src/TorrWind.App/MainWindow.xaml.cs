@@ -49,6 +49,11 @@ public partial class MainWindow : Window
 
     private void OnOpenWebUi(object sender, RoutedEventArgs e)
     {
+        OpenSelectedServerWebUi();
+    }
+
+    public void OpenSelectedServerWebUi()
+    {
         var uri = _viewModel.SelectedServer?.BaseUri;
         if (uri is null)
         {

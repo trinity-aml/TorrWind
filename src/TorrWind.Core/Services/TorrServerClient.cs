@@ -11,6 +11,10 @@ namespace TorrWind.Core.Services;
 public sealed class TorrServerClient : IDisposable
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions IndentedSerializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
     private readonly HttpClient _httpClient;
     private readonly ServerProfile _server;
 
@@ -44,6 +48,13 @@ public sealed class TorrServerClient : IDisposable
         return ParseTorrentItems(json);
     }
 
+    public async Task<TorrentItem> GetTorrentAsync(string hash, CancellationToken cancellationToken = default)
+    {
+        using var response = await PostTorrentsAsync(new { action = "get", hash }, cancellationToken).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return ParseTorrentItem(json);
+    }
+
     public async Task AddMagnetAsync(string magnet, string? title = null, CancellationToken cancellationToken = default)
     {
         var payload = new
@@ -72,6 +83,40 @@ public sealed class TorrServerClient : IDisposable
     public async Task RemoveTorrentAsync(string hash, CancellationToken cancellationToken = default)
     {
         using var response = await PostTorrentsAsync(new { action = "rem", hash }, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SetTorrentMetadataAsync(
+        string hash,
+        string title,
+        string poster,
+        string category,
+        string data,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await PostTorrentsAsync(
+            new
+            {
+                action = "set",
+                hash,
+                title,
+                poster,
+                category,
+                data
+            },
+            cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DropTorrentAsync(string hash, CancellationToken cancellationToken = default)
+    {
+        using var response = await PostTorrentsAsync(new { action = "drop", hash }, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task WipeTorrentsAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await PostTorrentsAsync(new { action = "wipe" }, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
 
@@ -112,6 +157,29 @@ public sealed class TorrServerClient : IDisposable
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> GetSettingsJsonAsync(CancellationToken cancellationToken = default)
+    {
+        using var document = await GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+        var node = JsonNode.Parse(document.RootElement.GetRawText());
+        return JsonSerializer.Serialize(node, IndentedSerializerOptions);
+    }
+
+    public async Task ApplySettingsJsonAsync(string settingsJson, CancellationToken cancellationToken = default)
+    {
+        var settings = JsonNode.Parse(settingsJson) as JsonObject
+            ?? throw new InvalidOperationException("Runtime settings JSON must be an object.");
+
+        var payload = new JsonObject
+        {
+            ["action"] = "set",
+            ["sets"] = settings
+        };
+
+        using var response = await _httpClient.PostAsJsonAsync("settings", payload, SerializerOptions, cancellationToken)
+            .ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task ApplyLocalServerSettingsAsync(
@@ -227,4 +295,16 @@ public sealed class TorrServerClient : IDisposable
         return array.EnumerateArray().Select(TorrentItem.FromJson).ToArray();
     }
 
+    private static TorrentItem ParseTorrentItem(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new TorrentItem();
+        }
+
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.ValueKind == JsonValueKind.Object
+            ? TorrentItem.FromJson(document.RootElement)
+            : new TorrentItem();
+    }
 }

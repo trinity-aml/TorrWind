@@ -3,10 +3,16 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.1.0</Version>
     <Authors>TorrWind contributors</Authors>
-    <Company>TorrWind</Company>
+    <Company>TorrWind contributors</Company>
     <Product>TorrWind</Product>
+    <Description>Windows desktop client for local and remote TorrServer instances.</Description>
+    <Copyright>Copyright (c) TorrWind contributors</Copyright>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <NeutralLanguage>en</NeutralLanguage>
+    <SatelliteResourceLanguages>en;ru</SatelliteResourceLanguages>
+    <AssemblyInformationalVersion>$(Version)</AssemblyInformationalVersion>
     <RepositoryUrl>https://github.com/torrwind/torrwind</RepositoryUrl>
   </PropertyGroup>
 </Project>
