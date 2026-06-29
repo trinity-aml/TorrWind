@@ -16,6 +16,9 @@ public static class AppPaths
     public static string UserLogsDirectory =>
         Path.Combine(UserDataDirectory, "logs");
 
+    public static string UserSettingsBackupsDirectory =>
+        Path.Combine(UserDataDirectory, "backups");
+
     public static string ProgramDataLogsDirectory =>
         Path.Combine(ProgramDataDirectory, "logs");
 
@@ -38,6 +41,7 @@ public static class AppPaths
     {
         Directory.CreateDirectory(UserDataDirectory);
         Directory.CreateDirectory(UserLogsDirectory);
+        Directory.CreateDirectory(UserSettingsBackupsDirectory);
     }
 
     public static void EnsureProgramDataDirectories()

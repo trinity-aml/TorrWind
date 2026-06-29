@@ -25,6 +25,40 @@ UninstallDisplayIcon={app}\TorrWind.exe
 SetupLogging=yes
 WizardStyle=modern
 
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+
+[CustomMessages]
+english.AdditionalIconsGroup=Additional icons:
+russian.AdditionalIconsGroup=Дополнительные значки:
+english.StartupGroup=Startup:
+russian.StartupGroup=Автозапуск:
+english.WindowsIntegrationGroup=Windows integration:
+russian.WindowsIntegrationGroup=Интеграция Windows:
+english.WindowsServiceGroup=Windows service:
+russian.WindowsServiceGroup=Служба Windows:
+english.DesktopIconTask=Create a desktop icon
+russian.DesktopIconTask=Создать значок на рабочем столе
+english.StartupTask=Start TorrWind with Windows
+russian.StartupTask=Запускать TorrWind вместе с Windows
+english.FileAssociationTask=Associate .torrent files with TorrWind
+russian.FileAssociationTask=Связать .torrent файлы с TorrWind
+english.MagnetAssociationTask=Register TorrWind as the magnet link handler
+russian.MagnetAssociationTask=Зарегистрировать TorrWind для magnet-ссылок
+english.InstallServiceTask=Install TorrWindService for local TorrServer
+russian.InstallServiceTask=Установить TorrWindService для локального TorrServer
+english.StartServiceTask=Start TorrWindService after installation
+russian.StartServiceTask=Запустить TorrWindService после установки
+english.InstallingServiceStatus=Installing TorrWindService...
+russian.InstallingServiceStatus=Установка TorrWindService...
+english.StartingServiceStatus=Starting TorrWindService...
+russian.StartingServiceStatus=Запуск TorrWindService...
+english.LaunchApp=Launch TorrWind
+russian.LaunchApp=Запустить TorrWind
+english.TorrentFileType=Torrent file
+russian.TorrentFileType=Torrent-файл
+
 [Dirs]
 Name: "{commonappdata}\TorrWind"; Permissions: users-modify
 Name: "{commonappdata}\TorrWind\TorrServer"; Permissions: users-modify
@@ -37,17 +71,17 @@ Name: "{group}\TorrWind"; Filename: "{app}\TorrWind.exe"
 Name: "{autodesktop}\TorrWind"; Filename: "{app}\TorrWind.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop icon"; GroupDescription: "Additional icons:"
-Name: "startup"; Description: "Start TorrWind with Windows"; GroupDescription: "Startup:"
-Name: "fileassoc"; Description: "Associate .torrent files with TorrWind"; GroupDescription: "Windows integration:"
-Name: "magnetassoc"; Description: "Register TorrWind as the magnet link handler"; GroupDescription: "Windows integration:"
-Name: "installservice"; Description: "Install TorrWindService for local TorrServer"; GroupDescription: "Windows service:"
-Name: "installservice\startservice"; Description: "Start TorrWindService after installation"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm:AdditionalIconsGroup}"
+Name: "startup"; Description: "{cm:StartupTask}"; GroupDescription: "{cm:StartupGroup}"
+Name: "fileassoc"; Description: "{cm:FileAssociationTask}"; GroupDescription: "{cm:WindowsIntegrationGroup}"
+Name: "magnetassoc"; Description: "{cm:MagnetAssociationTask}"; GroupDescription: "{cm:WindowsIntegrationGroup}"
+Name: "installservice"; Description: "{cm:InstallServiceTask}"; GroupDescription: "{cm:WindowsServiceGroup}"
+Name: "installservice\startservice"; Description: "{cm:StartServiceTask}"; Flags: unchecked
 
 [Registry]
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "TorrWind"; ValueData: """{app}\TorrWind.exe"" --minimized"; Flags: uninsdeletevalue; Tasks: startup
 Root: HKCR; Subkey: ".torrent"; ValueType: string; ValueName: ""; ValueData: "TorrWind.Torrent"; Flags: uninsdeletevalue; Tasks: fileassoc
-Root: HKCR; Subkey: "TorrWind.Torrent"; ValueType: string; ValueName: ""; ValueData: "Torrent file"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKCR; Subkey: "TorrWind.Torrent"; ValueType: string; ValueName: ""; ValueData: "{cm:TorrentFileType}"; Flags: uninsdeletekey; Tasks: fileassoc
 Root: HKCR; Subkey: "TorrWind.Torrent\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\TorrWind.exe,0"; Tasks: fileassoc
 Root: HKCR; Subkey: "TorrWind.Torrent\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\TorrWind.exe"" ""%1"""; Tasks: fileassoc
 Root: HKCR; Subkey: "magnet"; ValueType: string; ValueName: ""; ValueData: "URL:Magnet Protocol"; Flags: uninsdeletekey; Tasks: magnetassoc
@@ -56,9 +90,9 @@ Root: HKCR; Subkey: "magnet\DefaultIcon"; ValueType: string; ValueName: ""; Valu
 Root: HKCR; Subkey: "magnet\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\TorrWind.exe"" ""%1"""; Tasks: magnetassoc
 
 [Run]
-Filename: "{app}\TorrWind.Service.exe"; Parameters: "install"; StatusMsg: "Installing TorrWindService..."; Flags: runhidden waituntilterminated; Tasks: installservice
-Filename: "{app}\TorrWind.Service.exe"; Parameters: "start"; StatusMsg: "Starting TorrWindService..."; Flags: runhidden waituntilterminated; Tasks: installservice\startservice
-Filename: "{app}\TorrWind.exe"; Description: "Launch TorrWind"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\TorrWind.Service.exe"; Parameters: "install"; StatusMsg: "{cm:InstallingServiceStatus}"; Flags: runhidden waituntilterminated; Tasks: installservice
+Filename: "{app}\TorrWind.Service.exe"; Parameters: "start"; StatusMsg: "{cm:StartingServiceStatus}"; Flags: runhidden waituntilterminated; Tasks: installservice\startservice
+Filename: "{app}\TorrWind.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{app}\TorrWind.Service.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "UninstallTorrWindService"

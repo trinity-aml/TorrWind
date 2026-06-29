@@ -35,24 +35,28 @@ The first usable version should cover:
 - Wipe all torrents on the selected server through `/torrents` `action=wipe` only after confirmation.
 - Manage multiple server profiles.
 - Store profile URL, auth, SSL ignore option, local/read-only flags.
+- Import and export the full TorrWind settings JSON for profile/provider/player/local-server migration, with a backup of the current settings before import, UI backup listing, restore/deletion, and configurable backup retention.
 - Test server connectivity through `GET /echo`.
 - Search via TorrServer Torznab endpoint.
 - Search directly through configured Torznab-compatible providers such as Jackett and Prowlarr.
 - Manage multiple search providers, including URL, API key, categories, enabled flag, timeout, and certificate-error override.
 - Filter search by category, seeders, and maximum size.
 - Keep a local recent-query search history.
-- Show diagnostics for selected server availability, `/echo`, library count/size, runtime settings, local executable path, and `TorrWindService` state.
+- Show copyable diagnostics for TorrWind version/runtime environment, selected server availability, `/echo`, library count/size, runtime settings, local executable path, and `TorrWindService` state.
 - Show a combined event log for GUI events, service events, and TorrServer child process stdout/stderr.
 - Read, validate, format, copy, and apply the full TorrServer runtime settings JSON through `POST /settings`.
-- Download latest `TorrServer-windows-amd64.exe` from YouROK/TorrServer releases.
+- Check the latest `TorrServer-windows-amd64.exe` release from YouROK/TorrServer, load recent releases with Windows x64 assets, show installed/latest/asset details, and download either latest or the selected release with progress status.
 - Store downloaded TorrServer binaries in versioned directories.
 - Roll back to the previous configured TorrServer binary.
+- Optionally start the configured local TorrServer executable together with the GUI when service mode is not selected.
 - Install/uninstall `TorrWindService` with UAC elevation only for install/remove operations.
 - Start, stop, and query `TorrWindService` from the GUI without elevation.
+- English/Russian installer UI text.
 - Installer tasks for `.torrent` file association and `magnet:` protocol registration.
 - Generate `accs.db` for local HTTP auth.
 - Generate `wip.txt` and `bip.txt` for local IP allow/block lists.
 - Pass local TorrServer CLI flags for HTTPS, force HTTPS, read-only database, search without auth, max stream size, WebDAV, proxy URL/mode, bind address, and ports.
+- Provide file/folder pickers for local executable, data/cache directories, SSL certificate/key files, and custom external player path.
 - Apply runtime settings through TorrServer `POST /settings`: cache size, RAM/disk cache mode, disk cache path, download/upload speed limits, DLNA, and SSL settings.
 - Enable/disable WebDAV through local server launch arguments.
 - Keep DLNA as a settings/API item because it is not consistently exposed as a launch argument across TorrServer versions.

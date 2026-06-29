@@ -19,7 +19,7 @@ The GUI talks directly to a configured TorrServer URL. Auth and certificate beha
 
 ### Local Server, GUI Mode
 
-Planned mode where the GUI starts `TorrServer.exe` as a child process when the app starts.
+The GUI can start `TorrServer.exe` as a child process when the app starts. Startup is controlled by `LocalServer.Enabled`, skipped when service mode is selected, and skipped until a local executable path is configured.
 
 ### Local Server, Service Mode
 
@@ -43,7 +43,9 @@ The library UI uses the full `/torrents` action surface needed by the MVP: `list
 
 `TorznabSearchClient` handles direct search against configured Torznab-compatible providers. Provider settings are stored in `%AppData%\TorrWind\settings.json` with name, URL, API key, default categories, enabled state, timeout, and certificate behavior. The UI can search the selected TorrServer, one configured provider, or all enabled providers; results are normalized into `SearchResult` and then filtered by seed count, maximum size, and category.
 
-The diagnostics tab composes existing API calls instead of keeping a background monitor. It checks `/echo`, torrent list count/size, selected `POST /settings` fields, and local executable/service state for profiles marked as local.
+Settings import/export uses the same `AppSettingsStore` serializer as the live settings file. Import first writes a timestamped backup under `%AppData%\TorrWind\backups`, prunes old backups according to `SettingsBackupRetentionCount`, then replaces the in-memory `AppSettings`, rebuilds the observable UI collections, and persists the imported state back to the normal user settings location. Backup restore uses the same flow. The settings tab scans the backups directory into `SettingsBackupItem` rows so the user can refresh, restore, delete, manually browse backup files, and set the retention count. A retention value of `0` disables pruning.
+
+The diagnostics tab composes existing API calls instead of keeping a background monitor. It starts with TorrWind version/runtime/OS details, then checks `/echo`, torrent list count/size, selected `POST /settings` fields, and local executable/service state for profiles marked as local. The resulting key/value report can be copied to the clipboard.
 
 The Runtime JSON tab exposes the full settings object returned by `POST /settings` with `action=get`. It validates that the edited JSON root is an object, formats it with indentation, and sends it back through `action=set`. This gives immediate coverage for TorrServer options that do not yet have dedicated UI controls.
 
@@ -61,6 +63,8 @@ Downloaded TorrServer binaries are stored under:
 %ProgramData%\TorrWind\TorrServer\versions\<version>\
 ```
 
+The settings UI can query the latest GitHub release without downloading it and can also load recent GitHub releases that expose a `windows`/`amd64` `.exe` asset. The ViewModel caches the latest release metadata for display, but the latest-download command refreshes the latest release again before writing a binary so long-running GUI sessions do not use stale metadata. The selected-release download path uses the release table row chosen by the user. Download progress is reported through the shared status bar.
+
 Before switching to a newly downloaded binary, TorrWind keeps the previous executable path and version in settings. The rollback command swaps the current and previous executable values.
 
 ## Local Server Configuration
@@ -73,6 +77,8 @@ Before starting a local TorrServer process or service child process, TorrWind wr
 
 The launch argument builder maps supported local settings to TorrServer flags such as `--httpauth`, `--ssl`, `--sslport`, `--sslcert`, `--sslkey`, `--force-https`, `--rdb`, `--searchwa`, `--maxsize`, `--webdav`, `--proxyurl`, and `--proxymode`.
 
+The settings UI keeps path editing as plain text fields but adds Windows file/folder pickers for the local TorrServer executable, data/cache directories, SSL certificate/key files, and custom external player executable.
+
 Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields.
 
 ## Service Management
@@ -83,7 +89,7 @@ The settings screen exposes service install/uninstall/start/stop/status. Before 
 
 ## Installer
 
-The Inno Setup script installs the GUI and service helper into `Program Files`. It can optionally install/start `TorrWindService`, create a desktop icon, register `TorrWind.exe --minimized` for Windows startup, associate `.torrent` files, and register TorrWind as a `magnet:` protocol handler.
+The Inno Setup script installs the GUI and service helper into `Program Files` and includes English/Russian installer messages. It can optionally install/start `TorrWindService`, create a desktop icon, register `TorrWind.exe --minimized` for Windows startup, associate `.torrent` files, and register TorrWind as a `magnet:` protocol handler.
 
 Shell activation is handled in the GUI startup path. `TorrWind.exe` ignores control arguments such as `--minimized` and adds supported `.torrent` paths, `.torrent` HTTP(S) URLs, `magnet:`, and `torrs://` links to the currently selected writable server profile.
 

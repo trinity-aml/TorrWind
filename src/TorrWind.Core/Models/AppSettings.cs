@@ -19,6 +19,8 @@ public sealed class AppSettings
 
     public List<string> SearchHistory { get; set; } = [];
 
+    public int SettingsBackupRetentionCount { get; set; } = 20;
+
     public static AppSettings CreateDefault()
     {
         var localServer = ServerProfile.CreateLocal();
