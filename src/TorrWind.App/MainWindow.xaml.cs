@@ -100,6 +100,134 @@ public partial class MainWindow : Window
         System.Windows.Application.Current.Shutdown();
     }
 
+    private void OnShowAbout(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Window
+        {
+            Owner = this,
+            Title = _viewModel.L["AboutTitle"],
+            Width = 520,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false
+        };
+        dialog.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+
+        var root = new Grid
+        {
+            Margin = new Thickness(20)
+        };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var title = new TextBlock
+        {
+            Text = _viewModel.AppDisplayName,
+            FontSize = 24,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 16)
+        };
+        title.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+
+        var fields = new Grid
+        {
+            Margin = new Thickness(0, 0, 0, 18)
+        };
+        fields.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+        fields.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetRow(fields, 1);
+
+        AddAboutField(fields, 0, _viewModel.L["AboutVersion"], _viewModel.AppVersion);
+        AddAboutField(fields, 1, _viewModel.L["AboutRepository"], _viewModel.AppRepositoryUrl);
+        AddAboutField(fields, 2, _viewModel.L["AboutLicense"], _viewModel.AppLicenseName);
+        AddAboutField(fields, 3, _viewModel.L["AboutReadme"], _viewModel.AppReadmeUrl);
+
+        var buttons = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right
+        };
+        Grid.SetRow(buttons, 2);
+
+        var githubButton = new System.Windows.Controls.Button
+        {
+            Content = _viewModel.L["AboutOpenRepository"],
+            MinWidth = 120,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        githubButton.Click += (_, _) => OpenAboutLink(_viewModel.AppRepositoryUrl);
+
+        var readmeButton = new System.Windows.Controls.Button
+        {
+            Content = _viewModel.L["AboutOpenReadme"],
+            MinWidth = 120,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        readmeButton.Click += (_, _) => OpenAboutLink(_viewModel.AppReadmeUrl);
+
+        var closeButton = new System.Windows.Controls.Button
+        {
+            Content = _viewModel.L["ActionClose"],
+            IsCancel = true,
+            IsDefault = true,
+            MinWidth = 105,
+            Style = TryFindResource("PrimaryButton") as Style
+        };
+        closeButton.Click += (_, _) => dialog.Close();
+
+        buttons.Children.Add(githubButton);
+        buttons.Children.Add(readmeButton);
+        buttons.Children.Add(closeButton);
+
+        root.Children.Add(title);
+        root.Children.Add(fields);
+        root.Children.Add(buttons);
+        dialog.Content = root;
+        dialog.ShowDialog();
+    }
+
+    private static void AddAboutField(Grid grid, int row, string label, string value)
+    {
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var labelText = new TextBlock
+        {
+            Text = label,
+            Margin = new Thickness(0, 0, 12, 10),
+            VerticalAlignment = VerticalAlignment.Top
+        };
+        labelText.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush");
+        Grid.SetRow(labelText, row);
+        Grid.SetColumn(labelText, 0);
+
+        var valueText = new TextBlock
+        {
+            Text = value,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        valueText.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        Grid.SetRow(valueText, row);
+        Grid.SetColumn(valueText, 1);
+
+        grid.Children.Add(labelText);
+        grid.Children.Add(valueText);
+    }
+
+    private void OpenAboutLink(string url)
+    {
+        try
+        {
+            OpenExternalUri(new Uri(url));
+        }
+        catch (Exception exception)
+        {
+            _viewModel.StatusMessage = exception.Message;
+        }
+    }
+
     private bool ShowExitConfirmationDialog()
     {
         var exitRequested = false;

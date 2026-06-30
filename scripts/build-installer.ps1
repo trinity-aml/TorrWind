@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "1.0.0",
     [string]$Configuration = "Release",
     [string]$InnoCompilerPath = "",
     [string]$WinePrefix = "",
@@ -14,7 +14,7 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $InnoScript = Join-Path $Root "installers\windows\TorrWind.iss"
 
 if (-not $SkipPublish) {
-    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration
+    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration -Version $Version
 }
 
 function Find-WindowsIscc {

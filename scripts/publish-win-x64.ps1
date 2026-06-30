@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = "Release",
+    [string]$Version = "1.0.0",
     [string]$Runtime = "win-x64",
     [bool]$SelfContained = $true
 )
@@ -12,6 +13,21 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $PublishDir = Join-Path $Root "artifacts\publish\TorrWind"
 $AppProject = Join-Path $Root "src\TorrWind.App\TorrWind.App.csproj"
 $ServiceProject = Join-Path $Root "src\TorrWind.Service\TorrWind.Service.csproj"
+
+function Convert-ToFileVersion {
+    param([string]$InputVersion)
+
+    $normalized = $InputVersion -replace "^[vV]", ""
+    $coreVersion = ($normalized -split "-", 2)[0]
+    $parts = $coreVersion.Split(".")
+    if ($parts.Count -eq 3) {
+        return "$($parts[0]).$($parts[1]).$($parts[2]).0"
+    }
+
+    return $coreVersion
+}
+
+$FileVersion = Convert-ToFileVersion $Version
 
 Remove-Item $PublishDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $PublishDir | Out-Null
@@ -25,7 +41,11 @@ $common = @(
     "-p:UseSharedCompilation=false",
     "-p:NuGetAudit=false",
     "-p:DebugType=none",
-    "-p:DebugSymbols=false"
+    "-p:DebugSymbols=false",
+    "-p:Version=$Version",
+    "-p:AssemblyVersion=$FileVersion",
+    "-p:FileVersion=$FileVersion",
+    "-p:AssemblyInformationalVersion=$Version"
 )
 
 dotnet restore $AppProject -r $Runtime -p:UseSharedCompilation=false -p:NuGetAudit=false

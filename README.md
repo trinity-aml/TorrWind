@@ -1,78 +1,249 @@
-# TorrWind
+# TorrWind 1.0.0
 
 TorrWind is a Windows 10/11 x64 desktop client for local and remote TorrServer instances.
 
-The goal is to provide a native Windows experience similar to TorrServe: torrent and magnet management, external-player launch, TorrServer lifecycle management, tray mode with quick local-server actions, service installation for a local server, localization, and a fallback Web UI tab for TorrServer features that are not yet native.
+Repository: https://github.com/trinity-aml/TorrWind  
+License: GPL-3.0-only
 
-## Status
+TorrWind keeps its settings, logs, downloaded TorrServer binaries, playlists, backups, and other runtime files in the application working directory under `Data`. It does not use `%ProgramData%` or `%AppData%` for normal portable operation.
 
-This repository currently contains the initial architecture and MVP scaffold:
+## Features
 
-- WPF desktop app: `src/TorrWind.App`
-- Windows service helper: `src/TorrWind.Service`
-- Shared models, API client, settings, localization, update helpers: `src/TorrWind.Core`
-- JSON localizations: `locales`
-- Windows installer draft: `installers/windows`
-- Windows publish/package scripts: `scripts`
+- Local and remote TorrServer profile management.
+- Local TorrServer download/update from GitHub releases.
+- Local TorrServer process control and optional Windows Service mode through `TorrWind.Service.exe`.
+- Torrent and magnet add/remove/drop/wipe actions.
+- Torrent file list, selected-file playback, continue playlist, and playlist-from-current-file actions.
+- External player launch for MVP playback.
+- TorrServer Web UI fallback tab.
+- Torznab-compatible indexer search, including Jackett/Prowlarr style endpoints.
+- Runtime JSON editor for TorrServer settings.
+- Cache settings with memory or disk mode. New profiles default to 64 MB memory cache.
+- Diagnostics report, GUI/service logs, settings import/export, and support bundle export.
+- JSON localization files in `locales`.
 
-Implemented MVP pieces include multi-server profiles, server connection testing, torrent and magnet add, `.torrent`/`magnet:` shell integration, torrent removal, selected torrent details, metadata editing, source/hash copy, drop cache, guarded wipe-all, file selection inside a torrent, playback URL copy, external-player launch, local TorrServer process start/stop and optional GUI startup, service install/uninstall/start/stop/status commands, local auth/IP-list file generation, runtime cache/speed/DLNA settings apply, full runtime settings JSON editing, settings import/export, TorrServer latest-release check, release list loading, selected-version download, local version switching/deletion, rollback to the previous configured TorrServer binary, quick opening of local data/cache/log/backup/version folders, direct Torznab/Jackett/Prowlarr provider search, search filters, search history, a copyable/savable diagnostics screen, sanitized support bundle export, and an in-app event log.
+## Requirements
 
-## Target Platform
+Runtime target:
 
 - Windows 10/11 x64
-- .NET 8 SDK or newer with Windows desktop workload
-- Visual Studio 2022 or `dotnet` CLI on Windows
+- .NET 8 desktop runtime is bundled in self-contained release builds
 
-The project targets WPF because TorrWind is Windows-only and needs tray integration, service management, installer support, and native process control.
+Development on Windows:
 
-## Build
+- .NET 8 SDK
+- PowerShell 7 or Windows PowerShell
+- Inno Setup 6 for installer builds
+
+Development on Linux:
+
+- .NET 8 SDK
+- PowerShell 7
+- Wine + Inno Setup 6 in a Wine prefix for installer builds
+
+## Build On Windows
+
+Restore and build:
 
 ```powershell
 dotnet restore
-dotnet build
+dotnet build TorrWind.sln
 ```
 
-In the current Linux sandbox used during development, solution restore must be serialized:
-
-```bash
-dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
-```
-
-Publish Windows x64 artifacts:
+Publish self-contained Windows x64 files:
 
 ```powershell
-.\scripts\publish-win-x64.ps1
+.\scripts\publish-win-x64.ps1 -Version 1.0.0
 ```
 
 Create a portable zip:
 
 ```powershell
-.\scripts\package-win-x64.ps1 -Version 0.1.0
+.\scripts\package-win-x64.ps1 -Version 1.0.0
 ```
 
 Build the Inno Setup installer:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 0.1.0
+.\scripts\build-installer.ps1 -Version 1.0.0
 ```
-
-On Linux, the same script can build the installer through PowerShell + Wine when Inno Setup is installed in a Wine prefix:
-
-```bash
-pwsh ./scripts/build-installer.ps1 -Version 0.1.0
-```
-
-By default the script checks `~/.wine-inno` and `~/.wine`. Custom paths can be passed with `-WinePrefix` or `-InnoCompilerPath`.
 
 Build all release artifacts and checksums:
 
 ```powershell
-.\scripts\release-win-x64.ps1 -Version 0.1.0
+.\scripts\release-win-x64.ps1 -Version 1.0.0
 ```
 
-The installer supports English and Russian UI text. It can create a desktop icon, enable Windows startup, associate `.torrent` files, register the `magnet:` protocol handler, install `TorrWindService`, and optionally start the service after installation.
+Outputs are written to:
 
-`TorrWind.exe` accepts startup arguments for shell integration:
+- `artifacts/publish/TorrWind`
+- `artifacts/portable/TorrWind-1.0.0-win-x64-portable.zip`
+- `artifacts/installer/TorrWind-1.0.0-win-x64.exe`
+- `artifacts/TorrWind-1.0.0-SHA256SUMS.txt`
+
+## Build On Linux
+
+TorrWind is a Windows desktop app, but the repository can be built and packaged from Linux with Windows targeting enabled.
+
+Build the solution:
+
+```bash
+DOTNET_CLI_HOME="$PWD/.dotnet" \
+NUGET_PACKAGES="$PWD/.nuget/packages" \
+DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
+```
+
+Create a portable Windows x64 zip:
+
+```bash
+pwsh ./scripts/package-win-x64.ps1 -Version 1.0.0
+```
+
+Build the installer through Wine + Inno Setup:
+
+```bash
+pwsh ./scripts/build-installer.ps1 -Version 1.0.0
+```
+
+The installer script searches `~/.wine-inno` and `~/.wine` by default. You can override detection:
+
+```bash
+pwsh ./scripts/build-installer.ps1 \
+  -Version 1.0.0 \
+  -WinePrefix "$HOME/.wine-inno" \
+  -InnoCompilerPath "$HOME/.wine-inno/drive_c/InnoSetup6/ISCC.exe"
+```
+
+Build all release artifacts:
+
+```bash
+pwsh ./scripts/release-win-x64.ps1 -Version 1.0.0
+```
+
+## Release Workflow
+
+GitHub Actions workflow: `.github/workflows/release.yml`.
+
+It runs automatically when a tag is pushed:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+It can also be started manually from GitHub Actions with a version input. The workflow:
+
+- installs .NET 8 and Inno Setup on `windows-latest`;
+- runs `scripts/release-win-x64.ps1`;
+- uploads the installer, portable zip, and SHA256SUMS as workflow artifacts;
+- creates or updates a GitHub Release with the same files.
+
+## First Setup
+
+1. Download the portable zip or installer from a release.
+2. Start `TorrWind.exe`.
+3. Open `Settings -> TorrServer`.
+4. Click `Check latest`, `Load releases`, or `Download TorrServer` to download the local TorrServer binary.
+5. Use `Start local` for GUI-managed local TorrServer, or use the `Service` settings to install/start `TorrWindService`.
+6. Open `Library` and add a `.torrent`, magnet link, or search result.
+7. Select a torrent file and use `Open player`, `Continue`, or `Playlist from selected`.
+
+## Local TorrServer
+
+Local TorrServer files are stored under:
+
+```text
+Data/TorrServer
+Data/TorrServer/versions
+Data/TorrServer/cache
+```
+
+The GUI can:
+
+- download/update TorrServer from `YouROK/TorrServer` GitHub releases;
+- switch between downloaded local versions;
+- start/stop TorrServer as a child process;
+- install/uninstall/start/stop/query `TorrWindService`;
+- apply TorrServer runtime settings from the native settings screen or Runtime JSON tab.
+
+Service install/uninstall/start/stop can request elevation. Normal settings editing and remote-server use do not require administrator rights.
+
+## Remote TorrServer
+
+Open `Settings -> Servers` and add a profile:
+
+- name;
+- base URL such as `http://192.168.1.2:8090`;
+- optional username/password;
+- optional `ignore certificate errors`;
+- read-only mode when you do not want TorrWind to modify the server.
+
+Remote servers can be used for library actions, playback URL generation, Web UI, diagnostics, and search through the selected TorrServer.
+
+## Search Indexers
+
+Open `Settings -> Indexers` and add Torznab-compatible providers.
+
+Typical URLs:
+
+```text
+http://127.0.0.1:9117/api/v2.0/indexers/all/results/torznab
+http://192.168.1.2:9696/api/v1/indexer/all/results/torznab
+http://192.168.1.2:5002
+```
+
+TorrWind normalizes common Jackett/Prowlarr/JacPro-style URLs, supports API keys, category filters, timeouts, and certificate-error override.
+
+## Playback
+
+MVP playback uses an external player:
+
+- system default player;
+- VLC;
+- MPC-HC;
+- PotPlayer;
+- custom executable path.
+
+TorrWind generates TorrServer-compatible stream or M3U URLs and passes them to the selected external player. Built-in LibVLC playback is planned for a later stage.
+
+## Cache And Runtime Settings
+
+New local profiles default to:
+
+- memory cache mode;
+- 64 MB cache size;
+- 50% preload buffer;
+- 95% read-ahead cache;
+- 30 second torrent disconnect timeout;
+- 25 torrent connections.
+
+Cache can be switched to disk mode and pointed at a folder under `Data/TorrServer/cache` or another user-selected path.
+
+## Diagnostics And Logs
+
+Diagnostics can be copied, saved, or packed into a support bundle. Sensitive values such as passwords, API keys, tokens, and secrets are sanitized.
+
+Logs are stored in:
+
+```text
+Data/logs/gui.jsonl
+Data/logs/service.jsonl
+```
+
+When TorrWind starts local TorrServer, stdout/stderr are captured into the same log system.
+
+## Shell Integration
+
+The installer can:
+
+- create a desktop icon;
+- start TorrWind with Windows;
+- associate `.torrent` files;
+- register `magnet:` links;
+- install and optionally start `TorrWindService`.
+
+`TorrWind.exe` accepts:
 
 ```powershell
 .\TorrWind.exe --minimized
@@ -81,47 +252,7 @@ The installer supports English and Russian UI text. It can create a desktop icon
 .\TorrWind.exe "https://example.org/file.torrent"
 ```
 
-Torrent arguments are added to the currently selected writable server profile. TorrWind runs as a single GUI instance; if it is already running, a later `.torrent` or `magnet:` activation is forwarded to the existing process and the existing window is restored.
-
-The service helper also supports direct commands:
-
-```powershell
-.\TorrWind.Service.exe install
-.\TorrWind.Service.exe start
-.\TorrWind.Service.exe stop
-.\TorrWind.Service.exe uninstall
-```
-
-The GUI exposes the same service lifecycle controls. Install/uninstall/start/stop request UAC through `TorrWind.Service.exe`; status uses a normal `sc.exe` query and reports permission errors in the status bar/log.
-
-When local server startup is enabled in settings, the GUI starts the configured TorrServer executable on launch. This is skipped when service mode is selected or no executable has been configured yet.
-
-The settings screen provides file/folder pickers for the TorrServer executable, data/cache folders, SSL certificate/key files, and a custom external player. It also has quick folder-open actions for the configured executable directory, data/cache folders, downloaded TorrServer versions, selected local version, and settings backups.
-
-The settings screen can export the full TorrWind settings JSON and import it back later. This includes server profiles, local TorrServer settings, external-player settings, search providers, search history, and selected language. Import asks for confirmation because it replaces the current configuration, and TorrWind writes a timestamped backup to `<TorrWind.exe directory>\Data\backups` before importing. Existing backups are listed in the same settings screen and can be refreshed, opened in Explorer, restored, deleted, or selected manually from disk. A retention limit controls how many recent backup files are kept; `0` keeps all backups.
-
-## TorrServer Integration
-
-TorrWind uses the public TorrServer API:
-
-- `GET /echo` for health/version
-- `POST /torrents` for list/add/remove/get/set/drop/wipe
-- `POST /torrent/upload` for `.torrent` uploads
-- `GET /play/{hash}/{id}` and `GET /stream/{name}` for playback URLs and M3U playlists
-- `GET /torznab/search` for Torznab search
-- `POST /settings` for server settings
-
-TorrServer Swagger is available from a running server at `/swagger/index.html`.
-
-The library screen uses `/torrents` actions `list`, `get`, `set`, `rem`, `drop`, and `wipe`. `wipe` is guarded by a confirmation dialog because it removes all torrents from the selected server.
-
-The Runtime JSON screen reads the full `POST /settings` object, formats it for editing, validates JSON locally, and applies it back through `action=set`. Server profiles marked read-only cannot apply edited runtime JSON.
-
-The search screen can use either the selected TorrServer search endpoint or configured Torznab-compatible providers. Jackett and Prowlarr can be added through their Torznab feed URLs with an optional API key, category list, timeout, and certificate-error override.
-
-The diagnostics screen checks the TorrWind version and runtime environment, selected profile, `/echo`, torrent library count/size, selected runtime settings, and local service state when the profile is marked as local. The generated report can be copied to the clipboard, saved as a text file, or packed into a support bundle with GUI/service logs and a sanitized settings snapshot. Passwords and API keys are not written into the support bundle.
-
-The log screen reads GUI events from `<TorrWind.exe directory>\Data\logs\gui.jsonl` and service events from `<TorrWind.exe directory>\Data\logs\service.jsonl`. Local and service TorrServer stdout/stderr are captured into those logs when TorrWind starts the process. The log tab can copy both log paths or open the log folders directly.
+TorrWind runs as a single GUI instance. Later shell activations are forwarded to the existing instance.
 
 ## License
 

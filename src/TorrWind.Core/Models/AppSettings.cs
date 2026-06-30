@@ -34,7 +34,7 @@ public sealed class AppSettings
                 Port = 8090,
                 ListenAddress = "127.0.0.1",
                 CacheMode = CacheMode.Memory,
-                CacheSizeMb = 512,
+                CacheSizeMb = 64,
                 PreloadCachePercent = 50,
                 ReaderReadAheadPercent = 95,
                 TorrentDisconnectTimeoutSeconds = 30,
@@ -147,7 +147,7 @@ public sealed class LocalServerSettings
 
     public CacheMode CacheMode { get; set; } = CacheMode.Memory;
 
-    public int CacheSizeMb { get; set; } = 512;
+    public int CacheSizeMb { get; set; } = 64;
 
     public int PreloadCachePercent { get; set; } = 50;
 
