@@ -103,7 +103,6 @@
                   <Button Content="{Binding L[ActionRefreshSelectedTorrent]}" Command="{Binding RefreshSelectedTorrentCommand}" Style="{StaticResource PrimaryButton}" />
                   <Button Content="{Binding L[ActionOpenContinuePlaylist]}" Command="{Binding OpenContinuePlaylistCommand}" />
                   <Button Content="{Binding L[ActionOpenPlaylistFromSelected]}" Command="{Binding OpenPlaylistFromSelectedCommand}" />
-                  <Button Content="{Binding L[ActionCopyTorrentSource]}" Command="{Binding CopyTorrentSourceCommand}" />
                   <Button Content="{Binding L[ActionCopyTorrentHash]}" Command="{Binding CopyTorrentHashCommand}" />
                   <Button Content="{Binding L[ActionDropTorrent]}" Command="{Binding DropTorrentCommand}" />
                   <Button Content="{Binding L[ActionWipeTorrents]}" Command="{Binding WipeTorrentsCommand}" />

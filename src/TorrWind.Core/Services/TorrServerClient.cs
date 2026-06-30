@@ -138,7 +138,7 @@ public sealed class TorrServerClient : IDisposable
             query += "&fromlast";
         }
 
-        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream/" + Uri.EscapeDataString(fileName)))
+        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream/" + EscapeStreamPathSegment(fileName)))
         {
             Query = query
         };
@@ -162,7 +162,7 @@ public sealed class TorrServerClient : IDisposable
             query += "&ss=" + Uri.EscapeDataString(sessionToken.Trim());
         }
 
-        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream/" + Uri.EscapeDataString(streamName)))
+        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream/" + EscapeStreamPathSegment(streamName)))
         {
             Query = query
         };
@@ -181,6 +181,13 @@ public sealed class TorrServerClient : IDisposable
             fileName.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)
                 ? fileName
                 : fileName + ".m3u";
+    }
+
+    private static string EscapeStreamPathSegment(string value)
+    {
+        return Uri.EscapeDataString(value)
+            .Replace("%28", "(", StringComparison.OrdinalIgnoreCase)
+            .Replace("%29", ")", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<IReadOnlyList<SearchResult>> SearchTorznabAsync(

@@ -1535,7 +1535,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             lines.Add("#EXTINF:0," + name);
-            lines.Add(playlistClient.GetStreamUri(SelectedTorrent.Hash, file.Id, file.Path, sessionToken).ToString());
+            lines.Add(playlistClient.GetStreamUri(SelectedTorrent.Hash, file.Id, file.Path, sessionToken).AbsoluteUri);
         }
 
         var playlistName = SanitizePathSegment(ResolvePlaylistName(SelectedTorrent)) + "-from-" + SelectedTorrentFile.Id + ".m3u";
@@ -1546,29 +1546,79 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool TrySetClipboardText(string text, string source, string details = "")
     {
+        Exception? lastOpenClipboardException = null;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                System.Windows.Clipboard.SetText(text);
+                return true;
+            }
+            catch (Exception exception) when (IsOpenClipboardFailure(exception))
+            {
+                lastOpenClipboardException = exception;
+                if (ClipboardContainsText(text))
+                {
+                    LogWarning(source, "Clipboard reported busy after text was copied.", details);
+                    return true;
+                }
+
+                System.Threading.Thread.Sleep(60);
+            }
+            catch (Exception exception)
+            {
+                StatusMessage = exception.Message;
+                LogError(source, "Failed to copy text to clipboard.", exception, details);
+                return false;
+            }
+        }
+
+        if (lastOpenClipboardException is not null)
+        {
+            if (ClipboardContainsText(text))
+            {
+                LogWarning(source, "Clipboard reported busy after text was copied.", details);
+                return true;
+            }
+
+            StatusMessage = lastOpenClipboardException.Message;
+            LogError(source, "Failed to copy text to clipboard.", lastOpenClipboardException, details);
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool IsOpenClipboardFailure(Exception exception)
+    {
+        const int ClipboardCannotOpen = unchecked((int)0x800401D0);
+        return exception.HResult == ClipboardCannotOpen ||
+            exception.Message.Contains("OpenClipboard", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ClipboardContainsText(string text)
+    {
         try
         {
-            System.Windows.Clipboard.SetText(text);
-            return true;
+            return System.Windows.Clipboard.ContainsText() &&
+                string.Equals(System.Windows.Clipboard.GetText(), text, StringComparison.Ordinal);
         }
-        catch (Exception exception)
+        catch
         {
-            StatusMessage = exception.Message;
-            LogError(source, "Failed to copy text to clipboard.", exception, details);
             return false;
         }
     }
 
     private void CopyPlaybackUrl()
     {
-        var mediaUri = GetSelectedPlaybackUri();
+        var mediaUri = GetSelectedPlaylistUri();
         if (mediaUri is null)
         {
             StatusMessage = L["StatusNoTorrentSelected"];
             return;
         }
 
-        if (!TrySetClipboardText(mediaUri.ToString(), "Player", SelectedTorrent?.Title ?? string.Empty))
+        if (!TrySetClipboardText(mediaUri.AbsoluteUri, "Player", SelectedTorrent?.Title ?? string.Empty))
         {
             return;
         }
@@ -1642,6 +1692,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         return client.GetPlaybackUri(SelectedTorrent.Hash, fileId);
+    }
+
+    private Uri? GetSelectedPlaylistUri()
+    {
+        if (SelectedServer is null || SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            return null;
+        }
+
+        using var client = new TorrServerClient(SelectedServer);
+        return SelectedTorrentFile is not null
+            ? client.GetPlaylistUri(SelectedTorrent.Hash, SelectedTorrentFile.Path)
+            : client.GetPlaylistUri(SelectedTorrent.Hash, ResolvePlaylistName(SelectedTorrent));
     }
 
     private static string ResolvePlaylistName(TorrentItem torrent)
