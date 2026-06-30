@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text;
 
 namespace TorrWind.Core.Services;
 
@@ -14,16 +16,17 @@ public sealed class WindowsServiceManager
             throw new PlatformNotSupportedException("Windows service management is supported only on Windows.");
         }
 
-        return RunScElevatedAsync(
-            cancellationToken,
-            "create",
-            ServiceName,
-            "binPath=",
-            Quote(serviceExecutablePath),
-            "start=",
-            "auto",
-            "DisplayName=",
-            DisplayName);
+        return RunServiceHelperElevatedAsync(serviceExecutablePath, cancellationToken, "install");
+    }
+
+    public Task UninstallAsync(string serviceExecutablePath, CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Windows service management is supported only on Windows.");
+        }
+
+        return RunServiceHelperElevatedAsync(serviceExecutablePath, cancellationToken, "uninstall");
     }
 
     public Task UninstallAsync(CancellationToken cancellationToken = default)
@@ -41,9 +44,29 @@ public sealed class WindowsServiceManager
         return RunScAsync(cancellationToken, "start", ServiceName);
     }
 
+    public Task StartAsync(string serviceExecutablePath, CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Windows service management is supported only on Windows.");
+        }
+
+        return RunServiceHelperElevatedAsync(serviceExecutablePath, cancellationToken, "start");
+    }
+
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         return RunScAsync(cancellationToken, "stop", ServiceName);
+    }
+
+    public Task StopAsync(string serviceExecutablePath, CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Windows service management is supported only on Windows.");
+        }
+
+        return RunServiceHelperElevatedAsync(serviceExecutablePath, cancellationToken, "stop");
     }
 
     public async Task<WindowsServiceStatus> QueryStatusAsync(CancellationToken cancellationToken = default)
@@ -67,7 +90,7 @@ public sealed class WindowsServiceManager
         var process = Process.Start(new ProcessStartInfo
         {
             FileName = "sc.exe",
-            Arguments = string.Join(" ", args),
+            Arguments = string.Join(" ", args.Select(QuoteCommandLineArgument)),
             Verb = "runas",
             UseShellExecute = true
         });
@@ -82,6 +105,37 @@ public sealed class WindowsServiceManager
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException($"sc.exe exited with code {process.ExitCode}.");
+        }
+    }
+
+    private static async Task RunServiceHelperElevatedAsync(
+        string serviceExecutablePath,
+        CancellationToken cancellationToken,
+        params string[] args)
+    {
+        if (string.IsNullOrWhiteSpace(serviceExecutablePath) || !File.Exists(serviceExecutablePath))
+        {
+            throw new FileNotFoundException("TorrWind service helper was not found.", serviceExecutablePath);
+        }
+
+        var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = serviceExecutablePath,
+            Arguments = string.Join(" ", args.Select(QuoteCommandLineArgument)),
+            Verb = "runas",
+            UseShellExecute = true
+        });
+
+        if (process is null)
+        {
+            throw new InvalidOperationException("Failed to start TorrWind service helper.");
+        }
+
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"TorrWind service helper exited with code {process.ExitCode}.");
         }
     }
 
@@ -107,6 +161,8 @@ public sealed class WindowsServiceManager
             UseShellExecute = false,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
+            StandardErrorEncoding = GetScEncoding(),
+            StandardOutputEncoding = GetScEncoding(),
             CreateNoWindow = true
         };
 
@@ -157,9 +213,32 @@ public sealed class WindowsServiceManager
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
     }
 
-    private static string Quote(string value)
+    private static string QuoteCommandLineArgument(string value)
     {
-        return "\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        if (string.IsNullOrEmpty(value))
+        {
+            return "\"\"";
+        }
+
+        if (!value.Any(char.IsWhiteSpace) && !value.Contains('"', StringComparison.Ordinal))
+        {
+            return value;
+        }
+
+        return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+    }
+
+    private static Encoding GetScEncoding()
+    {
+        try
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+        }
+        catch
+        {
+            return Encoding.Default;
+        }
     }
 
     private sealed record ScResult(int ExitCode, string Output, string Error);

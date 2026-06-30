@@ -11,7 +11,7 @@ public static class Program
     {
         try
         {
-            AppPaths.EnsureProgramDataDirectories();
+            AppPaths.EnsureWorkingDirectories();
             FileEventLog.Service.Info("Service", "TorrWind.Service process starting.");
         }
         catch

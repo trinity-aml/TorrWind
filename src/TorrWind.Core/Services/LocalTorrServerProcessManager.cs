@@ -5,6 +5,7 @@ namespace TorrWind.Core.Services;
 
 public sealed class LocalTorrServerProcessManager : IDisposable
 {
+    private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
     private readonly FileEventLog _eventLog = FileEventLog.User;
     private Process? _process;
 
@@ -12,8 +13,28 @@ public sealed class LocalTorrServerProcessManager : IDisposable
 
     public async Task StartAsync(LocalServerSettings settings, CancellationToken cancellationToken = default)
     {
+        if (_process is { HasExited: true } exitedProcess)
+        {
+            exitedProcess.Dispose();
+            _process = null;
+        }
+
         if (IsRunning)
         {
+            return;
+        }
+
+        if (LocalTorrServerEndpointProbe.IsExecutableRunning(settings.ExecutablePath))
+        {
+            _eventLog.Info("LocalServer", "Local TorrServer process is already running; process start skipped.", settings.ExecutablePath);
+            return;
+        }
+
+        if (await LocalTorrServerEndpointProbe
+                .IsOnlineAsync(settings, TimeSpan.FromSeconds(2), cancellationToken)
+                .ConfigureAwait(false))
+        {
+            _eventLog.Info("LocalServer", "Local TorrServer endpoint is already online; process start skipped.");
             return;
         }
 
@@ -49,20 +70,51 @@ public sealed class LocalTorrServerProcessManager : IDisposable
 
     public void Stop()
     {
-        if (!IsRunning || _process is null)
+        var process = _process;
+        if (process is null)
         {
             return;
         }
 
-        _process.CloseMainWindow();
-        if (!_process.WaitForExit(5000))
+        try
         {
-            _process.Kill(entireProcessTree: true);
-            _eventLog.Warning("LocalServer", "TorrServer process killed after graceful stop timeout.");
+            if (process.HasExited)
+            {
+                _eventLog.Info("LocalServer", "TorrServer process already stopped.");
+                return;
+            }
+
+            var closeRequested = process.CloseMainWindow();
+            if (closeRequested && process.WaitForExit((int)StopTimeout.TotalMilliseconds))
+            {
+                _eventLog.Info("LocalServer", "TorrServer process stopped.");
+                return;
+            }
+
+            if (!closeRequested)
+            {
+                _eventLog.Warning("LocalServer", "TorrServer process has no main window; terminating process.");
+            }
+            else
+            {
+                _eventLog.Warning("LocalServer", "TorrServer process did not stop before timeout; terminating process.");
+            }
+
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit((int)StopTimeout.TotalMilliseconds);
+                _eventLog.Warning("LocalServer", "TorrServer process killed.");
+            }
         }
-        else
+        finally
         {
-            _eventLog.Info("LocalServer", "TorrServer process stopped.");
+            if (ReferenceEquals(_process, process))
+            {
+                _process = null;
+            }
+
+            process.Dispose();
         }
     }
 

@@ -51,7 +51,7 @@ Installer tasks:
 - Install `TorrWindService`.
 - Optionally start `TorrWindService` after installation.
 
-The installer also grants normal users modify access to `%ProgramData%\TorrWind`, so the GUI can write shared settings for the service.
+The installer also grants normal users modify access to `{app}\Data`, so the GUI and service can share settings, logs, backups, playlists, and downloaded TorrServer binaries inside the install directory.
 
 ## Service Commands
 

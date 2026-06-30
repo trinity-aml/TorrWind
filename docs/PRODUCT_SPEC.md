@@ -42,11 +42,14 @@ The first usable version should cover:
 - Manage multiple search providers, including URL, API key, categories, enabled flag, timeout, and certificate-error override.
 - Filter search by category, seeders, and maximum size.
 - Keep a local recent-query search history.
-- Show copyable diagnostics for TorrWind version/runtime environment, selected server availability, `/echo`, library count/size, runtime settings, local executable path, and `TorrWindService` state.
+- Show copyable and savable diagnostics for TorrWind version/runtime environment, selected server availability, `/echo`, library count/size, runtime settings, local executable path, and `TorrWindService` state.
+- Export a support bundle containing diagnostics, GUI/service logs, and sanitized settings with secrets redacted.
 - Show a combined event log for GUI events, service events, and TorrServer child process stdout/stderr.
 - Read, validate, format, copy, and apply the full TorrServer runtime settings JSON through `POST /settings`.
 - Check the latest `TorrServer-windows-amd64.exe` release from YouROK/TorrServer, load recent releases with Windows x64 assets, show installed/latest/asset details, and download either latest or the selected release with progress status.
 - Store downloaded TorrServer binaries in versioned directories.
+- Scan locally downloaded TorrServer binaries, switch to a selected local version without network access, and delete inactive local versions.
+- Open local data/cache/log/backup/version folders from the GUI.
 - Roll back to the previous configured TorrServer binary.
 - Optionally start the configured local TorrServer executable together with the GUI when service mode is not selected.
 - Install/uninstall `TorrWindService` with UAC elevation only for install/remove operations.
@@ -73,13 +76,13 @@ The first usable version should cover:
 
 ## Data Locations
 
-- User settings: `%AppData%\TorrWind\settings.json`
-- GUI event log: `%AppData%\TorrWind\logs\gui.jsonl`
-- Service settings: `%ProgramData%\TorrWind\settings.json`
-- Service event log: `%ProgramData%\TorrWind\logs\service.jsonl`
-- Local TorrServer binaries/data: `%ProgramData%\TorrWind\TorrServer`
+- Settings: `<TorrWind.exe directory>\Data\settings.json`
+- GUI event log: `<TorrWind.exe directory>\Data\logs\gui.jsonl`
+- Service event log: `<TorrWind.exe directory>\Data\logs\service.jsonl`
+- Local TorrServer binaries/data: `<TorrWind.exe directory>\Data\TorrServer`
+- Generated playlists: `<TorrWind.exe directory>\Data\playlists`
 
-The app attempts to copy settings to `%ProgramData%` for the service. If Windows permissions reject that write, the user-facing settings are still saved under `%AppData%`.
+TorrWind keeps its settings, logs, backups, playlists, and local TorrServer files in the application working folder. It does not use `%AppData%` or `%ProgramData%` for normal operation.
 
 ## Localization
 

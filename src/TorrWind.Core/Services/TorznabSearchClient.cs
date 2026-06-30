@@ -49,12 +49,12 @@ public sealed class TorznabSearchClient
             {
                 ProviderName = providerName,
                 Title = ElementValue(item, "title"),
-                Link = FirstNotEmpty(ElementValue(item, "link"), ElementValue(item, "guid")),
-                Magnet = AttributeValue(item, "magneturl"),
-                SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"))),
+                Link = FirstNotEmpty(ElementValue(item, "link"), EnclosureValue(item, "url"), ElementValue(item, "guid")),
+                Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetEnclosureValue(item)),
+                SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
                 Seeders = ParseInt(AttributeValue(item, "seeders")),
                 Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"))),
-                Category = AttributeValue(item, "category"),
+                Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValue(item, "category")),
                 PublishedAt = DateTimeOffset.TryParse(
                     ElementValue(item, "pubDate"),
                     CultureInfo.InvariantCulture,
@@ -125,7 +125,14 @@ public sealed class TorznabSearchClient
             value = "http://" + value;
         }
 
-        return new Uri(value, UriKind.Absolute);
+        var builder = new UriBuilder(value);
+        var normalizedPath = builder.Path.TrimEnd('/');
+        if (normalizedPath.EndsWith("/torznab", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Path = normalizedPath + "/api";
+        }
+
+        return builder.Uri;
     }
 
     private static Dictionary<string, string> SplitQuery(string query)
@@ -172,6 +179,22 @@ public sealed class TorznabSearchClient
             ?.Attribute("value")
             ?.Value
             .Trim() ?? string.Empty;
+    }
+
+    private static string EnclosureValue(XElement item, string attrName)
+    {
+        return item
+            .Elements()
+            .FirstOrDefault(element => string.Equals(element.Name.LocalName, "enclosure", StringComparison.OrdinalIgnoreCase))
+            ?.Attribute(attrName)
+            ?.Value
+            .Trim() ?? string.Empty;
+    }
+
+    private static string MagnetEnclosureValue(XElement item)
+    {
+        var value = EnclosureValue(item, "url");
+        return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? value : string.Empty;
     }
 
     private static string FirstNotEmpty(params string[] values)

@@ -4,23 +4,32 @@ public static class AppPaths
 {
     public const string ApplicationName = "TorrWind";
 
+    public static string WorkingDirectory =>
+        AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    public static string DataDirectory =>
+        Path.Combine(WorkingDirectory, "Data");
+
     public static string UserDataDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationName);
+        DataDirectory;
 
     public static string ProgramDataDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), ApplicationName);
+        DataDirectory;
 
     public static string DefaultLocalServerDirectory =>
-        Path.Combine(ProgramDataDirectory, "TorrServer");
+        Path.Combine(DataDirectory, "TorrServer");
 
     public static string UserLogsDirectory =>
-        Path.Combine(UserDataDirectory, "logs");
+        Path.Combine(DataDirectory, "logs");
 
     public static string UserSettingsBackupsDirectory =>
-        Path.Combine(UserDataDirectory, "backups");
+        Path.Combine(DataDirectory, "backups");
 
     public static string ProgramDataLogsDirectory =>
-        Path.Combine(ProgramDataDirectory, "logs");
+        UserLogsDirectory;
+
+    public static string PlaylistsDirectory =>
+        Path.Combine(DataDirectory, "playlists");
 
     public static string UserLogFile =>
         Path.Combine(UserLogsDirectory, "gui.jsonl");
@@ -29,25 +38,30 @@ public static class AppPaths
         Path.Combine(ProgramDataLogsDirectory, "service.jsonl");
 
     public static string UserSettingsFile =>
-        Path.Combine(UserDataDirectory, "settings.json");
+        Path.Combine(DataDirectory, "settings.json");
 
     public static string ServiceSettingsFile =>
-        Path.Combine(ProgramDataDirectory, "settings.json");
+        UserSettingsFile;
 
     public static string LocalesDirectory =>
         Path.Combine(AppContext.BaseDirectory, "locales");
 
     public static void EnsureUserDirectories()
     {
-        Directory.CreateDirectory(UserDataDirectory);
-        Directory.CreateDirectory(UserLogsDirectory);
-        Directory.CreateDirectory(UserSettingsBackupsDirectory);
+        EnsureWorkingDirectories();
     }
 
     public static void EnsureProgramDataDirectories()
     {
-        Directory.CreateDirectory(ProgramDataDirectory);
+        EnsureWorkingDirectories();
+    }
+
+    public static void EnsureWorkingDirectories()
+    {
+        Directory.CreateDirectory(DataDirectory);
         Directory.CreateDirectory(DefaultLocalServerDirectory);
-        Directory.CreateDirectory(ProgramDataLogsDirectory);
+        Directory.CreateDirectory(UserLogsDirectory);
+        Directory.CreateDirectory(UserSettingsBackupsDirectory);
+        Directory.CreateDirectory(PlaylistsDirectory);
     }
 }

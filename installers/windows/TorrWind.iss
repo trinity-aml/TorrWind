@@ -60,8 +60,11 @@ english.TorrentFileType=Torrent file
 russian.TorrentFileType=Torrent-файл
 
 [Dirs]
-Name: "{commonappdata}\TorrWind"; Permissions: users-modify
-Name: "{commonappdata}\TorrWind\TorrServer"; Permissions: users-modify
+Name: "{app}\Data"; Permissions: users-modify
+Name: "{app}\Data\TorrServer"; Permissions: users-modify
+Name: "{app}\Data\logs"; Permissions: users-modify
+Name: "{app}\Data\backups"; Permissions: users-modify
+Name: "{app}\Data\playlists"; Permissions: users-modify
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

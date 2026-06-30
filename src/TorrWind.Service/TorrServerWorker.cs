@@ -8,6 +8,10 @@ namespace TorrWind.Service;
 
 public sealed class TorrServerWorker : BackgroundService
 {
+    private static readonly TimeSpan ConfigurationRetryDelay = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan RestartDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan SupervisionErrorDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
     private readonly ILogger<TorrServerWorker> _logger;
     private readonly FileEventLog _eventLog = FileEventLog.Service;
     private Process? _process;
@@ -23,7 +27,11 @@ public sealed class TorrServerWorker : BackgroundService
         {
             try
             {
-                await RunTorrServerAsync(stoppingToken).ConfigureAwait(false);
+                var delay = await RunTorrServerAsync(stoppingToken).ConfigureAwait(false);
+                if (delay > TimeSpan.Zero && !stoppingToken.IsCancellationRequested)
+                {
+                    await Task.Delay(delay, stoppingToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -33,7 +41,7 @@ public sealed class TorrServerWorker : BackgroundService
             {
                 _logger.LogError(exception, "TorrServer supervision cycle failed.");
                 _eventLog.Error("ServiceWorker", "TorrServer supervision cycle failed.", exception);
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken).ConfigureAwait(false);
+                await Task.Delay(SupervisionErrorDelay, stoppingToken).ConfigureAwait(false);
             }
         }
     }
@@ -44,7 +52,7 @@ public sealed class TorrServerWorker : BackgroundService
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task RunTorrServerAsync(CancellationToken stoppingToken)
+    private async Task<TimeSpan> RunTorrServerAsync(CancellationToken stoppingToken)
     {
         var settings = await new AppSettingsStore(AppPaths.ServiceSettingsFile)
             .LoadAsync(stoppingToken)
@@ -55,16 +63,30 @@ public sealed class TorrServerWorker : BackgroundService
         {
             _logger.LogInformation("Local TorrServer is disabled or executable path is empty.");
             _eventLog.Warning("ServiceWorker", "Local TorrServer is disabled or executable path is empty.");
-            await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken).ConfigureAwait(false);
-            return;
+            return ConfigurationRetryDelay;
         }
 
         if (!File.Exists(localServer.ExecutablePath))
         {
             _logger.LogWarning("TorrServer executable was not found at {ExecutablePath}.", localServer.ExecutablePath);
             _eventLog.Warning("ServiceWorker", "TorrServer executable was not found.", localServer.ExecutablePath);
-            await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken).ConfigureAwait(false);
-            return;
+            return ConfigurationRetryDelay;
+        }
+
+        if (LocalTorrServerEndpointProbe.IsExecutableRunning(localServer.ExecutablePath))
+        {
+            _logger.LogInformation("Local TorrServer process is already running; process start skipped.");
+            _eventLog.Info("ServiceWorker", "Local TorrServer process is already running; process start skipped.", localServer.ExecutablePath);
+            return ConfigurationRetryDelay;
+        }
+
+        if (await LocalTorrServerEndpointProbe
+                .IsOnlineAsync(localServer, TimeSpan.FromSeconds(2), stoppingToken)
+                .ConfigureAwait(false))
+        {
+            _logger.LogInformation("Local TorrServer endpoint is already online; process start skipped.");
+            _eventLog.Info("ServiceWorker", "Local TorrServer endpoint is already online; process start skipped.");
+            return ConfigurationRetryDelay;
         }
 
         await LocalTorrServerConfigurationWriter.WriteAsync(localServer, stoppingToken).ConfigureAwait(false);
@@ -86,45 +108,85 @@ public sealed class TorrServerWorker : BackgroundService
 
         _logger.LogInformation("Starting TorrServer from {ExecutablePath}.", localServer.ExecutablePath);
         _eventLog.Info("ServiceWorker", "Starting TorrServer.", localServer.ExecutablePath);
-        _process = Process.Start(processStartInfo);
+        var process = Process.Start(processStartInfo);
+        _process = process;
 
-        if (_process is null)
+        if (process is null)
         {
             throw new InvalidOperationException("Failed to start TorrServer process.");
         }
 
-        _ = LogProcessOutputAsync(_process.StandardOutput, "TorrServer stdout", stoppingToken);
-        _ = LogProcessOutputAsync(_process.StandardError, "TorrServer stderr", stoppingToken);
+        _ = LogProcessOutputAsync(process.StandardOutput, "TorrServer stdout", stoppingToken);
+        _ = LogProcessOutputAsync(process.StandardError, "TorrServer stderr", stoppingToken);
 
-        await _process.WaitForExitAsync(stoppingToken).ConfigureAwait(false);
-        _logger.LogWarning("TorrServer exited with code {ExitCode}.", _process.ExitCode);
-        _eventLog.Warning("ServiceWorker", "TorrServer exited.", _process.ExitCode.ToString());
+        try
+        {
+            await process.WaitForExitAsync(stoppingToken).ConfigureAwait(false);
+            _logger.LogWarning("TorrServer exited with code {ExitCode}.", process.ExitCode);
+            _eventLog.Warning("ServiceWorker", "TorrServer exited.", process.ExitCode.ToString());
+            return RestartDelay;
+        }
+        finally
+        {
+            if (ReferenceEquals(_process, process))
+            {
+                _process = null;
+            }
+
+            process.Dispose();
+        }
     }
 
     private void StopChildProcess()
     {
-        if (_process is null || _process.HasExited)
+        var process = _process;
+        if (process is null)
         {
             return;
         }
 
         try
         {
-            _process.CloseMainWindow();
-            if (!_process.WaitForExit(5000))
+            if (process.HasExited)
             {
-                _process.Kill(entireProcessTree: true);
-                _eventLog.Warning("ServiceWorker", "TorrServer process killed after graceful stop timeout.");
+                _eventLog.Info("ServiceWorker", "TorrServer process already stopped.");
+                return;
+            }
+
+            var closeRequested = process.CloseMainWindow();
+            if (closeRequested && process.WaitForExit((int)StopTimeout.TotalMilliseconds))
+            {
+                _eventLog.Info("ServiceWorker", "TorrServer process stopped.");
+                return;
+            }
+
+            if (!closeRequested)
+            {
+                _eventLog.Warning("ServiceWorker", "TorrServer process has no main window; terminating process.");
             }
             else
             {
-                _eventLog.Info("ServiceWorker", "TorrServer process stopped.");
+                _eventLog.Warning("ServiceWorker", "TorrServer process did not stop before timeout; terminating process.");
+            }
+
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit((int)StopTimeout.TotalMilliseconds);
+                _eventLog.Warning("ServiceWorker", "TorrServer process killed.");
             }
         }
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Failed to stop TorrServer process cleanly.");
             _eventLog.Error("ServiceWorker", "Failed to stop TorrServer process cleanly.", exception);
+        }
+        finally
+        {
+            if (ReferenceEquals(_process, process))
+            {
+                _process = null;
+            }
         }
     }
 

@@ -27,7 +27,7 @@ public partial class App : System.Windows.Application
 
         try
         {
-            AppPaths.EnsureUserDirectories();
+            AppPaths.EnsureWorkingDirectories();
 
             if (!ClaimSingleInstance())
             {

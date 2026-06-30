@@ -6,11 +6,13 @@ public sealed class RelayCommand : ICommand
 {
     private readonly Action _execute;
     private readonly Func<bool>? _canExecute;
+    private readonly Action<Exception>? _onException;
 
-    public RelayCommand(Action execute, Func<bool>? canExecute = null)
+    public RelayCommand(Action execute, Func<bool>? canExecute = null, Action<Exception>? onException = null)
     {
         _execute = execute;
         _canExecute = canExecute;
+        _onException = onException;
     }
 
     public event EventHandler? CanExecuteChanged;
@@ -22,7 +24,14 @@ public sealed class RelayCommand : ICommand
 
     public void Execute(object? parameter)
     {
-        _execute();
+        try
+        {
+            _execute();
+        }
+        catch (Exception exception) when (_onException is not null)
+        {
+            _onException(exception);
+        }
     }
 
     public void RaiseCanExecuteChanged()
@@ -35,12 +44,14 @@ public sealed class AsyncRelayCommand : ICommand
 {
     private readonly Func<Task> _execute;
     private readonly Func<bool>? _canExecute;
+    private readonly Action<Exception>? _onException;
     private bool _isRunning;
 
-    public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null)
+    public AsyncRelayCommand(Func<Task> execute, Func<bool>? canExecute = null, Action<Exception>? onException = null)
     {
         _execute = execute;
         _canExecute = canExecute;
+        _onException = onException;
     }
 
     public event EventHandler? CanExecuteChanged;
@@ -62,6 +73,10 @@ public sealed class AsyncRelayCommand : ICommand
             _isRunning = true;
             RaiseCanExecuteChanged();
             await _execute().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (_onException is not null)
+        {
+            _onException(exception);
         }
         finally
         {

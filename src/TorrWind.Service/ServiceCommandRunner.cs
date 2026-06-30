@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text;
 using TorrWind.Core.Services;
 
 namespace TorrWind.Service;
@@ -130,6 +132,8 @@ public static class ServiceCommandRunner
             UseShellExecute = false,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
+            StandardErrorEncoding = GetScEncoding(),
+            StandardOutputEncoding = GetScEncoding(),
             CreateNoWindow = true
         };
 
@@ -160,6 +164,19 @@ public static class ServiceCommandRunner
     private static string Quote(string value)
     {
         return "\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+    }
+
+    private static Encoding GetScEncoding()
+    {
+        try
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+        }
+        catch
+        {
+            return Encoding.Default;
+        }
     }
 
 }

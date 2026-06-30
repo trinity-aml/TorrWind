@@ -27,7 +27,7 @@ public sealed class AppSettingsStore
             return defaultSettings;
         }
 
-        return await LoadFromFileAsync(cancellationToken).ConfigureAwait(false);
+        return await LoadFromFileOrBackupAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AppSettings> LoadExistingAsync(CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ public sealed class AppSettingsStore
             throw new FileNotFoundException("Settings file was not found.", _filePath);
         }
 
-        return await LoadFromFileAsync(cancellationToken).ConfigureAwait(false);
+        return await LoadFromFileOrBackupAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
@@ -48,14 +48,73 @@ public sealed class AppSettingsStore
             Directory.CreateDirectory(directory);
         }
 
-        await using var stream = File.Create(_filePath);
-        await JsonSerializer.SerializeAsync(stream, settings, SerializerOptions, cancellationToken)
-            .ConfigureAwait(false);
+        var tempPath = Path.Combine(
+            string.IsNullOrWhiteSpace(directory) ? "." : directory,
+            Path.GetFileName(_filePath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+
+        try
+        {
+            await using (var stream = new FileStream(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 16 * 1024,
+                FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(stream, settings, SerializerOptions, cancellationToken)
+                    .ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (File.Exists(_filePath))
+            {
+                File.Copy(_filePath, GetBackupPath(), overwrite: true);
+            }
+
+            File.Move(tempPath, _filePath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
+        }
     }
 
-    private async Task<AppSettings> LoadFromFileAsync(CancellationToken cancellationToken)
+    private async Task<AppSettings> LoadFromFileOrBackupAsync(CancellationToken cancellationToken)
     {
-        await using var stream = File.OpenRead(_filePath);
+        try
+        {
+            return await LoadFromFileAsync(_filePath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException && File.Exists(GetBackupPath()))
+        {
+            return await LoadFromFileAsync(GetBackupPath(), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static void TryDelete(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private string GetBackupPath()
+    {
+        return _filePath + ".bak";
+    }
+
+    private static async Task<AppSettings> LoadFromFileAsync(string filePath, CancellationToken cancellationToken)
+    {
+        await using var stream = File.OpenRead(filePath);
         var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, SerializerOptions, cancellationToken)
             .ConfigureAwait(false);
 
@@ -74,6 +133,18 @@ public sealed class AppSettingsStore
             ? 0
             : settings.SettingsBackupRetentionCount;
 
+        if (string.IsNullOrWhiteSpace(settings.LocalServer.DataDirectory) ||
+            IsLegacyTorrWindDataPath(settings.LocalServer.DataDirectory))
+        {
+            settings.LocalServer.DataDirectory = AppPaths.DefaultLocalServerDirectory;
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.LocalServer.TemporaryDataPath) ||
+            IsLegacyTorrWindDataPath(settings.LocalServer.TemporaryDataPath))
+        {
+            settings.LocalServer.TemporaryDataPath = Path.Combine(AppPaths.DefaultLocalServerDirectory, "cache");
+        }
+
         if (settings.Servers.Count == 0)
         {
             var localServer = ServerProfile.CreateLocal();
@@ -87,5 +158,12 @@ public sealed class AppSettingsStore
         }
 
         return settings;
+    }
+
+    private static bool IsLegacyTorrWindDataPath(string path)
+    {
+        var normalized = path.Replace('/', '\\');
+        return normalized.Contains("\\AppData\\Roaming\\TorrWind", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("\\ProgramData\\TorrWind", StringComparison.OrdinalIgnoreCase);
     }
 }

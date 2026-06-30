@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -25,6 +27,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly AsyncRelayCommand _restoreSelectedSettingsBackupCommand;
     private readonly RelayCommand _deleteSelectedSettingsBackupCommand;
     private readonly AsyncRelayCommand _downloadSelectedTorrServerReleaseCommand;
+    private readonly AsyncRelayCommand _useSelectedInstalledTorrServerCommand;
+    private readonly RelayCommand _deleteSelectedInstalledTorrServerCommand;
+    private readonly RelayCommand _openSelectedInstalledTorrServerFolderCommand;
     private AppSettings _settings = AppSettings.CreateDefault();
     private TorrServerRelease? _latestTorrServerRelease;
     private ServerProfile? _selectedServer;
@@ -35,6 +40,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private SearchProviderOption? _selectedSearchProviderOption;
     private SettingsBackupItem? _selectedSettingsBackup;
     private TorrServerReleaseItem? _selectedTorrServerRelease;
+    private InstalledTorrServerItem? _selectedInstalledTorrServer;
     private string? _selectedSearchHistoryItem;
     private string _selectedLanguage = "system";
     private string _newMagnet = string.Empty;
@@ -52,62 +58,91 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _runtimeSettingsJson = string.Empty;
     private string _serviceStatusText = string.Empty;
     private string _torrServerReleaseText = string.Empty;
+    private bool _isRefreshingLibrary;
+    private bool _isRefreshingSelectedTorrentLive;
+    private bool _isApplyingLanguage;
+    private bool _suppressLanguageApply;
 
     public MainWindowViewModel(AppSettingsStore settingsStore, JsonLocalizationService localization)
     {
         _settingsStore = settingsStore;
         _localization = localization;
 
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-        AddMagnetCommand = new AsyncRelayCommand(AddMagnetAsync);
-        RemoveTorrentCommand = new AsyncRelayCommand(RemoveTorrentAsync);
-        RefreshSelectedTorrentCommand = new AsyncRelayCommand(RefreshSelectedTorrentAsync);
-        SaveTorrentMetadataCommand = new AsyncRelayCommand(SaveTorrentMetadataAsync);
-        DropTorrentCommand = new AsyncRelayCommand(DropTorrentAsync);
-        WipeTorrentsCommand = new AsyncRelayCommand(WipeTorrentsAsync);
-        SearchCommand = new AsyncRelayCommand(SearchAsync);
-        AddSelectedSearchResultCommand = new AsyncRelayCommand(AddSelectedSearchResultAsync);
-        OpenSelectedCommand = new AsyncRelayCommand(OpenSelectedAsync);
-        CopyPlaybackUrlCommand = new RelayCommand(CopyPlaybackUrl);
-        CopyTorrentSourceCommand = new RelayCommand(CopyTorrentSource);
-        CopyTorrentHashCommand = new RelayCommand(CopyTorrentHash);
-        CheckServerCommand = new AsyncRelayCommand(CheckServerAsync);
-        RunDiagnosticsCommand = new AsyncRelayCommand(RunDiagnosticsAsync);
-        CopyDiagnosticsCommand = new RelayCommand(CopyDiagnostics);
-        LoadRuntimeSettingsCommand = new AsyncRelayCommand(LoadRuntimeSettingsAsync);
-        ApplyRuntimeSettingsJsonCommand = new AsyncRelayCommand(ApplyRuntimeSettingsJsonAsync);
-        FormatRuntimeSettingsJsonCommand = new RelayCommand(FormatRuntimeSettingsJson);
-        CopyRuntimeSettingsJsonCommand = new RelayCommand(CopyRuntimeSettingsJson);
-        RefreshLogsCommand = new AsyncRelayCommand(RefreshLogsAsync);
-        ClearUserLogCommand = new RelayCommand(ClearUserLog);
-        CopyLogPathsCommand = new RelayCommand(CopyLogPaths);
-        SaveSettingsCommand = new AsyncRelayCommand(SaveSettingsAsync);
-        ApplyLanguageCommand = new AsyncRelayCommand(ApplyLanguageAsync);
-        CheckTorrServerUpdateCommand = new AsyncRelayCommand(CheckTorrServerUpdateAsync);
-        DownloadTorrServerCommand = new AsyncRelayCommand(DownloadTorrServerAsync);
-        LoadTorrServerReleasesCommand = new AsyncRelayCommand(LoadTorrServerReleasesAsync);
-        _downloadSelectedTorrServerReleaseCommand = new AsyncRelayCommand(DownloadSelectedTorrServerReleaseAsync, () => SelectedTorrServerRelease is not null);
+        RefreshCommand = CreateAsyncCommand(RefreshAsync);
+        AddMagnetCommand = CreateAsyncCommand(AddMagnetAsync);
+        RemoveTorrentCommand = CreateAsyncCommand(RemoveTorrentAsync);
+        RefreshSelectedTorrentCommand = CreateAsyncCommand(RefreshSelectedTorrentAsync);
+        SaveTorrentMetadataCommand = CreateAsyncCommand(SaveTorrentMetadataAsync);
+        DropTorrentCommand = CreateAsyncCommand(DropTorrentAsync);
+        WipeTorrentsCommand = CreateAsyncCommand(WipeTorrentsAsync);
+        SearchCommand = CreateAsyncCommand(SearchAsync);
+        AddSelectedSearchResultCommand = CreateAsyncCommand(AddSelectedSearchResultAsync);
+        OpenSelectedCommand = CreateAsyncCommand(OpenSelectedAsync);
+        OpenContinuePlaylistCommand = CreateAsyncCommand(OpenContinuePlaylistAsync);
+        OpenPlaylistFromSelectedCommand = CreateAsyncCommand(OpenPlaylistFromSelectedAsync);
+        CopyPlaybackUrlCommand = CreateCommand(CopyPlaybackUrl);
+        CopyTorrentSourceCommand = CreateCommand(CopyTorrentSource);
+        CopyTorrentHashCommand = CreateCommand(CopyTorrentHash);
+        CheckServerCommand = CreateAsyncCommand(CheckServerAsync);
+        RunDiagnosticsCommand = CreateAsyncCommand(RunDiagnosticsAsync);
+        CopyDiagnosticsCommand = CreateCommand(CopyDiagnostics);
+        LoadRuntimeSettingsCommand = CreateAsyncCommand(LoadRuntimeSettingsAsync);
+        ApplyRuntimeSettingsJsonCommand = CreateAsyncCommand(ApplyRuntimeSettingsJsonAsync);
+        FormatRuntimeSettingsJsonCommand = CreateCommand(FormatRuntimeSettingsJson);
+        CopyRuntimeSettingsJsonCommand = CreateCommand(CopyRuntimeSettingsJson);
+        RefreshLogsCommand = CreateAsyncCommand(RefreshLogsAsync);
+        ClearUserLogCommand = CreateCommand(ClearUserLog);
+        CopyLogPathsCommand = CreateCommand(CopyLogPaths);
+        OpenLogFoldersCommand = CreateCommand(OpenLogFolders);
+        SaveSettingsCommand = CreateAsyncCommand(SaveSettingsAsync);
+        ApplyLanguageCommand = CreateAsyncCommand(ApplyLanguageAsync);
+        OpenTorrServerExecutableFolderCommand = CreateCommand(OpenTorrServerExecutableFolder);
+        OpenLocalServerDataFolderCommand = CreateCommand(OpenLocalServerDataFolder);
+        OpenLocalServerCacheFolderCommand = CreateCommand(OpenLocalServerCacheFolder);
+        CheckTorrServerUpdateCommand = CreateAsyncCommand(CheckTorrServerUpdateAsync);
+        DownloadTorrServerCommand = CreateAsyncCommand(DownloadTorrServerAsync);
+        LoadTorrServerReleasesCommand = CreateAsyncCommand(LoadTorrServerReleasesAsync);
+        _downloadSelectedTorrServerReleaseCommand = CreateAsyncCommand(DownloadSelectedTorrServerReleaseAsync, () => SelectedTorrServerRelease is not null);
         DownloadSelectedTorrServerReleaseCommand = _downloadSelectedTorrServerReleaseCommand;
-        RollbackTorrServerCommand = new AsyncRelayCommand(RollbackTorrServerAsync);
-        ApplyLocalServerSettingsCommand = new AsyncRelayCommand(ApplyLocalServerSettingsAsync);
-        InstallServiceCommand = new AsyncRelayCommand(InstallServiceAsync);
-        UninstallServiceCommand = new AsyncRelayCommand(UninstallServiceAsync);
-        StartServiceCommand = new AsyncRelayCommand(StartServiceAsync);
-        StopServiceCommand = new AsyncRelayCommand(StopServiceAsync);
-        QueryServiceStatusCommand = new AsyncRelayCommand(QueryServiceStatusAsync);
-        StartLocalServerCommand = new AsyncRelayCommand(StartLocalServerAsync);
-        StopLocalServerCommand = new RelayCommand(StopLocalServer);
-        AddServerCommand = new RelayCommand(AddServer);
-        _removeServerCommand = new RelayCommand(RemoveSelectedServer, () => Servers.Count > 1);
+        RefreshInstalledTorrServersCommand = CreateCommand(RefreshInstalledTorrServers);
+        OpenTorrServerVersionsFolderCommand = CreateCommand(OpenTorrServerVersionsFolder);
+        _useSelectedInstalledTorrServerCommand = CreateAsyncCommand(UseSelectedInstalledTorrServerAsync, () => SelectedInstalledTorrServer is not null);
+        UseSelectedInstalledTorrServerCommand = _useSelectedInstalledTorrServerCommand;
+        _deleteSelectedInstalledTorrServerCommand = CreateCommand(DeleteSelectedInstalledTorrServer, () => SelectedInstalledTorrServer is not null);
+        DeleteSelectedInstalledTorrServerCommand = _deleteSelectedInstalledTorrServerCommand;
+        _openSelectedInstalledTorrServerFolderCommand = CreateCommand(OpenSelectedInstalledTorrServerFolder, () => SelectedInstalledTorrServer is not null);
+        OpenSelectedInstalledTorrServerFolderCommand = _openSelectedInstalledTorrServerFolderCommand;
+        RollbackTorrServerCommand = CreateAsyncCommand(RollbackTorrServerAsync);
+        ApplyLocalServerSettingsCommand = CreateAsyncCommand(ApplyLocalServerSettingsAsync);
+        InstallServiceCommand = CreateAsyncCommand(InstallServiceAsync);
+        UninstallServiceCommand = CreateAsyncCommand(UninstallServiceAsync);
+        StartServiceCommand = CreateAsyncCommand(StartServiceAsync);
+        StopServiceCommand = CreateAsyncCommand(StopServiceAsync);
+        QueryServiceStatusCommand = CreateAsyncCommand(QueryServiceStatusAsync);
+        StartLocalServerCommand = CreateAsyncCommand(StartLocalServerAsync);
+        StopLocalServerCommand = CreateCommand(StopLocalServer);
+        AddServerCommand = CreateCommand(AddServer);
+        _removeServerCommand = CreateCommand(RemoveSelectedServer, () => Servers.Count > 1);
         RemoveServerCommand = _removeServerCommand;
-        AddSearchProviderCommand = new RelayCommand(AddSearchProvider);
-        _removeSearchProviderCommand = new RelayCommand(RemoveSelectedSearchProvider, () => SelectedSearchProvider is not null);
+        AddSearchProviderCommand = CreateCommand(AddSearchProvider);
+        _removeSearchProviderCommand = CreateCommand(RemoveSelectedSearchProvider, () => SelectedSearchProvider is not null);
         RemoveSearchProviderCommand = _removeSearchProviderCommand;
-        RefreshSettingsBackupsCommand = new RelayCommand(RefreshSettingsBackups);
-        _restoreSelectedSettingsBackupCommand = new AsyncRelayCommand(RestoreSelectedSettingsBackupAsync, () => SelectedSettingsBackup is not null);
+        RefreshSettingsBackupsCommand = CreateCommand(RefreshSettingsBackups);
+        OpenSettingsBackupsFolderCommand = CreateCommand(OpenSettingsBackupsFolder);
+        _restoreSelectedSettingsBackupCommand = CreateAsyncCommand(RestoreSelectedSettingsBackupAsync, () => SelectedSettingsBackup is not null);
         RestoreSelectedSettingsBackupCommand = _restoreSelectedSettingsBackupCommand;
-        _deleteSelectedSettingsBackupCommand = new RelayCommand(DeleteSelectedSettingsBackup, () => SelectedSettingsBackup is not null);
+        _deleteSelectedSettingsBackupCommand = CreateCommand(DeleteSelectedSettingsBackup, () => SelectedSettingsBackup is not null);
         DeleteSelectedSettingsBackupCommand = _deleteSelectedSettingsBackupCommand;
+    }
+
+    private RelayCommand CreateCommand(Action execute, Func<bool>? canExecute = null)
+    {
+        return new RelayCommand(execute, canExecute, HandleCommandException);
+    }
+
+    private AsyncRelayCommand CreateAsyncCommand(Func<Task> execute, Func<bool>? canExecute = null)
+    {
+        return new AsyncRelayCommand(execute, canExecute, HandleCommandException);
     }
 
     public JsonLocalizationService L => _localization;
@@ -131,6 +166,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<SettingsBackupItem> SettingsBackups { get; } = [];
 
     public ObservableCollection<TorrServerReleaseItem> TorrServerReleases { get; } = [];
+
+    public ObservableCollection<InstalledTorrServerItem> InstalledTorrServers { get; } = [];
 
     public ObservableCollection<string> AvailableLanguages { get; } = [];
 
@@ -160,6 +197,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ICommand OpenSelectedCommand { get; }
 
+    public ICommand OpenContinuePlaylistCommand { get; }
+
+    public ICommand OpenPlaylistFromSelectedCommand { get; }
+
     public ICommand CopyPlaybackUrlCommand { get; }
 
     public ICommand CopyTorrentSourceCommand { get; }
@@ -186,9 +227,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ICommand CopyLogPathsCommand { get; }
 
+    public ICommand OpenLogFoldersCommand { get; }
+
     public ICommand SaveSettingsCommand { get; }
 
     public ICommand ApplyLanguageCommand { get; }
+
+    public ICommand OpenTorrServerExecutableFolderCommand { get; }
+
+    public ICommand OpenLocalServerDataFolderCommand { get; }
+
+    public ICommand OpenLocalServerCacheFolderCommand { get; }
 
     public ICommand CheckTorrServerUpdateCommand { get; }
 
@@ -197,6 +246,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand LoadTorrServerReleasesCommand { get; }
 
     public ICommand DownloadSelectedTorrServerReleaseCommand { get; }
+
+    public ICommand RefreshInstalledTorrServersCommand { get; }
+
+    public ICommand OpenTorrServerVersionsFolderCommand { get; }
+
+    public ICommand UseSelectedInstalledTorrServerCommand { get; }
+
+    public ICommand DeleteSelectedInstalledTorrServerCommand { get; }
+
+    public ICommand OpenSelectedInstalledTorrServerFolderCommand { get; }
 
     public ICommand RollbackTorrServerCommand { get; }
 
@@ -225,6 +284,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RemoveSearchProviderCommand { get; }
 
     public ICommand RefreshSettingsBackupsCommand { get; }
+
+    public ICommand OpenSettingsBackupsFolderCommand { get; }
 
     public ICommand RestoreSelectedSettingsBackupCommand { get; }
 
@@ -273,7 +334,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _selectedTorrent, value))
             {
                 OnPropertyChanged(nameof(SelectedTorrentFiles));
-                SelectedTorrentFile = value?.Files.FirstOrDefault();
+                OnPropertyChanged(nameof(SelectedTorrentPosterImageUri));
+                OnPropertyChanged(nameof(HasSelectedTorrentPoster));
+                SelectedTorrentFile = value?.Files.Count == 1 ? value.Files[0] : null;
                 LoadSelectedTorrentEditor(value);
             }
         }
@@ -334,6 +397,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    public InstalledTorrServerItem? SelectedInstalledTorrServer
+    {
+        get => _selectedInstalledTorrServer;
+        set
+        {
+            if (SetProperty(ref _selectedInstalledTorrServer, value))
+            {
+                _useSelectedInstalledTorrServerCommand.RaiseCanExecuteChanged();
+                _deleteSelectedInstalledTorrServerCommand.RaiseCanExecuteChanged();
+                _openSelectedInstalledTorrServerFolderCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     public string? SelectedSearchHistoryItem
     {
         get => _selectedSearchHistoryItem;
@@ -349,7 +426,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public string SelectedLanguage
     {
         get => _selectedLanguage;
-        set => SetProperty(ref _selectedLanguage, value);
+        set
+        {
+            if (SetProperty(ref _selectedLanguage, value))
+            {
+                _ = ApplySelectedLanguageAsync();
+            }
+        }
     }
 
     public string NewMagnet
@@ -357,6 +440,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         get => _newMagnet;
         set => SetProperty(ref _newMagnet, value);
     }
+
+    public string SelectedTorrentPosterImageUri => SelectedTorrent?.Poster ?? string.Empty;
+
+    public bool HasSelectedTorrentPoster => !string.IsNullOrWhiteSpace(SelectedTorrent?.Poster);
 
     public string SelectedTorrentTitle
     {
@@ -480,6 +567,88 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             "StatusSettingsRestoreFailed",
             "Settings backup restored",
             cancellationToken).ConfigureAwait(true);
+    }
+
+    public string CreateDiagnosticsFileName()
+    {
+        return "TorrWind-diagnostics-" + DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss") + ".txt";
+    }
+
+    public string CreateSupportBundleFileName()
+    {
+        return "TorrWind-support-" + DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss") + ".zip";
+    }
+
+    public async Task SaveDiagnosticsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        if (DiagnosticItems.Count == 0)
+        {
+            StatusMessage = L["StatusNoDiagnostics"];
+            return;
+        }
+
+        try
+        {
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            await File.WriteAllTextAsync(filePath, BuildDiagnosticsReport(includeHeader: true), cancellationToken)
+                .ConfigureAwait(true);
+            StatusMessage = string.Format(L["StatusDiagnosticsSaved"], filePath);
+            LogInfo("Diagnostics", "Diagnostics report saved.", filePath);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusDiagnosticsSaveFailed"], exception.Message);
+            LogError("Diagnostics", "Failed to save diagnostics report.", exception, filePath);
+        }
+    }
+
+    public async Task SaveSupportBundleAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        if (DiagnosticItems.Count == 0)
+        {
+            StatusMessage = L["StatusNoDiagnostics"];
+            return;
+        }
+
+        try
+        {
+            SyncSettingsFromView();
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            await using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+            using var archive = new ZipArchive(fileStream, ZipArchiveMode.Create);
+            await AddTextEntryAsync(archive, "diagnostics.txt", BuildDiagnosticsReport(includeHeader: true), cancellationToken)
+                .ConfigureAwait(true);
+            await AddTextEntryAsync(archive, "settings.sanitized.json", BuildSanitizedSettingsJson(), cancellationToken)
+                .ConfigureAwait(true);
+            await AddTextEntryAsync(archive, "manifest.txt", BuildSupportBundleManifest(), cancellationToken)
+                .ConfigureAwait(true);
+            await AddFileEntryIfExistsAsync(archive, AppPaths.UserLogFile, "logs/gui.jsonl", cancellationToken)
+                .ConfigureAwait(true);
+            await AddFileEntryIfExistsAsync(archive, AppPaths.UserLogFile + ".1", "logs/gui.jsonl.1", cancellationToken)
+                .ConfigureAwait(true);
+            await AddFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile, "logs/service.jsonl", cancellationToken)
+                .ConfigureAwait(true);
+            await AddFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile + ".1", "logs/service.jsonl.1", cancellationToken)
+                .ConfigureAwait(true);
+
+            StatusMessage = string.Format(L["StatusSupportBundleSaved"], filePath);
+            LogInfo("Diagnostics", "Support bundle saved.", filePath);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusSupportBundleSaveFailed"], exception.Message);
+            LogError("Diagnostics", "Failed to save support bundle.", exception, filePath);
+        }
     }
 
     public void RefreshSettingsBackups()
@@ -642,7 +811,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             AvailableLanguages.Add(language);
         }
 
-        SelectedLanguage = _settings.Language;
+        _suppressLanguageApply = true;
+        try
+        {
+            SelectedLanguage = _settings.Language;
+        }
+        finally
+        {
+            _suppressLanguageApply = false;
+        }
+
         await _localization.LoadAsync(_settings.Language, cancellationToken).ConfigureAwait(true);
 
         Servers.Clear();
@@ -675,6 +853,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         RuntimeSettingsJson = string.Empty;
         LogLocationText = string.Format(L["LogLocations"], AppPaths.UserLogFile, AppPaths.ServiceLogFile);
         UpdateTorrServerReleaseText();
+        RefreshInstalledTorrServers(updateStatusMessage: false);
         RefreshSettingsBackups();
         await RefreshLogsAsync().ConfigureAwait(true);
         await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
@@ -748,14 +927,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public async Task RefreshAsync()
     {
+        if (_isRefreshingLibrary)
+        {
+            return;
+        }
+
         if (SelectedServer is null)
         {
             StatusMessage = L["NoServerSelected"];
             return;
         }
 
+        _isRefreshingLibrary = true;
         try
         {
+            var selectedHash = SelectedTorrent?.Hash;
             using var client = new TorrServerClient(SelectedServer);
             var torrents = await client.GetTorrentsAsync().ConfigureAwait(true);
 
@@ -765,9 +951,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 Torrents.Add(torrent);
             }
 
-            if (SelectedTorrent is not null && Torrents.All(torrent => torrent.Hash != SelectedTorrent.Hash))
+            SelectedTorrent = Torrents.FirstOrDefault(torrent =>
+                    !string.IsNullOrWhiteSpace(selectedHash) &&
+                    string.Equals(torrent.Hash, selectedHash, StringComparison.OrdinalIgnoreCase)) ??
+                Torrents.FirstOrDefault();
+
+            try
             {
-                SelectedTorrent = null;
+                await RefreshSelectedTorrentDetailsAsync(client, updateStatusMessage: false).ConfigureAwait(true);
+            }
+            catch (Exception exception)
+            {
+                LogError("Library", "Failed to refresh selected torrent details.", exception, SelectedTorrent?.Title ?? string.Empty);
             }
 
             StatusMessage = string.Format(L["StatusTorrentsLoaded"], Torrents.Count);
@@ -777,6 +972,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             StatusMessage = exception.Message;
             LogError("Library", "Failed to refresh torrent list.", exception, SelectedServer.Name);
+        }
+        finally
+        {
+            _isRefreshingLibrary = false;
         }
     }
 
@@ -790,11 +989,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
+            var previousHashes = CurrentTorrentHashes();
             using var client = new TorrServerClient(SelectedServer);
-            await client.AddTorrentFileAsync(filePath).ConfigureAwait(true);
+            var addedTorrents = await client.AddTorrentFileAsync(filePath).ConfigureAwait(true);
+            await RefreshAfterTorrentAddedAsync(client, addedTorrents, previousHashes).ConfigureAwait(true);
             StatusMessage = L["StatusTorrentAdded"];
             LogInfo("Library", "Torrent file added.", Path.GetFileName(filePath));
-            await RefreshAsync().ConfigureAwait(true);
             return true;
         }
         catch (Exception exception)
@@ -867,11 +1067,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
+            var previousHashes = CurrentTorrentHashes();
             using var client = new TorrServerClient(SelectedServer);
-            await client.AddMagnetAsync(link.Trim()).ConfigureAwait(true);
+            var addedTorrent = await client.AddMagnetAsync(link.Trim()).ConfigureAwait(true);
+            await RefreshAfterTorrentAddedAsync(client, [addedTorrent], previousHashes).ConfigureAwait(true);
             StatusMessage = L["StatusTorrentAdded"];
             LogInfo("Library", "Torrent link added.", SelectedServer.Name);
-            await RefreshAsync().ConfigureAwait(true);
             return true;
         }
         catch (Exception exception)
@@ -922,16 +1123,128 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             using var client = new TorrServerClient(SelectedServer);
-            var updated = await client.GetTorrentAsync(SelectedTorrent.Hash).ConfigureAwait(true);
-            ReplaceSelectedTorrent(updated);
-            StatusMessage = L["StatusTorrentDetailsLoaded"];
-            LogInfo("Library", "Torrent details refreshed.", updated.Title);
+            await RefreshSelectedTorrentDetailsAsync(client, updateStatusMessage: true).ConfigureAwait(true);
         }
         catch (Exception exception)
         {
             StatusMessage = exception.Message;
             LogError("Library", "Failed to refresh torrent details.", exception, SelectedTorrent.Title);
         }
+    }
+
+    public async Task RefreshSelectedTorrentLiveAsync()
+    {
+        if (_isRefreshingLibrary ||
+            _isRefreshingSelectedTorrentLive ||
+            SelectedServer is null ||
+            SelectedTorrent is null ||
+            string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            return;
+        }
+
+        _isRefreshingSelectedTorrentLive = true;
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            await RefreshSelectedTorrentDetailsAsync(
+                client,
+                updateStatusMessage: false,
+                logRefresh: false).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            LogWarning("Library", "Live torrent details refresh failed.", exception.Message);
+        }
+        finally
+        {
+            _isRefreshingSelectedTorrentLive = false;
+        }
+    }
+
+    private async Task RefreshSelectedTorrentDetailsAsync(
+        TorrServerClient client,
+        bool updateStatusMessage,
+        bool logRefresh = true)
+    {
+        if (SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            return;
+        }
+
+        var selectedFileId = SelectedTorrentFile?.Id;
+        var updated = await client.GetTorrentAsync(SelectedTorrent.Hash).ConfigureAwait(true);
+        ReplaceSelectedTorrent(updated, selectedFileId);
+
+        if (updateStatusMessage)
+        {
+            StatusMessage = L["StatusTorrentDetailsLoaded"];
+        }
+
+        if (logRefresh)
+        {
+            LogInfo("Library", "Torrent details refreshed.", updated.Title);
+        }
+    }
+
+    private async Task RefreshAfterTorrentAddedAsync(
+        TorrServerClient client,
+        IReadOnlyList<TorrentItem> addedTorrents,
+        IReadOnlySet<string> previousHashes)
+    {
+        var preferredHash = addedTorrents
+            .Select(torrent => torrent.Hash)
+            .FirstOrDefault(hash => !string.IsNullOrWhiteSpace(hash));
+        var torrents = await client.GetTorrentsAsync().ConfigureAwait(true);
+
+        Torrents.Clear();
+        foreach (var torrent in torrents)
+        {
+            Torrents.Add(torrent);
+        }
+
+        var selected = SelectAddedTorrent(torrents, preferredHash, previousHashes) ??
+            addedTorrents.FirstOrDefault(torrent => !string.IsNullOrWhiteSpace(torrent.Hash));
+        if (selected is null)
+        {
+            return;
+        }
+
+        ReplaceSelectedTorrent(selected);
+        if (!string.IsNullOrWhiteSpace(selected.Hash))
+        {
+            await RefreshAddedTorrentDetailsWithRetryAsync(client, selected.Hash).ConfigureAwait(true);
+        }
+    }
+
+    private async Task RefreshAddedTorrentDetailsWithRetryAsync(TorrServerClient client, string hash)
+    {
+        Exception? lastException = null;
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            try
+            {
+                var updated = await client.GetTorrentAsync(hash).ConfigureAwait(true);
+                ReplaceSelectedTorrent(updated);
+                if (HasUsefulTorrentDetails(updated))
+                {
+                    LogInfo("Library", "Added torrent details refreshed.", updated.Title);
+                    return;
+                }
+            }
+            catch (Exception exception)
+            {
+                lastException = exception;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(750)).ConfigureAwait(true);
+        }
+
+        LogWarning(
+            "Library",
+            "Added torrent details are not fully available yet.",
+            lastException?.Message ?? hash);
     }
 
     private async Task SaveTorrentMetadataAsync()
@@ -1105,11 +1418,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
+            var previousHashes = CurrentTorrentHashes();
             using var client = new TorrServerClient(SelectedServer);
-            await client.AddMagnetAsync(link, SelectedSearchResult.Title).ConfigureAwait(true);
+            var addedTorrent = await client.AddMagnetAsync(link, SelectedSearchResult.Title).ConfigureAwait(true);
+            await RefreshAfterTorrentAddedAsync(client, [addedTorrent], previousHashes).ConfigureAwait(true);
             StatusMessage = L["StatusTorrentAdded"];
             LogInfo("Search", "Search result added to library.", SelectedSearchResult.Title);
-            await RefreshAsync().ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -1132,9 +1446,117 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return Task.CompletedTask;
         }
 
-        _playerLauncher.Play(mediaUri, _settings.Player);
-        LogInfo("Player", "Opened selected torrent in external player.", SelectedTorrent.Title);
+        try
+        {
+            _playerLauncher.Play(mediaUri, _settings.Player);
+            LogInfo("Player", "Opened selected torrent in external player.", SelectedTorrent.Title);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Player", "Failed to open selected torrent in external player.", exception, SelectedTorrent.Title);
+        }
+
         return Task.CompletedTask;
+    }
+
+    private Task OpenContinuePlaylistAsync()
+    {
+        if (SelectedServer is null || SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return Task.CompletedTask;
+        }
+
+        using var client = new TorrServerClient(SelectedServer);
+        var mediaUri = client.GetPlaylistUri(SelectedTorrent.Hash, ResolvePlaylistName(SelectedTorrent), fromLast: true);
+        OpenPlayerUri(mediaUri, "Opened continue playlist in external player.");
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenPlaylistFromSelectedAsync()
+    {
+        var mediaUri = await CreatePlaylistFromSelectedAsync().ConfigureAwait(true);
+        if (mediaUri is null)
+        {
+            StatusMessage = L["StatusNoTorrentSelected"];
+            return;
+        }
+
+        OpenPlayerUri(mediaUri, "Opened playlist from selected file in external player.");
+    }
+
+    private void OpenPlayerUri(Uri mediaUri, string logMessage)
+    {
+        try
+        {
+            _playerLauncher.Play(mediaUri, _settings.Player);
+            LogInfo("Player", logMessage, SelectedTorrent?.Title ?? string.Empty);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("Player", "Failed to open media in external player.", exception, SelectedTorrent?.Title ?? string.Empty);
+        }
+    }
+
+    private async Task<Uri?> CreatePlaylistFromSelectedAsync()
+    {
+        if (SelectedServer is null || SelectedTorrent is null || string.IsNullOrWhiteSpace(SelectedTorrent.Hash))
+        {
+            return null;
+        }
+
+        if (SelectedTorrentFile is null)
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            return client.GetPlaylistUri(SelectedTorrent.Hash, ResolvePlaylistName(SelectedTorrent));
+        }
+
+        var selectedIndex = SelectedTorrent.Files
+            .Select((file, index) => new { file, index })
+            .FirstOrDefault(item => item.file.Id == SelectedTorrentFile.Id)
+            ?.index;
+        if (selectedIndex is null)
+        {
+            return null;
+        }
+
+        Directory.CreateDirectory(AppPaths.PlaylistsDirectory);
+        using var playlistClient = new TorrServerClient(SelectedServer);
+        var sessionToken = Guid.NewGuid().ToString("N")[..12];
+        var lines = new List<string> { "#EXTM3U" };
+        foreach (var file in SelectedTorrent.Files.Skip(selectedIndex.Value))
+        {
+            var name = Path.GetFileName(file.Path);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = file.Path;
+            }
+
+            lines.Add("#EXTINF:0," + name);
+            lines.Add(playlistClient.GetStreamUri(SelectedTorrent.Hash, file.Id, file.Path, sessionToken).ToString());
+        }
+
+        var playlistName = SanitizePathSegment(ResolvePlaylistName(SelectedTorrent)) + "-from-" + SelectedTorrentFile.Id + ".m3u";
+        var playlistPath = Path.Combine(AppPaths.PlaylistsDirectory, playlistName);
+        await File.WriteAllLinesAsync(playlistPath, lines).ConfigureAwait(true);
+        return new Uri(playlistPath);
+    }
+
+    private bool TrySetClipboardText(string text, string source, string details = "")
+    {
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError(source, "Failed to copy text to clipboard.", exception, details);
+            return false;
+        }
     }
 
     private void CopyPlaybackUrl()
@@ -1146,7 +1568,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Clipboard.SetText(mediaUri.ToString());
+        if (!TrySetClipboardText(mediaUri.ToString(), "Player", SelectedTorrent?.Title ?? string.Empty))
+        {
+            return;
+        }
+
         StatusMessage = L["StatusPlaybackUrlCopied"];
         LogInfo("Player", "Playback URL copied.", SelectedTorrent?.Title ?? string.Empty);
     }
@@ -1166,7 +1592,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Clipboard.SetText(value);
+        if (!TrySetClipboardText(value, "Library", SelectedTorrent.Title))
+        {
+            return;
+        }
+
         StatusMessage = L["StatusTorrentSourceCopied"];
     }
 
@@ -1178,7 +1608,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Clipboard.SetText(SelectedTorrent.Hash);
+        if (!TrySetClipboardText(SelectedTorrent.Hash, "Library", SelectedTorrent.Title))
+        {
+            return;
+        }
+
         StatusMessage = L["StatusTorrentHashCopied"];
     }
 
@@ -1189,17 +1623,91 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return null;
         }
 
-        var fileId = SelectedTorrentFile?.Id ?? SelectedTorrent.Files.FirstOrDefault()?.Id ?? 0;
         using var client = new TorrServerClient(SelectedServer);
-        if (_settings.Player.PreferDirectStreamUrl && !string.IsNullOrWhiteSpace(SelectedTorrent.SourceLink))
+        if (SelectedTorrentFile is not null)
         {
-            return client.GetStreamUri(SelectedTorrent.SourceLink, fileId);
+            return client.GetStreamUri(SelectedTorrent.Hash, SelectedTorrentFile.Id, SelectedTorrentFile.Path);
+        }
+
+        if (SelectedTorrent.Files.Count != 1)
+        {
+            return client.GetPlaylistUri(SelectedTorrent.Hash, ResolvePlaylistName(SelectedTorrent));
+        }
+
+        var file = SelectedTorrent.Files[0];
+        var fileId = file.Id;
+        if (_settings.Player.PreferDirectStreamUrl)
+        {
+            return client.GetStreamUri(SelectedTorrent.Hash, fileId, file.Path);
         }
 
         return client.GetPlaybackUri(SelectedTorrent.Hash, fileId);
     }
 
-    private void ReplaceSelectedTorrent(TorrentItem updated)
+    private static string ResolvePlaylistName(TorrentItem torrent)
+    {
+        foreach (var file in torrent.Files)
+        {
+            var path = file.Path.Trim();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            var parts = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length > 1)
+            {
+                return parts[0];
+            }
+        }
+
+        var firstFilePath = torrent.Files.FirstOrDefault()?.Path;
+        if (!string.IsNullOrWhiteSpace(firstFilePath))
+        {
+            var fileName = Path.GetFileNameWithoutExtension(firstFilePath);
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                return fileName;
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(torrent.Title) ? "playlist" : torrent.Title;
+    }
+
+    private HashSet<string> CurrentTorrentHashes()
+    {
+        return Torrents
+            .Select(torrent => torrent.Hash)
+            .Where(hash => !string.IsNullOrWhiteSpace(hash))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static TorrentItem? SelectAddedTorrent(
+        IReadOnlyList<TorrentItem> torrents,
+        string? preferredHash,
+        IReadOnlySet<string> previousHashes)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredHash))
+        {
+            var byHash = torrents.FirstOrDefault(torrent =>
+                string.Equals(torrent.Hash, preferredHash, StringComparison.OrdinalIgnoreCase));
+            if (byHash is not null)
+            {
+                return byHash;
+            }
+        }
+
+        return torrents.FirstOrDefault(torrent =>
+            !string.IsNullOrWhiteSpace(torrent.Hash) &&
+            !previousHashes.Contains(torrent.Hash));
+    }
+
+    private static bool HasUsefulTorrentDetails(TorrentItem torrent)
+    {
+        return torrent.Files.Count > 0 || torrent.SizeBytes > 0;
+    }
+
+    private void ReplaceSelectedTorrent(TorrentItem updated, int? preferredFileId = null)
     {
         if (string.IsNullOrWhiteSpace(updated.Hash))
         {
@@ -1221,6 +1729,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         SelectedTorrent = updated;
+        if (preferredFileId is not null)
+        {
+            var selectedFile = updated.Files.FirstOrDefault(file => file.Id == preferredFileId.Value);
+            if (selectedFile is not null)
+            {
+                SelectedTorrentFile = selectedFile;
+            }
+        }
     }
 
     private void LoadSelectedTorrentEditor(TorrentItem? torrent)
@@ -1233,19 +1749,31 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task SaveSettingsAsync()
     {
-        SyncSettingsFromView();
-        await _settingsStore.SaveAsync(_settings).ConfigureAwait(true);
-
         try
         {
-            AppPaths.EnsureProgramDataDirectories();
-            await new AppSettingsStore(AppPaths.ServiceSettingsFile).SaveAsync(_settings).ConfigureAwait(true);
+            SyncSettingsFromView();
+            await _settingsStore.SaveAsync(_settings).ConfigureAwait(true);
         }
-        catch
+        catch (Exception exception)
         {
-            StatusMessage = L["StatusSavedUserOnly"];
-            LogWarning("Settings", "Settings saved for current user only.");
+            StatusMessage = exception.Message;
+            LogError("Settings", "Settings save failed.", exception);
             return;
+        }
+
+        if (!string.Equals(AppPaths.UserSettingsFile, AppPaths.ServiceSettingsFile, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                AppPaths.EnsureProgramDataDirectories();
+                await new AppSettingsStore(AppPaths.ServiceSettingsFile).SaveAsync(_settings).ConfigureAwait(true);
+            }
+            catch
+            {
+                StatusMessage = L["StatusSavedUserOnly"];
+                LogWarning("Settings", "Settings saved for current user only.");
+                return;
+            }
         }
 
         StatusMessage = L["StatusSaved"];
@@ -1306,6 +1834,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SearchProviders.Add(provider);
         SelectedSearchProvider = provider;
         RebuildSearchProviderOptions();
+        SelectSearchProviderOption(provider);
         StatusMessage = L["StatusSearchProviderAdded"];
         LogInfo("Search", "Search provider added.", provider.Name);
     }
@@ -1432,7 +1961,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Clipboard.SetText(RuntimeSettingsJson);
+        if (!TrySetClipboardText(RuntimeSettingsJson, "RuntimeSettings"))
+        {
+            return;
+        }
+
         StatusMessage = L["StatusRuntimeSettingsJsonCopied"];
     }
 
@@ -1462,8 +1995,143 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void CopyLogPaths()
     {
-        System.Windows.Clipboard.SetText(AppPaths.UserLogFile + Environment.NewLine + AppPaths.ServiceLogFile);
+        if (!TrySetClipboardText(AppPaths.UserLogFile + Environment.NewLine + AppPaths.ServiceLogFile, "Logs"))
+        {
+            return;
+        }
+
         StatusMessage = L["StatusLogPathsCopied"];
+    }
+
+    private void OpenLogFolders()
+    {
+        var directories = new[]
+            {
+                AppPaths.UserLogsDirectory,
+                AppPaths.ProgramDataLogsDirectory
+            }
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var opened = 0;
+        foreach (var directory in directories)
+        {
+            if (OpenDirectory(directory, createDirectory: true, updateStatus: false))
+            {
+                opened++;
+            }
+        }
+
+        if (opened == directories.Length)
+        {
+            StatusMessage = L["StatusLogFoldersOpened"];
+        }
+    }
+
+    private void OpenTorrServerExecutableFolder()
+    {
+        var directory = ResolveContainingDirectory(LocalServer.ExecutablePath, AppPaths.DefaultLocalServerDirectory);
+        OpenDirectory(directory, createDirectory: true);
+    }
+
+    private void OpenLocalServerDataFolder()
+    {
+        OpenDirectory(LocalTorrServerConfigurationWriter.GetDataDirectory(LocalServer), createDirectory: true);
+    }
+
+    private void OpenLocalServerCacheFolder()
+    {
+        OpenDirectory(ResolveLocalServerCacheDirectory(), createDirectory: true);
+    }
+
+    private void OpenTorrServerVersionsFolder()
+    {
+        OpenDirectory(GetTorrServerVersionsDirectory(), createDirectory: true);
+    }
+
+    private void OpenSelectedInstalledTorrServerFolder()
+    {
+        if (SelectedInstalledTorrServer is null)
+        {
+            StatusMessage = L["StatusNoInstalledTorrServerSelected"];
+            return;
+        }
+
+        var directory = ResolveContainingDirectory(SelectedInstalledTorrServer.ExecutablePath, string.Empty);
+        OpenDirectory(directory, createDirectory: false);
+    }
+
+    private void OpenSettingsBackupsFolder()
+    {
+        OpenDirectory(AppPaths.UserSettingsBackupsDirectory, createDirectory: true);
+    }
+
+    private bool OpenDirectory(string directoryPath, bool createDirectory, bool updateStatus = true)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                throw new InvalidOperationException(L["StatusFolderPathEmpty"]);
+            }
+
+            if (createDirectory)
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+            else if (!Directory.Exists(directoryPath))
+            {
+                throw new DirectoryNotFoundException(directoryPath);
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = directoryPath,
+                UseShellExecute = true
+            });
+
+            if (updateStatus)
+            {
+                StatusMessage = string.Format(L["StatusFolderOpened"], directoryPath);
+            }
+
+            LogInfo("Shell", "Folder opened.", directoryPath);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusFolderOpenFailed"], exception.Message);
+            LogError("Shell", "Failed to open folder.", exception, directoryPath);
+            return false;
+        }
+    }
+
+    private static string ResolveContainingDirectory(string path, string fallbackDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return fallbackDirectory;
+        }
+
+        if (Directory.Exists(path))
+        {
+            return path;
+        }
+
+        var directory = Path.GetDirectoryName(path);
+        return string.IsNullOrWhiteSpace(directory)
+            ? fallbackDirectory
+            : directory;
+    }
+
+    private string ResolveLocalServerCacheDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(LocalServer.TemporaryDataPath))
+        {
+            return LocalServer.TemporaryDataPath;
+        }
+
+        return Path.Combine(LocalTorrServerConfigurationWriter.GetDataDirectory(LocalServer), "cache");
     }
 
     private static async Task<IReadOnlyList<AppLogEntry>> ReadLogSafeAsync(FileEventLog log)
@@ -1515,9 +2183,217 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var text = string.Join(Environment.NewLine, DiagnosticItems.Select(item => $"{item.Name}: {item.Value}"));
-        System.Windows.Clipboard.SetText(text);
+        if (!TrySetClipboardText(BuildDiagnosticsReport(includeHeader: false), "Diagnostics"))
+        {
+            return;
+        }
+
         StatusMessage = L["StatusDiagnosticsCopied"];
+    }
+
+    private string BuildDiagnosticsReport(bool includeHeader)
+    {
+        var lines = new List<string>();
+        if (includeHeader)
+        {
+            lines.Add("TorrWind diagnostics");
+            lines.Add("Created: " + DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss zzz"));
+            lines.Add(string.Empty);
+        }
+
+        lines.AddRange(DiagnosticItems.Select(item => $"{item.Name}: {item.Value}"));
+        return string.Join(Environment.NewLine, lines) + Environment.NewLine;
+    }
+
+    private static async Task AddTextEntryAsync(
+        ZipArchive archive,
+        string entryName,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
+        await using var entryStream = entry.Open();
+        await using var writer = new StreamWriter(entryStream);
+        await writer.WriteAsync(content.AsMemory(), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task AddFileEntryIfExistsAsync(
+        ZipArchive archive,
+        string filePath,
+        string entryName,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(filePath))
+        {
+            return;
+        }
+
+        try
+        {
+            var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
+            await using var entryStream = entry.Open();
+            await using var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            await fileStream.CopyToAsync(entryStream, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await AddTextEntryAsync(
+                    archive,
+                    entryName + ".error.txt",
+                    $"Failed to include {filePath}:{Environment.NewLine}{exception.Message}{Environment.NewLine}",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private string BuildSupportBundleManifest()
+    {
+        return string.Join(
+            Environment.NewLine,
+            [
+                "TorrWind support bundle",
+                "Created: " + DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss zzz"),
+                "Sensitive values in settings.sanitized.json are redacted.",
+                string.Empty,
+                "Entries:",
+                "- diagnostics.txt",
+                "- settings.sanitized.json",
+                "- logs/gui.jsonl",
+                "- logs/gui.jsonl.1 when present",
+                "- logs/service.jsonl",
+                "- logs/service.jsonl.1 when present"
+            ]) + Environment.NewLine;
+    }
+
+    private string BuildSanitizedSettingsJson()
+    {
+        var sanitized = new
+        {
+            _settings.Language,
+            _settings.ActiveServerId,
+            _settings.SettingsBackupRetentionCount,
+            Servers = _settings.Servers.Select(server => new
+            {
+                server.Id,
+                server.Name,
+                BaseUrl = RedactUrl(server.BaseUrl),
+                HasUsername = !string.IsNullOrWhiteSpace(server.Username),
+                HasPassword = !string.IsNullOrWhiteSpace(server.Password),
+                server.IsLocal,
+                server.IgnoreCertificateErrors,
+                server.ReadOnly
+            }),
+            LocalServer = new
+            {
+                LocalServer.Enabled,
+                LocalServer.RunAsWindowsService,
+                LocalServer.ExecutablePath,
+                LocalServer.InstalledVersion,
+                LocalServer.PreviousExecutablePath,
+                LocalServer.PreviousVersion,
+                LocalServer.DataDirectory,
+                LocalServer.TemporaryDataPath,
+                LocalServer.ListenAddress,
+                LocalServer.Port,
+                LocalServer.UseHttpAuth,
+                HasUsername = !string.IsNullOrWhiteSpace(LocalServer.Username),
+                HasPassword = !string.IsNullOrWhiteSpace(LocalServer.Password),
+                LocalServer.UseSsl,
+                LocalServer.SslPort,
+                LocalServer.ForceHttps,
+                LocalServer.CertificatePath,
+                LocalServer.CertificateKeyPath,
+                LocalServer.ReadOnlyDatabase,
+                LocalServer.AllowSearchWithoutAuth,
+                WhiteListEntries = CountNonEmptyLines(LocalServer.WhiteList),
+                BlackListEntries = CountNonEmptyLines(LocalServer.BlackList),
+                ProxyUrl = RedactUrl(LocalServer.ProxyUrl),
+                LocalServer.ProxyMode,
+                LocalServer.EnableDlna,
+                LocalServer.EnableWebDav,
+                LocalServer.CacheMode,
+                LocalServer.CacheSizeMb,
+                LocalServer.DownloadSpeedLimitKb,
+                LocalServer.UploadSpeedLimitKb,
+                LocalServer.AllowLanAccess
+            },
+            Player = new
+            {
+                Player.PreferredPlayer,
+                Player.CustomPlayerPath,
+                Player.PreferDirectStreamUrl
+            },
+            SearchProviders = _settings.SearchProviders.Select(provider => new
+            {
+                provider.Id,
+                provider.Name,
+                Url = RedactUrl(provider.Url),
+                HasApiKey = !string.IsNullOrWhiteSpace(provider.ApiKey),
+                provider.Categories,
+                provider.Enabled,
+                provider.IgnoreCertificateErrors,
+                provider.TimeoutSeconds
+            }),
+            SearchHistoryCount = _settings.SearchHistory.Count
+        };
+
+        return JsonSerializer.Serialize(
+            sanitized,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                WriteIndented = true
+            });
+    }
+
+    private static int CountNonEmptyLines(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? 0
+            : value
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n')
+                .Count(line => !string.IsNullOrWhiteSpace(line));
+    }
+
+    private static string RedactUrl(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !value.Contains('?', StringComparison.Ordinal))
+        {
+            return value;
+        }
+
+        var hashIndex = value.IndexOf('#', StringComparison.Ordinal);
+        var withoutFragment = hashIndex >= 0 ? value[..hashIndex] : value;
+        var fragment = hashIndex >= 0 ? value[hashIndex..] : string.Empty;
+        var queryIndex = withoutFragment.IndexOf('?', StringComparison.Ordinal);
+        if (queryIndex < 0)
+        {
+            return value;
+        }
+
+        var prefix = withoutFragment[..(queryIndex + 1)];
+        var query = withoutFragment[(queryIndex + 1)..];
+        var parts = query.Split('&');
+        for (var i = 0; i < parts.Length; i++)
+        {
+            var separatorIndex = parts[i].IndexOf('=', StringComparison.Ordinal);
+            var key = separatorIndex >= 0 ? parts[i][..separatorIndex] : parts[i];
+            if (IsSensitiveName(key))
+            {
+                parts[i] = separatorIndex >= 0 ? key + "=<redacted>" : key;
+            }
+        }
+
+        return prefix + string.Join("&", parts) + fragment;
+    }
+
+    private static bool IsSensitiveName(string name)
+    {
+        return name.Contains("key", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("token", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
+               name.Contains("pass", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddApplicationDiagnostics()
@@ -1610,6 +2486,28 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ActiveServerLabel));
     }
 
+    private async Task ApplySelectedLanguageAsync()
+    {
+        if (_suppressLanguageApply || _isApplyingLanguage || string.IsNullOrWhiteSpace(SelectedLanguage))
+        {
+            return;
+        }
+
+        try
+        {
+            _isApplyingLanguage = true;
+            await ApplyLanguageAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            HandleCommandException(exception);
+        }
+        finally
+        {
+            _isApplyingLanguage = false;
+        }
+    }
+
     private void AddDiagnostic(string nameKey, string value)
     {
         DiagnosticItems.Add(new DiagnosticItem(L[nameKey], string.IsNullOrWhiteSpace(value) ? L["DiagnosticNotAvailable"] : value));
@@ -1628,6 +2526,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private void LogError(string source, string message, Exception exception, string details = "")
     {
         _userLog.Error(source, message, exception, details);
+    }
+
+    private void HandleCommandException(Exception exception)
+    {
+        StatusMessage = exception.Message;
+        LogError("Command", "Unhandled command failure.", exception);
     }
 
     private string FormatBool(bool value)
@@ -1750,7 +2654,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         using var client = new TorrServerClient(SelectedServer);
-        return await client.SearchTorznabAsync(query).ConfigureAwait(true);
+        var results = new List<SearchResult>();
+
+        try
+        {
+            results.AddRange(await client.SearchServerTorznabAsync(query).ConfigureAwait(true));
+        }
+        catch (Exception exception)
+        {
+            _lastSearchFailedProviders++;
+            LogError("Search", "Selected TorrServer Torznab search failed.", exception, SelectedServer.Name);
+        }
+
+        try
+        {
+            results.AddRange(await client.SearchServerRutorAsync(query).ConfigureAwait(true));
+        }
+        catch (Exception exception)
+        {
+            _lastSearchFailedProviders++;
+            LogError("Search", "Selected TorrServer RuTor search failed.", exception, SelectedServer.Name);
+        }
+
+        return results
+            .GroupBy(result => FirstNotEmpty(result.Magnet, result.Link, result.Title), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToArray();
     }
 
     private async Task<IReadOnlyList<SearchResult>> SearchConfiguredProvidersAsync(SearchProviderOption option, string query)
@@ -1852,6 +2781,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedSearchProviderOption = SearchProviderOptions.FirstOrDefault(option =>
                 selected is not null && option.Matches(selected)) ??
             SearchProviderOptions.FirstOrDefault();
+    }
+
+    private void SelectSearchProviderOption(SearchProviderSettings provider)
+    {
+        SelectedSearchProviderOption = SearchProviderOptions.FirstOrDefault(option =>
+                option.Provider is not null && option.Provider.Id == provider.Id) ??
+            SelectedSearchProviderOption;
     }
 
     private async Task<TorrServerRelease> FetchLatestTorrServerReleaseAsync(GitHubReleaseService releases)
@@ -1974,6 +2910,130 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private static string GetTorrServerVersionsDirectory()
+    {
+        return Path.Combine(AppPaths.DefaultLocalServerDirectory, "versions");
+    }
+
+    private void RefreshInstalledTorrServers()
+    {
+        RefreshInstalledTorrServers(updateStatusMessage: true);
+    }
+
+    private void RefreshInstalledTorrServers(bool updateStatusMessage)
+    {
+        try
+        {
+            var selectedPath = SelectedInstalledTorrServer?.ExecutablePath;
+            var versionsDirectory = GetTorrServerVersionsDirectory();
+            List<InstalledTorrServerItem> items = Directory.Exists(versionsDirectory)
+                ? Directory
+                    .EnumerateFiles(versionsDirectory, "*.exe", SearchOption.AllDirectories)
+                    .Select(path => new FileInfo(path))
+                    .Where(file => file.Exists)
+                    .Select(file => new InstalledTorrServerItem(file.FullName, ResolveInstalledTorrServerVersion(file.FullName), file.Length, new DateTimeOffset(file.LastWriteTime)))
+                    .OrderByDescending(item => item.ModifiedAt)
+                    .ToList()
+                : [];
+
+            InstalledTorrServers.Clear();
+            foreach (var item in items)
+            {
+                InstalledTorrServers.Add(item);
+            }
+
+            SelectedInstalledTorrServer = InstalledTorrServers.FirstOrDefault(item =>
+                    string.Equals(item.ExecutablePath, selectedPath, StringComparison.OrdinalIgnoreCase)) ??
+                InstalledTorrServers.FirstOrDefault(item =>
+                    string.Equals(item.ExecutablePath, LocalServer.ExecutablePath, StringComparison.OrdinalIgnoreCase)) ??
+                InstalledTorrServers.FirstOrDefault();
+
+            if (updateStatusMessage)
+            {
+                StatusMessage = string.Format(L["StatusInstalledTorrServersLoaded"], InstalledTorrServers.Count);
+            }
+        }
+        catch (Exception exception)
+        {
+            if (updateStatusMessage)
+            {
+                StatusMessage = string.Format(L["StatusInstalledTorrServersLoadFailed"], exception.Message);
+            }
+
+            LogError("TorrServer", "Failed to refresh installed TorrServer versions.", exception);
+        }
+    }
+
+    private async Task UseSelectedInstalledTorrServerAsync()
+    {
+        if (SelectedInstalledTorrServer is null)
+        {
+            StatusMessage = L["StatusNoInstalledTorrServerSelected"];
+            return;
+        }
+
+        try
+        {
+            await SwitchLocalTorrServerExecutableAsync(
+                SelectedInstalledTorrServer.ExecutablePath,
+                SelectedInstalledTorrServer.Version,
+                "StatusTorrServerSwitched").ConfigureAwait(true);
+            LogInfo("TorrServer", "Switched to installed TorrServer version.", SelectedInstalledTorrServer.ExecutablePath);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("TorrServer", "Failed to switch installed TorrServer version.", exception);
+        }
+    }
+
+    private void DeleteSelectedInstalledTorrServer()
+    {
+        if (SelectedInstalledTorrServer is null)
+        {
+            StatusMessage = L["StatusNoInstalledTorrServerSelected"];
+            return;
+        }
+
+        var item = SelectedInstalledTorrServer;
+        if (string.Equals(item.ExecutablePath, LocalServer.ExecutablePath, StringComparison.OrdinalIgnoreCase))
+        {
+            StatusMessage = L["StatusCannotDeleteActiveTorrServer"];
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(
+            string.Format(L["ConfirmDeleteInstalledTorrServer"], item.Version, item.ExecutablePath),
+            L["ConfirmDeleteInstalledTorrServerTitle"],
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            var file = new FileInfo(item.ExecutablePath);
+            if (file.Exists && file.IsReadOnly)
+            {
+                file.Attributes &= ~FileAttributes.ReadOnly;
+            }
+
+            file.Delete();
+            RemoveEmptyVersionDirectory(item.ExecutablePath);
+            RefreshInstalledTorrServers(updateStatusMessage: false);
+            StatusMessage = string.Format(L["StatusInstalledTorrServerDeleted"], item.Version);
+            LogInfo("TorrServer", "Installed TorrServer version deleted.", item.ExecutablePath);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusInstalledTorrServerDeleteFailed"], exception.Message);
+            LogError("TorrServer", "Failed to delete installed TorrServer version.", exception, item.ExecutablePath);
+        }
+    }
+
     private async Task DownloadTorrServerReleaseAsync(GitHubReleaseService releases, TorrServerRelease release)
     {
         AppPaths.EnsureProgramDataDirectories();
@@ -2000,21 +3060,32 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         });
 
         await releases.DownloadAsync(release.DownloadUrl, destination, progress).ConfigureAwait(true);
+        ValidateDownloadedTorrServer(destination, release);
+        await SwitchLocalTorrServerExecutableAsync(destination, release.Version, "StatusTorrServerDownloaded").ConfigureAwait(true);
+        RefreshInstalledTorrServers(updateStatusMessage: false);
+        LogInfo("TorrServer", "TorrServer downloaded.", $"{release.Version}: {destination}");
+    }
+
+    private async Task SwitchLocalTorrServerExecutableAsync(string executablePath, string version, string statusKey)
+    {
+        if (!File.Exists(executablePath))
+        {
+            throw new FileNotFoundException("TorrServer executable was not found.", executablePath);
+        }
 
         if (!string.IsNullOrWhiteSpace(LocalServer.ExecutablePath) &&
-            !string.Equals(LocalServer.ExecutablePath, destination, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(LocalServer.ExecutablePath, executablePath, StringComparison.OrdinalIgnoreCase))
         {
             LocalServer.PreviousExecutablePath = LocalServer.ExecutablePath;
             LocalServer.PreviousVersion = LocalServer.InstalledVersion;
         }
 
-        LocalServer.ExecutablePath = destination;
-        LocalServer.InstalledVersion = release.Version;
+        LocalServer.ExecutablePath = executablePath;
+        LocalServer.InstalledVersion = version;
         OnPropertyChanged(nameof(LocalServer));
         UpdateTorrServerReleaseText();
         await SaveSettingsAsync().ConfigureAwait(true);
-        StatusMessage = string.Format(L["StatusTorrServerDownloaded"], release.Version);
-        LogInfo("TorrServer", "TorrServer downloaded.", $"{release.Version}: {destination}");
+        StatusMessage = string.Format(L[statusKey], version);
     }
 
     private async Task RollbackTorrServerAsync()
@@ -2068,6 +3139,48 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var chars = value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray();
         var sanitized = new string(chars).Trim();
         return string.IsNullOrWhiteSpace(sanitized) ? "unknown" : sanitized;
+    }
+
+    private static string ResolveInstalledTorrServerVersion(string executablePath)
+    {
+        var directory = Path.GetDirectoryName(executablePath);
+        return string.IsNullOrWhiteSpace(directory)
+            ? string.Empty
+            : Path.GetFileName(directory);
+    }
+
+    private static void RemoveEmptyVersionDirectory(string executablePath)
+    {
+        var directory = Path.GetDirectoryName(executablePath);
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        var parent = Directory.GetParent(directory);
+        if (parent is null ||
+            !string.Equals(parent.Name, "versions", StringComparison.OrdinalIgnoreCase) ||
+            Directory.EnumerateFileSystemEntries(directory).Any())
+        {
+            return;
+        }
+
+        Directory.Delete(directory);
+    }
+
+    private static void ValidateDownloadedTorrServer(string executablePath, TorrServerRelease release)
+    {
+        var file = new FileInfo(executablePath);
+        if (!file.Exists || file.Length <= 0)
+        {
+            throw new InvalidDataException("Downloaded TorrServer executable is empty.");
+        }
+
+        if (release.SizeBytes > 0 && file.Length != release.SizeBytes)
+        {
+            throw new InvalidDataException(
+                $"Downloaded TorrServer size mismatch. Expected {release.SizeBytes} bytes, got {file.Length} bytes.");
+        }
     }
 
     private static string NormalizeReleaseVersion(string value)
@@ -2141,7 +3254,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            await new WindowsServiceManager().UninstallAsync().ConfigureAwait(true);
+            var serviceExe = Path.Combine(AppContext.BaseDirectory, "TorrWind.Service.exe");
+            await new WindowsServiceManager().UninstallAsync(serviceExe).ConfigureAwait(true);
             await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceUninstalled"];
             LogInfo("Service", "Windows service uninstalled.");
@@ -2158,7 +3272,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await SaveSettingsAsync().ConfigureAwait(true);
-            await new WindowsServiceManager().StartAsync().ConfigureAwait(true);
+            var serviceExe = Path.Combine(AppContext.BaseDirectory, "TorrWind.Service.exe");
+            await new WindowsServiceManager().StartAsync(serviceExe).ConfigureAwait(true);
             await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceStarted"];
             LogInfo("Service", "Windows service start requested.");
@@ -2174,7 +3289,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            await new WindowsServiceManager().StopAsync().ConfigureAwait(true);
+            var serviceExe = Path.Combine(AppContext.BaseDirectory, "TorrWind.Service.exe");
+            await new WindowsServiceManager().StopAsync(serviceExe).ConfigureAwait(true);
             await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceStopped"];
             LogInfo("Service", "Windows service stop requested.");
@@ -2368,4 +3484,27 @@ public sealed class TorrServerReleaseItem
         : Release.PublishedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     public string SizeText => TorrentItem.FormatBytes(Release.SizeBytes);
+}
+
+public sealed class InstalledTorrServerItem
+{
+    public InstalledTorrServerItem(string executablePath, string version, long sizeBytes, DateTimeOffset modifiedAt)
+    {
+        ExecutablePath = executablePath;
+        Version = version;
+        SizeBytes = sizeBytes;
+        ModifiedAt = modifiedAt;
+    }
+
+    public string Version { get; }
+
+    public string ExecutablePath { get; }
+
+    public long SizeBytes { get; }
+
+    public DateTimeOffset ModifiedAt { get; }
+
+    public string ModifiedAtText => ModifiedAt.ToString("yyyy-MM-dd HH:mm:ss");
+
+    public string SizeText => TorrentItem.FormatBytes(SizeBytes);
 }

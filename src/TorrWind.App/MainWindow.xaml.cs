@@ -1,6 +1,10 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+using Microsoft.Web.WebView2.Core;
 using TorrWind.App.ViewModels;
 
 namespace TorrWind.App;
@@ -8,12 +12,20 @@ namespace TorrWind.App;
 public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
+    private readonly DispatcherTimer _liveRefreshTimer;
+    private bool _webViewEventsAttached;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+
+        _liveRefreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _liveRefreshTimer.Tick += OnLiveRefreshTick;
     }
 
     public bool AllowClose { get; set; }
@@ -21,17 +33,125 @@ public partial class MainWindow : Window
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         await _viewModel.RefreshAsync().ConfigureAwait(true);
+        _liveRefreshTimer.Start();
+    }
+
+    private async void OnRootTabsSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, RootTabs) || !ReferenceEquals(RootTabs.SelectedItem, LibraryTab))
+        {
+            return;
+        }
+
+        await _viewModel.RefreshAsync().ConfigureAwait(true);
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (AllowClose)
         {
+            _liveRefreshTimer.Stop();
             return;
         }
 
         e.Cancel = true;
         Hide();
+    }
+
+    private async void OnLiveRefreshTick(object? sender, EventArgs e)
+    {
+        if (!IsVisible || !ReferenceEquals(RootTabs.SelectedItem, LibraryTab))
+        {
+            return;
+        }
+
+        await _viewModel.RefreshSelectedTorrentLiveAsync().ConfigureAwait(true);
+    }
+
+    private void OnExitApplication(object sender, RoutedEventArgs e)
+    {
+        if (!ShowExitConfirmationDialog())
+        {
+            Hide();
+            return;
+        }
+
+        AllowClose = true;
+        System.Windows.Application.Current.Shutdown();
+    }
+
+    private bool ShowExitConfirmationDialog()
+    {
+        var exitRequested = false;
+        var dialog = new Window
+        {
+            Owner = this,
+            Title = _viewModel.L["ConfirmExitApplicationTitle"],
+            Width = 390,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar = false
+        };
+        dialog.SetResourceReference(BackgroundProperty, "SurfaceBrush");
+
+        var root = new Grid
+        {
+            Margin = new Thickness(18)
+        };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var message = new TextBlock
+        {
+            Text = _viewModel.L["ConfirmExitApplication"],
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 18)
+        };
+        message.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+
+        var buttons = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right
+        };
+        Grid.SetRow(buttons, 1);
+
+        var exitButton = new System.Windows.Controls.Button
+        {
+            Content = _viewModel.L["ActionExitApplication"],
+            MinWidth = 105,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+
+        var minimizeButton = new System.Windows.Controls.Button
+        {
+            Content = _viewModel.L["ActionMinimizeToTray"],
+            IsCancel = true,
+            IsDefault = true,
+            MinWidth = 105,
+            Style = TryFindResource("PrimaryButton") as Style
+        };
+
+        exitButton.Click += (_, _) =>
+        {
+            exitRequested = true;
+            dialog.DialogResult = true;
+        };
+        minimizeButton.Click += (_, _) =>
+        {
+            exitRequested = false;
+            dialog.DialogResult = false;
+        };
+
+        buttons.Children.Add(exitButton);
+        buttons.Children.Add(minimizeButton);
+        root.Children.Add(message);
+        root.Children.Add(buttons);
+        dialog.Content = root;
+
+        dialog.ShowDialog();
+        return exitRequested;
     }
 
     private async void OnAddTorrentFile(object sender, RoutedEventArgs e)
@@ -90,6 +210,52 @@ public partial class MainWindow : Window
             }
 
             await _viewModel.ImportSettingsAsync(dialog.FileName).ConfigureAwait(true);
+        }
+    }
+
+    private async void OnSaveDiagnostics(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.DiagnosticItems.Count == 0)
+        {
+            _viewModel.StatusMessage = _viewModel.L["StatusNoDiagnostics"];
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            AddExtension = true,
+            DefaultExt = ".txt",
+            FileName = _viewModel.CreateDiagnosticsFileName(),
+            Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            await _viewModel.SaveDiagnosticsAsync(dialog.FileName).ConfigureAwait(true);
+        }
+    }
+
+    private async void OnSaveSupportBundle(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.DiagnosticItems.Count == 0)
+        {
+            _viewModel.StatusMessage = _viewModel.L["StatusNoDiagnostics"];
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            AddExtension = true,
+            DefaultExt = ".zip",
+            FileName = _viewModel.CreateSupportBundleFileName(),
+            Filter = "Zip archives (*.zip)|*.zip|All files (*.*)|*.*",
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) == true)
+        {
+            await _viewModel.SaveSupportBundleAsync(dialog.FileName).ConfigureAwait(true);
         }
     }
 
@@ -194,7 +360,7 @@ public partial class MainWindow : Window
         OpenSelectedServerWebUi();
     }
 
-    public void OpenSelectedServerWebUi()
+    public async void OpenSelectedServerWebUi()
     {
         var uri = _viewModel.SelectedServer?.BaseUri;
         if (uri is null)
@@ -203,7 +369,52 @@ public partial class MainWindow : Window
         }
 
         RootTabs.SelectedItem = WebUiTab;
-        ServerWebBrowser.Navigate(uri);
+        try
+        {
+            await ServerWebView.EnsureCoreWebView2Async().ConfigureAwait(true);
+            AttachWebViewEvents();
+            ServerWebView.Source = uri;
+        }
+        catch (Exception exception)
+        {
+            _viewModel.StatusMessage = exception.Message;
+            try
+            {
+                OpenExternalUri(uri);
+            }
+            catch (Exception fallbackException)
+            {
+                _viewModel.StatusMessage = fallbackException.Message;
+            }
+        }
+    }
+
+    private void AttachWebViewEvents()
+    {
+        if (_webViewEventsAttached || ServerWebView.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        ServerWebView.CoreWebView2.ServerCertificateErrorDetected += OnServerCertificateErrorDetected;
+        _webViewEventsAttached = true;
+    }
+
+    private void OnServerCertificateErrorDetected(object? sender, CoreWebView2ServerCertificateErrorDetectedEventArgs e)
+    {
+        if (_viewModel.SelectedServer?.IgnoreCertificateErrors == true)
+        {
+            e.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
+        }
+    }
+
+    private static void OpenExternalUri(Uri uri)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = uri.ToString(),
+            UseShellExecute = true
+        });
     }
 
     private string? BrowseFile(string filter, string currentPath)

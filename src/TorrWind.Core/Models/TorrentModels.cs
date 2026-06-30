@@ -158,6 +158,76 @@ public sealed class SearchResult
     public string Category { get; set; } = string.Empty;
 
     public DateTimeOffset? PublishedAt { get; set; }
+
+    public static SearchResult FromTorrServerJson(JsonElement element, string providerName)
+    {
+        return new SearchResult
+        {
+            ProviderName = FirstNotEmpty(element.ReadString("tracker", "Tracker"), providerName),
+            Title = FirstNotEmpty(element.ReadString("title", "Title"), element.ReadString("name", "Name")),
+            Link = element.ReadString("link", "Link"),
+            Magnet = element.ReadString("magnet", "Magnet"),
+            SizeBytes = ParseSizeBytes(element.ReadString("size", "Size")),
+            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders"),
+            Leechers = element.ReadInt32("peer", "Peer", "leechers", "Leechers", "peers", "Peers"),
+            Category = element.ReadString("categories", "Categories", "category", "Category"),
+            PublishedAt = ParsePublishedAt(element.ReadString("createDate", "CreateDate", "pubDate", "PubDate"))
+        };
+    }
+
+    private static DateTimeOffset? ParsePublishedAt(string value)
+    {
+        return DateTimeOffset.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal,
+            out var publishedAt)
+                ? publishedAt
+                : null;
+    }
+
+    private static long ParseSizeBytes(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0;
+        }
+
+        var trimmed = value.Trim();
+        if (long.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bytes))
+        {
+            return bytes;
+        }
+
+        var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 ||
+            !double.TryParse(parts[0].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var numericValue))
+        {
+            return 0;
+        }
+
+        var unit = parts.Length > 1 ? parts[1].Trim().ToUpperInvariant() : "B";
+        var baseValue = unit.Contains('I', StringComparison.Ordinal) || unit.Contains('C', StringComparison.Ordinal)
+            ? 1024D
+            : 1000D;
+        var exponent = unit.Length == 0
+            ? 0
+            : unit[0] switch
+            {
+                'K' => 1,
+                'M' => 2,
+                'G' => 3,
+                'T' => 4,
+                _ => 0
+            };
+
+        return (long)Math.Round(numericValue * Math.Pow(baseValue, exponent));
+    }
+
+    private static string FirstNotEmpty(params string[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
 }
 
 internal static class JsonElementExtensions

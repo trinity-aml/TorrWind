@@ -18,4 +18,8 @@
     <None Include="..\..\locales\**\*.json" CopyToOutputDirectory="PreserveNewest" LinkBase="locales" />
     <Resource Include="..\..\assets\TorrWind.ico" Link="TorrWind.ico" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
+  </ItemGroup>
 </Project>

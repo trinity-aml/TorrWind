@@ -55,7 +55,7 @@ public sealed class TorrServerClient : IDisposable
         return ParseTorrentItem(json);
     }
 
-    public async Task AddMagnetAsync(string magnet, string? title = null, CancellationToken cancellationToken = default)
+    public async Task<TorrentItem> AddMagnetAsync(string magnet, string? title = null, CancellationToken cancellationToken = default)
     {
         var payload = new
         {
@@ -67,9 +67,11 @@ public sealed class TorrServerClient : IDisposable
 
         using var response = await PostTorrentsAsync(payload, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return ParseTorrentItem(json);
     }
 
-    public async Task AddTorrentFileAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TorrentItem>> AddTorrentFileAsync(string filePath, CancellationToken cancellationToken = default)
     {
         await using var fileStream = File.OpenRead(filePath);
         using var form = new MultipartFormDataContent();
@@ -78,6 +80,8 @@ public sealed class TorrServerClient : IDisposable
 
         using var response = await _httpClient.PostAsync("torrent/upload", form, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        return ParseTorrentItems(json);
     }
 
     public async Task RemoveTorrentAsync(string hash, CancellationToken cancellationToken = default)
@@ -125,11 +129,58 @@ public sealed class TorrServerClient : IDisposable
         return new Uri(_server.BaseUri, $"play/{Uri.EscapeDataString(hash)}/{fileId}");
     }
 
-    public Uri GetStreamUri(string link, int fileIndex = 0)
+    public Uri GetPlaylistUri(string link, string playlistName, bool fromLast = false)
     {
-        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream"));
-        builder.Query = $"link={Uri.EscapeDataString(link)}&index={fileIndex}&play=1";
+        var fileName = EnsurePlaylistFileName(playlistName);
+        var query = "link=" + Uri.EscapeDataString(link) + "&m3u";
+        if (fromLast)
+        {
+            query += "&fromlast";
+        }
+
+        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream/" + Uri.EscapeDataString(fileName)))
+        {
+            Query = query
+        };
+
         return builder.Uri;
+    }
+
+    public Uri GetStreamUri(string link, int fileIndex = 0, string fileName = "", string sessionToken = "")
+    {
+        var streamName = string.IsNullOrWhiteSpace(fileName)
+            ? "stream"
+            : Path.GetFileName(fileName.Trim());
+        if (string.IsNullOrWhiteSpace(streamName))
+        {
+            streamName = "stream";
+        }
+
+        var query = $"link={Uri.EscapeDataString(link)}&index={fileIndex}&play";
+        if (!string.IsNullOrWhiteSpace(sessionToken))
+        {
+            query += "&ss=" + Uri.EscapeDataString(sessionToken.Trim());
+        }
+
+        var builder = new UriBuilder(new Uri(_server.BaseUri, "stream/" + Uri.EscapeDataString(streamName)))
+        {
+            Query = query
+        };
+        return builder.Uri;
+    }
+
+    private static string EnsurePlaylistFileName(string title)
+    {
+        var fileName = string.IsNullOrWhiteSpace(title) ? "playlist" : Path.GetFileName(title.Trim());
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            fileName = "playlist";
+        }
+
+        return fileName.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) ||
+            fileName.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)
+                ? fileName
+                : fileName + ".m3u";
     }
 
     public async Task<IReadOnlyList<SearchResult>> SearchTorznabAsync(
@@ -137,12 +188,26 @@ public sealed class TorrServerClient : IDisposable
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        var path = $"torznab/search?query={Uri.EscapeDataString(query)}&limit={limit}";
-        using var response = await _httpClient.GetAsync(path, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        return (await SearchServerTorznabAsync(query, cancellationToken: cancellationToken).ConfigureAwait(false))
+            .Take(Math.Max(1, limit))
+            .ToArray();
+    }
 
-        var xml = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return TorznabSearchClient.Parse(xml, _server.Name);
+    public async Task<IReadOnlyList<SearchResult>> SearchServerTorznabAsync(
+        string query,
+        int index = -1,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"torznab/search?query={Uri.EscapeDataString(query)}&index={index}";
+        return await SearchServerJsonAsync(path, _server.Name + " Torznab", cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<SearchResult>> SearchServerRutorAsync(
+        string query,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"search?query={Uri.EscapeDataString(query)}";
+        return await SearchServerJsonAsync(path, _server.Name + " RuTor", cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<JsonDocument> GetSettingsAsync(CancellationToken cancellationToken = default)
@@ -242,6 +307,30 @@ public sealed class TorrServerClient : IDisposable
         return Path.Combine(LocalTorrServerConfigurationWriter.GetDataDirectory(settings), "cache");
     }
 
+    private async Task<IReadOnlyList<SearchResult>> SearchServerJsonAsync(
+        string path,
+        string providerName,
+        CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.GetAsync(path, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return root
+            .EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.Object)
+            .Select(item => SearchResult.FromTorrServerJson(item, providerName))
+            .Where(result => !string.IsNullOrWhiteSpace(result.Title))
+            .ToArray();
+    }
+
     private static HttpMessageHandler CreateHandler(ServerProfile server)
     {
         var handler = new HttpClientHandler();
@@ -285,6 +374,11 @@ public sealed class TorrServerClient : IDisposable
             {
                 array = torrents;
             }
+            else
+            {
+                var item = TorrentItem.FromJson(root);
+                return HasTorrentIdentity(item) ? [item] : [];
+            }
         }
 
         if (array.ValueKind != JsonValueKind.Array)
@@ -292,7 +386,12 @@ public sealed class TorrServerClient : IDisposable
             return [];
         }
 
-        return array.EnumerateArray().Select(TorrentItem.FromJson).ToArray();
+        return array
+            .EnumerateArray()
+            .Where(element => element.ValueKind == JsonValueKind.Object)
+            .Select(TorrentItem.FromJson)
+            .Where(HasTorrentIdentity)
+            .ToArray();
     }
 
     private static TorrentItem ParseTorrentItem(string json)
@@ -306,5 +405,12 @@ public sealed class TorrServerClient : IDisposable
         return document.RootElement.ValueKind == JsonValueKind.Object
             ? TorrentItem.FromJson(document.RootElement)
             : new TorrentItem();
+    }
+
+    private static bool HasTorrentIdentity(TorrentItem item)
+    {
+        return !string.IsNullOrWhiteSpace(item.Hash) ||
+            !string.IsNullOrWhiteSpace(item.Title) ||
+            item.Files.Count > 0;
     }
 }
