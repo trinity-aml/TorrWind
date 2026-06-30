@@ -2313,6 +2313,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 LocalServer.EnableWebDav,
                 LocalServer.CacheMode,
                 LocalServer.CacheSizeMb,
+                LocalServer.PreloadCachePercent,
+                LocalServer.ReaderReadAheadPercent,
+                LocalServer.TorrentDisconnectTimeoutSeconds,
+                LocalServer.ConnectionsLimit,
                 LocalServer.DownloadSpeedLimitKb,
                 LocalServer.UploadSpeedLimitKb,
                 LocalServer.AllowLanAccess

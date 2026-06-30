@@ -254,6 +254,10 @@ public sealed class TorrServerClient : IDisposable
         var sets = await GetSettingsNodeAsync(cancellationToken).ConfigureAwait(false);
 
         sets["CacheSize"] = Math.Max(1, settings.CacheSizeMb) * 1024L * 1024L;
+        sets["PreloadCache"] = Math.Clamp(settings.PreloadCachePercent, 0, 100);
+        sets["ReaderReadAHead"] = Math.Clamp(settings.ReaderReadAheadPercent, 5, 100);
+        sets["TorrentDisconnectTimeout"] = Math.Max(1, settings.TorrentDisconnectTimeoutSeconds);
+        sets["ConnectionsLimit"] = Math.Max(1, settings.ConnectionsLimit);
         sets["UseDisk"] = settings.CacheMode == CacheMode.Disk;
         sets["TorrentsSavePath"] = settings.CacheMode == CacheMode.Disk
             ? ResolveDiskCachePath(settings)

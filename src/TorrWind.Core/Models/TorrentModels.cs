@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace TorrWind.Core.Models;
 
@@ -115,6 +116,16 @@ public sealed class TorrentItem
 
 public sealed class TorrentFile
 {
+    private static readonly Regex[] EpisodePatterns =
+    [
+        new(@"(?i)(?:^|[\s._\-\[])[sс](?<season>\d{1,2})[\s._\-\]]*[eе](?<episode>\d{1,3})(?:[\s._\-\]]*[eе]\d{1,3})?", RegexOptions.Compiled),
+        new(@"(?i)(?:^|[\s._\-\[])(?<season>\d{1,2})x(?<episode>\d{1,3})", RegexOptions.Compiled)
+    ];
+
+    private static readonly Regex TechnicalSuffixPattern = new(
+        @"(?i)(?:^|[\s._\-])(?:2160p|1080p|720p|480p|web[\s._\-]?dl|webrip|bdrip|bluray|hdrip|dvdrip|x264|x265|h[\s._\-]?264|h[\s._\-]?265|hevc|aac|ac3|eac3|ddp?[\s._\-]?\d(?:[\s._\-]?\d)?|nf|amzn|itunes|okko|kion|lostfilm|newstudio)\b.*$",
+        RegexOptions.Compiled);
+
     public int Id { get; set; }
 
     public string Path { get; set; } = string.Empty;
@@ -125,6 +136,18 @@ public sealed class TorrentFile
 
     public string SizeText => TorrentItem.FormatBytes(SizeBytes);
 
+    public string SeasonText => TryParseEpisode(Path, out var season, out _, out _)
+        ? season.ToString(CultureInfo.InvariantCulture)
+        : string.Empty;
+
+    public string EpisodeText => TryParseEpisode(Path, out _, out var episode, out _)
+        ? episode.ToString(CultureInfo.InvariantCulture)
+        : string.Empty;
+
+    public string EpisodeTitle => TryParseEpisode(Path, out _, out _, out var title)
+        ? title
+        : CleanFileName(Path);
+
     public static TorrentFile FromJson(JsonElement element)
     {
         return new TorrentFile
@@ -134,6 +157,56 @@ public sealed class TorrentFile
             SizeBytes = element.ReadInt64("size", "Size", "length", "Length"),
             MimeType = element.ReadString("mime", "Mime", "mime_type", "MimeType")
         };
+    }
+
+    private static bool TryParseEpisode(string path, out int season, out int episode, out string title)
+    {
+        var fileName = CleanFileName(path);
+        foreach (var pattern in EpisodePatterns)
+        {
+            var match = pattern.Match(fileName);
+            if (!match.Success ||
+                !int.TryParse(match.Groups["season"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out season) ||
+                !int.TryParse(match.Groups["episode"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out episode))
+            {
+                continue;
+            }
+
+            var candidate = fileName[(match.Index + match.Length)..];
+            candidate = TechnicalSuffixPattern.Replace(candidate, string.Empty);
+            title = NormalizeEpisodeTitle(candidate);
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                title = NormalizeEpisodeTitle(fileName);
+            }
+
+            return true;
+        }
+
+        season = 0;
+        episode = 0;
+        title = string.Empty;
+        return false;
+    }
+
+    private static string CleanFileName(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        var fileName = normalized[(normalized.LastIndexOf('/') + 1)..];
+        var extension = System.IO.Path.GetExtension(fileName);
+        return string.IsNullOrWhiteSpace(extension)
+            ? fileName
+            : fileName[..^extension.Length];
+    }
+
+    private static string NormalizeEpisodeTitle(string value)
+    {
+        return value
+            .Trim(' ', '.', '_', '-', '[', ']', '(', ')')
+            .Replace('.', ' ')
+            .Replace('_', ' ')
+            .Replace("  ", " ", StringComparison.Ordinal)
+            .Trim();
     }
 }
 

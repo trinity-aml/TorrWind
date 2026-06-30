@@ -35,6 +35,10 @@ public sealed class AppSettings
                 ListenAddress = "127.0.0.1",
                 CacheMode = CacheMode.Memory,
                 CacheSizeMb = 512,
+                PreloadCachePercent = 50,
+                ReaderReadAheadPercent = 95,
+                TorrentDisconnectTimeoutSeconds = 30,
+                ConnectionsLimit = 25,
                 DataDirectory = AppPaths.DefaultLocalServerDirectory,
                 TemporaryDataPath = Path.Combine(AppPaths.DefaultLocalServerDirectory, "cache")
             }
@@ -144,6 +148,14 @@ public sealed class LocalServerSettings
     public CacheMode CacheMode { get; set; } = CacheMode.Memory;
 
     public int CacheSizeMb { get; set; } = 512;
+
+    public int PreloadCachePercent { get; set; } = 50;
+
+    public int ReaderReadAheadPercent { get; set; } = 95;
+
+    public int TorrentDisconnectTimeoutSeconds { get; set; } = 30;
+
+    public int ConnectionsLimit { get; set; } = 25;
 
     public int DownloadSpeedLimitKb { get; set; }
 

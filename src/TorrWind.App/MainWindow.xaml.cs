@@ -68,6 +68,26 @@ public partial class MainWindow : Window
         await _viewModel.RefreshSelectedTorrentLiveAsync().ConfigureAwait(true);
     }
 
+    private void OnNavigateLibrary(object sender, RoutedEventArgs e)
+    {
+        RootTabs.SelectedItem = LibraryTab;
+    }
+
+    private void OnNavigateSearch(object sender, RoutedEventArgs e)
+    {
+        RootTabs.SelectedItem = SearchTab;
+    }
+
+    private void OnNavigateDiagnostics(object sender, RoutedEventArgs e)
+    {
+        RootTabs.SelectedItem = DiagnosticsTab;
+    }
+
+    private void OnNavigateSettings(object sender, RoutedEventArgs e)
+    {
+        RootTabs.SelectedItem = SettingsTab;
+    }
+
     private void OnExitApplication(object sender, RoutedEventArgs e)
     {
         if (!ShowExitConfirmationDialog())

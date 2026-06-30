@@ -127,9 +127,16 @@ public sealed class TorznabSearchClient
 
         var builder = new UriBuilder(value);
         var normalizedPath = builder.Path.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(normalizedPath) || string.Equals(normalizedPath, "/settings", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Path = "/api";
+            return builder.Uri;
+        }
+
         if (normalizedPath.EndsWith("/torznab", StringComparison.OrdinalIgnoreCase))
         {
             builder.Path = normalizedPath + "/api";
+            return builder.Uri;
         }
 
         return builder.Uri;
