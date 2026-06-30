@@ -1,5 +1,7 @@
 # TorrWind 1.0.0
 
+Languages: English | [Русский](README.ru.md)
+
 TorrWind is a Windows 10/11 x64 desktop client for local and remote TorrServer instances.
 
 Repository: https://github.com/trinity-aml/TorrWind  
