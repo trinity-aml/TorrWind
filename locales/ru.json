@@ -218,6 +218,7 @@
   "StatusTorrentHashCopied": "Hash торрента скопирован",
   "StatusTorrentSourceUnavailable": "Source торрента недоступен",
   "StatusPlaybackUrlCopied": "URL воспроизведения скопирован",
+  "StatusClipboardBusy": "Буфер обмена занят другим приложением, попробуйте еще раз",
   "StatusTorrentsLoaded": "Загружено торрентов: {0}",
   "StatusStartupArgumentsHandled": "Обработано аргументов запуска: {0}",
   "StatusSearchLoaded": "Найдено результатов: {0}",

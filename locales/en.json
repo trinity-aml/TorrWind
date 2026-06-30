@@ -218,6 +218,7 @@
   "StatusTorrentHashCopied": "Torrent hash copied",
   "StatusTorrentSourceUnavailable": "Torrent source is unavailable",
   "StatusPlaybackUrlCopied": "Playback URL copied",
+  "StatusClipboardBusy": "Clipboard is busy in another application, try again",
   "StatusTorrentsLoaded": "{0} torrents loaded",
   "StatusStartupArgumentsHandled": "Startup arguments handled: {0}",
   "StatusSearchLoaded": "{0} results loaded",

@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
@@ -62,6 +63,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isRefreshingSelectedTorrentLive;
     private bool _isApplyingLanguage;
     private bool _suppressLanguageApply;
+    private const int ClipboardCannotOpen = unchecked((int)0x800401D0);
+    private const uint ClipboardFormatUnicodeText = 13;
+    private const uint GlobalMemoryMoveable = 0x0002;
+    private const uint GlobalMemoryZeroInit = 0x0040;
+    private static readonly int[] ClipboardRetryDelaysMs = [0, 25, 50, 75, 100, 150, 250, 400, 650, 900, 1200];
 
     public MainWindowViewModel(AppSettingsStore settingsStore, JsonLocalizationService localization)
     {
@@ -1547,11 +1553,17 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private bool TrySetClipboardText(string text, string source, string details = "")
     {
         Exception? lastOpenClipboardException = null;
-        for (var attempt = 0; attempt < 5; attempt++)
+        for (var attempt = 0; attempt < ClipboardRetryDelaysMs.Length; attempt++)
         {
+            var delay = ClipboardRetryDelaysMs[attempt];
+            if (delay > 0)
+            {
+                System.Threading.Thread.Sleep(delay);
+            }
+
             try
             {
-                System.Windows.Clipboard.SetText(text);
+                SetClipboardTextNative(text);
                 return true;
             }
             catch (Exception exception) when (IsOpenClipboardFailure(exception))
@@ -1562,14 +1574,24 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                     LogWarning(source, "Clipboard reported busy after text was copied.", details);
                     return true;
                 }
-
-                System.Threading.Thread.Sleep(60);
             }
-            catch (Exception exception)
+            catch
             {
-                StatusMessage = exception.Message;
-                LogError(source, "Failed to copy text to clipboard.", exception, details);
-                return false;
+                try
+                {
+                    System.Windows.Clipboard.SetText(text);
+                    return true;
+                }
+                catch (Exception fallbackException) when (IsOpenClipboardFailure(fallbackException))
+                {
+                    lastOpenClipboardException = fallbackException;
+                }
+                catch (Exception fallbackException)
+                {
+                    StatusMessage = fallbackException.Message;
+                    LogError(source, "Failed to copy text to clipboard.", fallbackException, details);
+                    return false;
+                }
             }
         }
 
@@ -1581,7 +1603,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 return true;
             }
 
-            StatusMessage = lastOpenClipboardException.Message;
+            StatusMessage = L["StatusClipboardBusy"];
             LogError(source, "Failed to copy text to clipboard.", lastOpenClipboardException, details);
             return false;
         }
@@ -1591,9 +1613,76 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private static bool IsOpenClipboardFailure(Exception exception)
     {
-        const int ClipboardCannotOpen = unchecked((int)0x800401D0);
         return exception.HResult == ClipboardCannotOpen ||
             exception.Message.Contains("OpenClipboard", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void SetClipboardTextNative(string text)
+    {
+        var bytes = Encoding.Unicode.GetBytes(text + '\0');
+        var clipboardOpened = false;
+        var clipboardOwnsHandle = false;
+        var handle = GlobalAlloc(GlobalMemoryMoveable | GlobalMemoryZeroInit, (UIntPtr)bytes.Length);
+        if (handle == IntPtr.Zero)
+        {
+            throw CreateNativeClipboardException("GlobalAlloc");
+        }
+
+        try
+        {
+            var target = GlobalLock(handle);
+            if (target == IntPtr.Zero)
+            {
+                throw CreateNativeClipboardException("GlobalLock");
+            }
+
+            try
+            {
+                Marshal.Copy(bytes, 0, target, bytes.Length);
+            }
+            finally
+            {
+                GlobalUnlock(handle);
+            }
+
+            if (!OpenClipboard(IntPtr.Zero))
+            {
+                throw new ExternalException(
+                    $"OpenClipboard failed. Win32 error: {Marshal.GetLastWin32Error()}.",
+                    ClipboardCannotOpen);
+            }
+
+            clipboardOpened = true;
+
+            if (!EmptyClipboard())
+            {
+                throw CreateNativeClipboardException("EmptyClipboard");
+            }
+
+            if (SetClipboardData(ClipboardFormatUnicodeText, handle) == IntPtr.Zero)
+            {
+                throw CreateNativeClipboardException("SetClipboardData");
+            }
+
+            clipboardOwnsHandle = true;
+        }
+        finally
+        {
+            if (clipboardOpened)
+            {
+                CloseClipboard();
+            }
+
+            if (!clipboardOwnsHandle)
+            {
+                GlobalFree(handle);
+            }
+        }
+    }
+
+    private static ExternalException CreateNativeClipboardException(string operation)
+    {
+        return new ExternalException($"{operation} failed. Win32 error: {Marshal.GetLastWin32Error()}.");
     }
 
     private static bool ClipboardContainsText(string text)
@@ -1608,6 +1697,30 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool CloseClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool EmptyClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalLock(IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GlobalUnlock(IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalFree(IntPtr hMem);
 
     private void CopyPlaybackUrl()
     {
