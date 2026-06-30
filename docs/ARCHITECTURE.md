@@ -3,13 +3,13 @@
 ## Projects
 
 `TorrWind.App`
-: WPF desktop application, tray integration, native UI, Web UI tab, external-player launch, and profile management.
+: WPF desktop application, tray integration, native UI, Web UI tab, built-in LibVLC playback, external-player launch, and profile management.
 
 `TorrWind.Service`
 : Windows service helper. It supervises the configured local `TorrServer.exe` process and exposes `install`, `uninstall`, `start`, and `stop` commands for installers and manual administration.
 
 `TorrWind.Core`
-: Shared settings, models, localization, TorrServer API client, Torznab provider client, release downloader, file event log, local process launcher, external-player launcher, Windows service helper commands.
+: Shared settings, models, localization, TorrServer API client, Torznab provider client, release downloader, file event log, local process launcher, player settings, external-player launcher, Windows service helper commands.
 
 ## Runtime Modes
 

@@ -20,6 +20,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        _viewModel.BuiltInPlayerRequested += OnBuiltInPlayerRequested;
 
         _liveRefreshTimer = new DispatcherTimer
         {
@@ -29,6 +30,17 @@ public partial class MainWindow : Window
     }
 
     public bool AllowClose { get; set; }
+
+    private void OnBuiltInPlayerRequested(object? sender, BuiltInPlayerRequest request)
+    {
+        var player = new PlayerWindow(request.MediaUri, request.Title, _viewModel.L)
+        {
+            Owner = this
+        };
+
+        player.Show();
+        player.Activate();
+    }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {

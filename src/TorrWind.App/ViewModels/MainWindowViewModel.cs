@@ -156,6 +156,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public JsonLocalizationService L => _localization;
 
+    public event EventHandler<BuiltInPlayerRequest>? BuiltInPlayerRequested;
+
     public string AppVersion => ResolveAppVersion();
 
     public string AppVersionBadge => "v" + AppVersion;
@@ -191,6 +193,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<InstalledTorrServerItem> InstalledTorrServers { get; } = [];
 
     public ObservableCollection<string> AvailableLanguages { get; } = [];
+
+    public ObservableCollection<PlayerKindOption> PlayerKindOptions { get; } = [];
 
     public IReadOnlyList<CacheMode> CacheModes { get; } = Enum.GetValues<CacheMode>();
 
@@ -843,6 +847,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await _localization.LoadAsync(_settings.Language, cancellationToken).ConfigureAwait(true);
+        RebuildPlayerKindOptions();
 
         Servers.Clear();
         foreach (var server in _settings.Servers)
@@ -1469,13 +1474,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
-            _playerLauncher.Play(mediaUri, _settings.Player);
-            LogInfo("Player", "Opened selected torrent in external player.", SelectedTorrent.Title);
+            OpenMediaUri(mediaUri, SelectedTorrent.Title, "Opened selected torrent in player.");
         }
         catch (Exception exception)
         {
-            StatusMessage = exception.Message;
-            LogError("Player", "Failed to open selected torrent in external player.", exception, SelectedTorrent.Title);
+            HandlePlaybackException(exception, SelectedTorrent.Title);
         }
 
         return Task.CompletedTask;
@@ -1491,7 +1494,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         using var client = new TorrServerClient(SelectedServer);
         var mediaUri = client.GetPlaylistUri(SelectedTorrent.Hash, ResolvePlaylistName(SelectedTorrent), fromLast: true);
-        OpenPlayerUri(mediaUri, "Opened continue playlist in external player.");
+        OpenPlayerUri(mediaUri, "Opened continue playlist in player.");
         return Task.CompletedTask;
     }
 
@@ -1504,21 +1507,45 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        OpenPlayerUri(mediaUri, "Opened playlist from selected file in external player.");
+        OpenPlayerUri(mediaUri, "Opened playlist from selected file in player.");
     }
 
     private void OpenPlayerUri(Uri mediaUri, string logMessage)
     {
         try
         {
-            _playerLauncher.Play(mediaUri, _settings.Player);
-            LogInfo("Player", logMessage, SelectedTorrent?.Title ?? string.Empty);
+            OpenMediaUri(mediaUri, SelectedTorrent?.Title ?? string.Empty, logMessage);
         }
         catch (Exception exception)
         {
-            StatusMessage = exception.Message;
-            LogError("Player", "Failed to open media in external player.", exception, SelectedTorrent?.Title ?? string.Empty);
+            HandlePlaybackException(exception, SelectedTorrent?.Title ?? string.Empty);
         }
+    }
+
+    private void OpenMediaUri(Uri mediaUri, string title, string logMessage)
+    {
+        if (_settings.Player.PreferredPlayer == ExternalPlayerKind.BuiltInLibVlc)
+        {
+            if (BuiltInPlayerRequested is null)
+            {
+                throw new InvalidOperationException(L["StatusBuiltInPlayerUnavailable"]);
+            }
+
+            BuiltInPlayerRequested.Invoke(this, new BuiltInPlayerRequest(mediaUri, title));
+            StatusMessage = L["StatusBuiltInPlayerOpened"];
+            LogInfo("Player", logMessage, title);
+            return;
+        }
+
+        _playerLauncher.Play(mediaUri, _settings.Player);
+        StatusMessage = L["StatusExternalPlayerOpened"];
+        LogInfo("Player", logMessage, title);
+    }
+
+    private void HandlePlaybackException(Exception exception, string title)
+    {
+        StatusMessage = exception.Message;
+        LogError("Player", "Failed to open media in player.", exception, title);
     }
 
     private async Task<Uri?> CreatePlaylistFromSelectedAsync()
@@ -2678,6 +2705,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         _settings.Language = SelectedLanguage;
         await _localization.LoadAsync(SelectedLanguage).ConfigureAwait(true);
+        RebuildPlayerKindOptions();
         RebuildSearchProviderOptions();
         UpdateTorrServerReleaseText();
         await SaveSettingsAsync().ConfigureAwait(true);
@@ -2979,6 +3007,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedSearchProviderOption = SearchProviderOptions.FirstOrDefault(option =>
                 selected is not null && option.Matches(selected)) ??
             SearchProviderOptions.FirstOrDefault();
+    }
+
+    private void RebuildPlayerKindOptions()
+    {
+        var selected = Player.PreferredPlayer;
+        PlayerKindOptions.Clear();
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.BuiltInLibVlc, L["PlayerBuiltInLibVlc"]));
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.SystemDefault, L["PlayerSystemDefault"]));
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.Vlc, L["PlayerVlc"]));
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.MpcHc, L["PlayerMpcHc"]));
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.PotPlayer, L["PlayerPotPlayer"]));
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.Custom, L["PlayerCustom"]));
+        Player.PreferredPlayer = selected;
+        OnPropertyChanged(nameof(Player));
     }
 
     private void SelectSearchProviderOption(SearchProviderSettings provider)
@@ -3623,6 +3665,32 @@ public sealed class DiagnosticItem
     public string Name { get; }
 
     public string Value { get; }
+}
+
+public sealed class PlayerKindOption
+{
+    public PlayerKindOption(ExternalPlayerKind kind, string name)
+    {
+        Kind = kind;
+        Name = name;
+    }
+
+    public ExternalPlayerKind Kind { get; }
+
+    public string Name { get; }
+}
+
+public sealed class BuiltInPlayerRequest
+{
+    public BuiltInPlayerRequest(Uri mediaUri, string title)
+    {
+        MediaUri = mediaUri;
+        Title = title;
+    }
+
+    public Uri MediaUri { get; }
+
+    public string Title { get; }
 }
 
 public sealed class SettingsBackupItem

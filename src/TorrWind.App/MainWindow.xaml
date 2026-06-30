@@ -974,7 +974,11 @@
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldPlayer]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
-                      <ComboBox Width="180" ItemsSource="{Binding ExternalPlayerKinds}" SelectedItem="{Binding Player.PreferredPlayer}" />
+                      <ComboBox Width="220"
+                                ItemsSource="{Binding PlayerKindOptions}"
+                                DisplayMemberPath="Name"
+                                SelectedValuePath="Kind"
+                                SelectedValue="{Binding Player.PreferredPlayer}" />
                       <CheckBox Content="{Binding L[FieldPreferDirectStream]}" IsChecked="{Binding Player.PreferDirectStreamUrl}" Margin="14,0,0,0" />
                     </StackPanel>
 

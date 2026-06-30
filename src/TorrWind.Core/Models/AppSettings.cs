@@ -185,7 +185,8 @@ public enum ExternalPlayerKind
     Vlc,
     MpcHc,
     PotPlayer,
-    Custom
+    Custom,
+    BuiltInLibVlc
 }
 
 public sealed class SearchProviderSettings

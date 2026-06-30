@@ -26,12 +26,12 @@ dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
 .\scripts\publish-win-x64.ps1
 ```
 
-This publishes `TorrWind.exe` and `TorrWind.Service.exe` into `artifacts\publish\TorrWind`.
+This publishes `TorrWind.exe`, `TorrWind.Service.exe`, and the Windows x64 LibVLC runtime into `artifacts\publish\TorrWind`.
 
 Create a portable zip:
 
 ```powershell
-.\scripts\package-win-x64.ps1 -Version 0.1.0
+.\scripts\package-win-x64.ps1 -Version 1.0.0
 ```
 
 ## Installer
@@ -39,7 +39,7 @@ Create a portable zip:
 Install Inno Setup 6 and run:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 0.1.0
+.\scripts\build-installer.ps1 -Version 1.0.0
 ```
 
 The installer output is written to `artifacts\installer`.
@@ -52,6 +52,12 @@ Installer tasks:
 - Optionally start `TorrWindService` after installation.
 
 The installer also grants normal users modify access to `{app}\Data`, so the GUI and service can share settings, logs, backups, playlists, and downloaded TorrServer binaries inside the install directory.
+
+Build all release artifacts and SHA256 checksums:
+
+```powershell
+.\scripts\release-win-x64.ps1 -Version 1.0.0
+```
 
 ## Service Commands
 

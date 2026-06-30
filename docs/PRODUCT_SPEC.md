@@ -12,7 +12,7 @@ It provides:
 - Single-instance GUI behavior with argument handoff from secondary launches.
 - Local TorrServer download/update from GitHub Releases.
 - Local TorrServer execution either as a foreground child process or as `TorrWindService`.
-- External-player playback for MVP.
+- Built-in LibVLC playback and external-player playback.
 - Web UI fallback tab for full TorrServer coverage.
 - JSON-based localization with runtime language switching.
 
@@ -25,6 +25,7 @@ The first usable version should cover:
 - Accept `.torrent` paths, `.torrent` HTTP(S) URLs, and `magnet:` links from Windows shell/startup arguments.
 - List torrents from selected TorrServer.
 - Select a file inside a torrent.
+- Open selected torrent file in the built-in LibVLC player.
 - Open selected torrent file in external player.
 - Copy selected playback URL.
 - Remove torrents from writable server profiles.
@@ -66,7 +67,6 @@ The first usable version should cover:
 
 ## Phase 2
 
-- Built-in LibVLC player.
 - Installer UI for service choice.
 - Self-update for TorrWind.
 - Checksum/signature verification when TorrServer release metadata provides it.
