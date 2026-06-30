@@ -1,6 +1,6 @@
 #define AppName "TorrWind"
 #ifndef AppVersion
-#define AppVersion "0.1.0"
+#define AppVersion "1.0.0"
 #endif
 #define Publisher "TorrWind contributors"
 #define PublishDir "..\..\artifacts\publish\TorrWind"

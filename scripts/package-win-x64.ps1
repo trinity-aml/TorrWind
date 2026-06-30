@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "1.0.0",
     [string]$Configuration = "Release",
     [switch]$SkipPublish
 )
@@ -13,7 +13,7 @@ $PortableDir = Join-Path $Root "artifacts\portable"
 $ZipPath = Join-Path $PortableDir "TorrWind-$Version-win-x64-portable.zip"
 
 if (-not $SkipPublish) {
-    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration
+    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration -Version $Version
 }
 
 if (-not (Test-Path $PublishDir)) {

@@ -67,6 +67,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private const uint ClipboardFormatUnicodeText = 13;
     private const uint GlobalMemoryMoveable = 0x0002;
     private const uint GlobalMemoryZeroInit = 0x0040;
+    private const string AppRepositoryUrlValue = "https://github.com/trinity-aml/TorrWind";
+    private const string AppReadmeUrlValue = "https://github.com/trinity-aml/TorrWind#readme";
+    private const string AppLicenseNameValue = "GPL-3.0-only";
     private static readonly int[] ClipboardRetryDelaysMs = [0, 25, 50, 75, 100, 150, 250, 400, 650, 900, 1200];
 
     public MainWindowViewModel(AppSettingsStore settingsStore, JsonLocalizationService localization)
@@ -152,6 +155,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     public JsonLocalizationService L => _localization;
+
+    public string AppVersion => ResolveAppVersion();
+
+    public string AppVersionBadge => "v" + AppVersion;
+
+    public string AppDisplayName => "TorrWind " + AppVersionBadge;
+
+    public string AppRepositoryUrl => AppRepositoryUrlValue;
+
+    public string AppReadmeUrl => AppReadmeUrlValue;
+
+    public string AppLicenseName => AppLicenseNameValue;
 
     public ObservableCollection<TorrentItem> Torrents { get; } = [];
 
@@ -2578,16 +2593,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void AddApplicationDiagnostics()
     {
-        var assembly = Assembly.GetEntryAssembly() ?? typeof(MainWindowViewModel).Assembly;
-        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? assembly.GetName().Version?.ToString()
-            ?? string.Empty;
-
-        AddDiagnostic("DiagnosticAppVersion", version);
+        AddDiagnostic("DiagnosticAppVersion", AppVersion);
         AddDiagnostic("DiagnosticRuntime", RuntimeInformation.FrameworkDescription);
         AddDiagnostic("DiagnosticOS", RuntimeInformation.OSDescription);
         AddDiagnostic("DiagnosticProcessArchitecture", RuntimeInformation.ProcessArchitecture.ToString());
         AddDiagnostic("DiagnosticUserSettingsFile", AppPaths.UserSettingsFile);
+    }
+
+    private static string ResolveAppVersion()
+    {
+        var assembly = Assembly.GetEntryAssembly() ?? typeof(MainWindowViewModel).Assembly;
+        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString()
+            ?? "1.0.0";
     }
 
     private async Task AddServerDiagnosticsAsync(ServerProfile server)
