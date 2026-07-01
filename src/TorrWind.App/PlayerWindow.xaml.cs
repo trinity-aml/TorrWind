@@ -25,6 +25,8 @@ public partial class PlayerWindow : Window
     private const string IconPause = "\uE769";
     private const string IconFullscreen = "\uE740";
     private const string IconWindowed = "\uE73F";
+    private const int NetworkStreamCacheMs = 8000;
+    private const int FileStreamCacheMs = 3000;
     private readonly Uri _mediaUri;
     private readonly string _mediaTitle;
     private readonly JsonLocalizationService _localization;
@@ -274,9 +276,11 @@ public partial class PlayerWindow : Window
     private void ApplyMediaOptions(Media media)
     {
         media.AddOption(":http-reconnect");
-        media.AddOption(":network-caching=1500");
-        media.AddOption(":file-caching=1000");
-        media.AddOption(":clock-synchro=1");
+        media.AddOption(":network-caching=" + NetworkStreamCacheMs);
+        media.AddOption(":live-caching=" + NetworkStreamCacheMs);
+        media.AddOption(":file-caching=" + FileStreamCacheMs);
+        media.AddOption(":drop-late-frames=0");
+        media.AddOption(":skip-frames=0");
 
         if (_server is not null && !string.IsNullOrWhiteSpace(_server.Username))
         {
