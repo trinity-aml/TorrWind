@@ -4,10 +4,13 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using LibVLCSharp.Shared;
 using LibVLCSharp.Shared.Structures;
@@ -27,6 +30,9 @@ public partial class PlayerWindow : Window
     private const string IconWindowed = "\uE73F";
     private const int NetworkStreamCacheMs = 8000;
     private const int FileStreamCacheMs = 3000;
+    private const int WindowMessageLeftDoubleClick = 0x0203;
+    private const int WindowMessageRightButtonUp = 0x0205;
+    private const int WindowMessageContextMenu = 0x007B;
     private readonly Uri _mediaUri;
     private readonly string _mediaTitle;
     private readonly JsonLocalizationService _localization;
@@ -92,6 +98,7 @@ public partial class PlayerWindow : Window
             _mediaPlayer.EndReached += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
             _mediaPlayer.EncounteredError += (_, _) => Dispatcher.Invoke(() => SetPlaybackStatus(_localization["PlayerStatusError"]));
             VideoView.MediaPlayer = _mediaPlayer;
+            ComponentDispatcher.ThreadFilterMessage += OnThreadFilterMessage;
 
             PlaylistList.ItemsSource = _playlist;
             await LoadPlaylistAsync().ConfigureAwait(true);
@@ -513,6 +520,7 @@ public partial class PlayerWindow : Window
         _isClosing = true;
         _positionTimer.Stop();
         _trackRefreshTimer.Stop();
+        ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
 
         try
         {
@@ -587,15 +595,58 @@ public partial class PlayerWindow : Window
 
     private void OnPlayerRightClick(object sender, MouseButtonEventArgs e)
     {
-        BuildPlayerContextMenu();
-        PlayerContextMenu.PlacementTarget = sender as UIElement ?? RootLayout;
-        PlayerContextMenu.IsOpen = true;
+        OpenPlayerContextMenu(sender as UIElement ?? VideoHost);
         e.Handled = true;
     }
 
     private void OnPlayerContextMenuOpened(object sender, RoutedEventArgs e)
     {
         BuildPlayerContextMenu();
+    }
+
+    private void OnThreadFilterMessage(ref MSG msg, ref bool handled)
+    {
+        if (!IsNativeVideoMouseMessage(msg.message) || !IsMouseOverVideoHost())
+        {
+            return;
+        }
+
+        if (msg.message == WindowMessageLeftDoubleClick)
+        {
+            ToggleFullscreen();
+            handled = true;
+            return;
+        }
+
+        OpenPlayerContextMenu(VideoHost);
+        handled = true;
+    }
+
+    private static bool IsNativeVideoMouseMessage(int message)
+    {
+        return message is WindowMessageLeftDoubleClick or WindowMessageRightButtonUp or WindowMessageContextMenu;
+    }
+
+    private bool IsMouseOverVideoHost()
+    {
+        if (!GetCursorPos(out var point))
+        {
+            return false;
+        }
+
+        var position = VideoHost.PointFromScreen(new System.Windows.Point(point.X, point.Y));
+        return position.X >= 0 &&
+            position.Y >= 0 &&
+            position.X <= VideoHost.ActualWidth &&
+            position.Y <= VideoHost.ActualHeight;
+    }
+
+    private void OpenPlayerContextMenu(UIElement placementTarget)
+    {
+        BuildPlayerContextMenu();
+        PlayerContextMenu.PlacementTarget = placementTarget;
+        PlayerContextMenu.Placement = PlacementMode.MousePoint;
+        PlayerContextMenu.IsOpen = true;
     }
 
     private void OnPositionMouseDown(object sender, MouseButtonEventArgs e)
@@ -936,6 +987,17 @@ public partial class PlayerWindow : Window
         return value.TotalHours >= 1
             ? value.ToString(@"hh\:mm\:ss")
             : value.ToString(@"mm\:ss");
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out NativePoint point);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct NativePoint
+    {
+        public readonly int X;
+
+        public readonly int Y;
     }
 }
 

@@ -129,6 +129,13 @@ public sealed class AppSettingsStore
         settings.SearchHistory ??= [];
         settings.LocalServer ??= new LocalServerSettings();
         settings.Player ??= new PlayerSettings();
+        if (settings.SettingsSchemaVersion < AppSettings.CurrentSettingsSchemaVersion &&
+            settings.Player.PreferredPlayer == ExternalPlayerKind.SystemDefault)
+        {
+            settings.Player.PreferredPlayer = ExternalPlayerKind.BuiltInLibVlc;
+        }
+
+        settings.SettingsSchemaVersion = AppSettings.CurrentSettingsSchemaVersion;
         settings.SettingsBackupRetentionCount = settings.SettingsBackupRetentionCount < 0
             ? 0
             : settings.SettingsBackupRetentionCount;

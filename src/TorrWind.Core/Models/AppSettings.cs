@@ -7,6 +7,10 @@ namespace TorrWind.Core.Models;
 
 public sealed class AppSettings
 {
+    public const int CurrentSettingsSchemaVersion = 1;
+
+    public int SettingsSchemaVersion { get; set; } = CurrentSettingsSchemaVersion;
+
     public string Language { get; set; } = "system";
 
     public Guid? ActiveServerId { get; set; }
@@ -234,7 +238,7 @@ public enum CacheMode
 
 public sealed class PlayerSettings
 {
-    public ExternalPlayerKind PreferredPlayer { get; set; } = ExternalPlayerKind.SystemDefault;
+    public ExternalPlayerKind PreferredPlayer { get; set; } = ExternalPlayerKind.BuiltInLibVlc;
 
     public string CustomPlayerPath { get; set; } = string.Empty;
 
