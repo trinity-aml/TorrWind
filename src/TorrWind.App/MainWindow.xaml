@@ -390,8 +390,8 @@
 
                 <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                 <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
-                  <CheckBox Content="{Binding L[FieldEnabled]}" IsChecked="{Binding SelectedSearchProvider.Enabled}" />
-                  <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedSearchProvider.IgnoreCertificateErrors}" />
+                  <CheckBox Content="{Binding L[FieldEnabled]}" IsChecked="{Binding SelectedSearchProvider.Enabled, UpdateSourceTrigger=PropertyChanged}" />
+                  <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedSearchProvider.IgnoreCertificateErrors, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
               </Grid>
             </Border>
@@ -578,9 +578,9 @@
                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedServer.Password, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
 
                 <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,14">
-                  <CheckBox Content="{Binding L[FieldLocal]}" IsChecked="{Binding SelectedServer.IsLocal}" />
-                  <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedServer.IgnoreCertificateErrors}" />
-                  <CheckBox Content="{Binding L[FieldReadOnly]}" IsChecked="{Binding SelectedServer.ReadOnly}" />
+                  <CheckBox Content="{Binding L[FieldLocal]}" IsChecked="{Binding SelectedServer.IsLocal, UpdateSourceTrigger=PropertyChanged}" />
+                  <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedServer.IgnoreCertificateErrors, UpdateSourceTrigger=PropertyChanged}" />
+                  <CheckBox Content="{Binding L[FieldReadOnly]}" IsChecked="{Binding SelectedServer.ReadOnly, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
@@ -639,8 +639,8 @@
                     <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding SelectedSearchProvider.TimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
-                      <CheckBox Content="{Binding L[FieldEnabled]}" IsChecked="{Binding SelectedSearchProvider.Enabled}" />
-                      <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedSearchProvider.IgnoreCertificateErrors}" />
+                      <CheckBox Content="{Binding L[FieldEnabled]}" IsChecked="{Binding SelectedSearchProvider.Enabled, UpdateSourceTrigger=PropertyChanged}" />
+                      <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedSearchProvider.IgnoreCertificateErrors, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                   </Grid>
                 </Border>
@@ -725,9 +725,9 @@
                     <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SelectedServer.Password, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
 
                     <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,14">
-                      <CheckBox Content="{Binding L[FieldLocal]}" IsChecked="{Binding SelectedServer.IsLocal}" />
-                      <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedServer.IgnoreCertificateErrors}" />
-                      <CheckBox Content="{Binding L[FieldReadOnly]}" IsChecked="{Binding SelectedServer.ReadOnly}" />
+                      <CheckBox Content="{Binding L[FieldLocal]}" IsChecked="{Binding SelectedServer.IsLocal, UpdateSourceTrigger=PropertyChanged}" />
+                      <CheckBox Content="{Binding L[FieldIgnoreCert]}" IsChecked="{Binding SelectedServer.IgnoreCertificateErrors, UpdateSourceTrigger=PropertyChanged}" />
+                      <CheckBox Content="{Binding L[FieldReadOnly]}" IsChecked="{Binding SelectedServer.ReadOnly, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
 
                     <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">

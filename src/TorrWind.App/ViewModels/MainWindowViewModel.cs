@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -343,11 +344,35 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         get => _selectedServer;
         set
         {
+            if (ReferenceEquals(_selectedServer, value))
+            {
+                return;
+            }
+
+            if (_selectedServer is not null)
+            {
+                _selectedServer.PropertyChanged -= OnSelectedServerPropertyChanged;
+            }
+
             if (SetProperty(ref _selectedServer, value))
             {
+                if (_selectedServer is not null)
+                {
+                    _selectedServer.PropertyChanged += OnSelectedServerPropertyChanged;
+                }
+
                 _settings.ActiveServerId = value?.Id;
                 OnPropertyChanged(nameof(ActiveServerLabel));
             }
+        }
+    }
+
+    private void OnSelectedServerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.PropertyName) ||
+            string.Equals(e.PropertyName, nameof(ServerProfile.Name), StringComparison.Ordinal))
+        {
+            OnPropertyChanged(nameof(ActiveServerLabel));
         }
     }
 
@@ -2995,6 +3020,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private void RebuildSearchProviderOptions()
     {
         var selected = SelectedSearchProviderOption;
+        foreach (var option in SearchProviderOptions)
+        {
+            option.Dispose();
+        }
+
         SearchProviderOptions.Clear();
         SearchProviderOptions.Add(SearchProviderOption.ForSelectedServer(L["SearchModeSelectedServer"]));
         SearchProviderOptions.Add(SearchProviderOption.ForAllProviders(L["SearchModeAllProviders"]));
@@ -3004,8 +3034,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             SearchProviderOptions.Add(SearchProviderOption.ForProvider(provider));
         }
 
+        var singleProviderOption = SearchProviders.Count == 1
+            ? SearchProviderOptions.FirstOrDefault(option => option.Provider?.Id == SearchProviders[0].Id)
+            : null;
+
         SelectedSearchProviderOption = SearchProviderOptions.FirstOrDefault(option =>
                 selected is not null && option.Matches(selected)) ??
+            singleProviderOption ??
             SearchProviderOptions.FirstOrDefault();
     }
 
@@ -3601,21 +3636,42 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_selectedServer is not null)
+        {
+            _selectedServer.PropertyChanged -= OnSelectedServerPropertyChanged;
+        }
+
+        foreach (var option in SearchProviderOptions)
+        {
+            option.Dispose();
+        }
+
         _localServerProcess.Dispose();
     }
 }
 
-public sealed class SearchProviderOption
+public sealed class SearchProviderOption : INotifyPropertyChanged, IDisposable
 {
+    private readonly string _fallbackDisplayName;
+
     private SearchProviderOption(string displayName, SearchProviderSettings? provider, bool useSelectedServer, bool useAllProviders)
     {
-        DisplayName = displayName;
+        _fallbackDisplayName = displayName;
         Provider = provider;
         UseSelectedServer = useSelectedServer;
         UseAllProviders = useAllProviders;
+
+        if (Provider is not null)
+        {
+            Provider.PropertyChanged += OnProviderPropertyChanged;
+        }
     }
 
-    public string DisplayName { get; }
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string DisplayName => Provider is null || string.IsNullOrWhiteSpace(Provider.Name)
+        ? _fallbackDisplayName
+        : Provider.Name;
 
     public SearchProviderSettings? Provider { get; }
 
@@ -3651,6 +3707,23 @@ public sealed class SearchProviderOption
         }
 
         return Provider?.Id == other.Provider?.Id;
+    }
+
+    public void Dispose()
+    {
+        if (Provider is not null)
+        {
+            Provider.PropertyChanged -= OnProviderPropertyChanged;
+        }
+    }
+
+    private void OnProviderPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.PropertyName) ||
+            string.Equals(e.PropertyName, nameof(SearchProviderSettings.Name), StringComparison.Ordinal))
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayName)));
+        }
     }
 }
 

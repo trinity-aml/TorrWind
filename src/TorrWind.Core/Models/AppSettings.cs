@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using TorrWind.Core;
 
@@ -46,23 +48,66 @@ public sealed class AppSettings
     }
 }
 
-public sealed class ServerProfile
+public sealed class ServerProfile : INotifyPropertyChanged
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    private Guid _id = Guid.NewGuid();
+    private string _name = "TorrServer";
+    private string _baseUrl = "http://127.0.0.1:8090";
+    private string? _username;
+    private string? _password;
+    private bool _isLocal;
+    private bool _ignoreCertificateErrors;
+    private bool _readOnly;
 
-    public string Name { get; set; } = "TorrServer";
+    public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string BaseUrl { get; set; } = "http://127.0.0.1:8090";
+    public Guid Id
+    {
+        get => _id;
+        set => SetProperty(ref _id, value);
+    }
 
-    public string? Username { get; set; }
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
 
-    public string? Password { get; set; }
+    public string BaseUrl
+    {
+        get => _baseUrl;
+        set => SetProperty(ref _baseUrl, value);
+    }
 
-    public bool IsLocal { get; set; }
+    public string? Username
+    {
+        get => _username;
+        set => SetProperty(ref _username, value);
+    }
 
-    public bool IgnoreCertificateErrors { get; set; }
+    public string? Password
+    {
+        get => _password;
+        set => SetProperty(ref _password, value);
+    }
 
-    public bool ReadOnly { get; set; }
+    public bool IsLocal
+    {
+        get => _isLocal;
+        set => SetProperty(ref _isLocal, value);
+    }
+
+    public bool IgnoreCertificateErrors
+    {
+        get => _ignoreCertificateErrors;
+        set => SetProperty(ref _ignoreCertificateErrors, value);
+    }
+
+    public bool ReadOnly
+    {
+        get => _readOnly;
+        set => SetProperty(ref _readOnly, value);
+    }
 
     [JsonIgnore]
     public Uri BaseUri => NormalizeBaseUri(BaseUrl);
@@ -75,6 +120,23 @@ public sealed class ServerProfile
             BaseUrl = "http://127.0.0.1:8090",
             IsLocal = true
         };
+    }
+
+    private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        if (string.Equals(propertyName, nameof(BaseUrl), StringComparison.Ordinal))
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BaseUri)));
+        }
+
+        return true;
     }
 
     private static Uri NormalizeBaseUri(string baseUrl)
@@ -189,21 +251,76 @@ public enum ExternalPlayerKind
     BuiltInLibVlc
 }
 
-public sealed class SearchProviderSettings
+public sealed class SearchProviderSettings : INotifyPropertyChanged
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    private Guid _id = Guid.NewGuid();
+    private string _name = "Torznab";
+    private string _url = string.Empty;
+    private string _apiKey = string.Empty;
+    private string _categories = string.Empty;
+    private bool _enabled = true;
+    private bool _ignoreCertificateErrors;
+    private int _timeoutSeconds = 30;
 
-    public string Name { get; set; } = "Torznab";
+    public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string Url { get; set; } = string.Empty;
+    public Guid Id
+    {
+        get => _id;
+        set => SetProperty(ref _id, value);
+    }
 
-    public string ApiKey { get; set; } = string.Empty;
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
 
-    public string Categories { get; set; } = string.Empty;
+    public string Url
+    {
+        get => _url;
+        set => SetProperty(ref _url, value);
+    }
 
-    public bool Enabled { get; set; } = true;
+    public string ApiKey
+    {
+        get => _apiKey;
+        set => SetProperty(ref _apiKey, value);
+    }
 
-    public bool IgnoreCertificateErrors { get; set; }
+    public string Categories
+    {
+        get => _categories;
+        set => SetProperty(ref _categories, value);
+    }
 
-    public int TimeoutSeconds { get; set; } = 30;
+    public bool Enabled
+    {
+        get => _enabled;
+        set => SetProperty(ref _enabled, value);
+    }
+
+    public bool IgnoreCertificateErrors
+    {
+        get => _ignoreCertificateErrors;
+        set => SetProperty(ref _ignoreCertificateErrors, value);
+    }
+
+    public int TimeoutSeconds
+    {
+        get => _timeoutSeconds;
+        set => SetProperty(ref _timeoutSeconds, value);
+    }
+
+    private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
+    }
 }
