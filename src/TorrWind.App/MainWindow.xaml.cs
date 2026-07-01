@@ -33,7 +33,7 @@ public partial class MainWindow : Window
 
     private void OnBuiltInPlayerRequested(object? sender, BuiltInPlayerRequest request)
     {
-        var player = new PlayerWindow(request.MediaUri, request.Title, _viewModel.L)
+        var player = new PlayerWindow(request.MediaUri, request.Title, _viewModel.L, request.Server)
         {
             Owner = this
         };

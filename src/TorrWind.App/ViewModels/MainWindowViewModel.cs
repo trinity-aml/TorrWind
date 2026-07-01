@@ -1531,7 +1531,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 throw new InvalidOperationException(L["StatusBuiltInPlayerUnavailable"]);
             }
 
-            BuiltInPlayerRequested.Invoke(this, new BuiltInPlayerRequest(mediaUri, title));
+            BuiltInPlayerRequested.Invoke(this, new BuiltInPlayerRequest(mediaUri, title, SelectedServer));
             StatusMessage = L["StatusBuiltInPlayerOpened"];
             LogInfo("Player", logMessage, title);
             return;
@@ -3682,15 +3682,18 @@ public sealed class PlayerKindOption
 
 public sealed class BuiltInPlayerRequest
 {
-    public BuiltInPlayerRequest(Uri mediaUri, string title)
+    public BuiltInPlayerRequest(Uri mediaUri, string title, ServerProfile? server)
     {
         MediaUri = mediaUri;
         Title = title;
+        Server = server;
     }
 
     public Uri MediaUri { get; }
 
     public string Title { get; }
+
+    public ServerProfile? Server { get; }
 }
 
 public sealed class SettingsBackupItem

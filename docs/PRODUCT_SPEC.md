@@ -12,7 +12,7 @@ It provides:
 - Single-instance GUI behavior with argument handoff from secondary launches.
 - Local TorrServer download/update from GitHub Releases.
 - Local TorrServer execution either as a foreground child process or as `TorrWindService`.
-- Built-in LibVLC playback and external-player playback.
+- Built-in LibVLC playback with M3U playlist navigation, audio/video/subtitle controls, and external-player playback.
 - Web UI fallback tab for full TorrServer coverage.
 - JSON-based localization with runtime language switching.
 
@@ -26,6 +26,8 @@ The first usable version should cover:
 - List torrents from selected TorrServer.
 - Select a file inside a torrent.
 - Open selected torrent file in the built-in LibVLC player.
+- Open TorrServer M3U/M3U8 playlists in the built-in LibVLC player, show playlist items as episodes, and allow previous/next/direct episode selection.
+- Select audio, video, and subtitle tracks in the built-in player, with aspect ratio, audio delay, and subtitle delay controls.
 - Open selected torrent file in external player.
 - Copy selected playback URL.
 - Remove torrents from writable server profiles.

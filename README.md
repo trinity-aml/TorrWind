@@ -16,7 +16,7 @@ TorrWind keeps its settings, logs, downloaded TorrServer binaries, playlists, ba
 - Local TorrServer process control and optional Windows Service mode through `TorrWind.Service.exe`.
 - Torrent and magnet add/remove/drop/wipe actions.
 - Torrent file list, selected-file playback, continue playlist, and playlist-from-current-file actions.
-- Built-in LibVLC player and external-player launch.
+- Built-in LibVLC player with M3U playlist navigation, audio/video/subtitle controls, and external-player launch.
 - TorrServer Web UI fallback tab.
 - Torznab-compatible indexer search, including Jackett/Prowlarr style endpoints.
 - Runtime JSON editor for TorrServer settings.
@@ -209,6 +209,8 @@ Playback can use the built-in LibVLC player or an external player:
 - custom executable path.
 
 TorrWind generates TorrServer-compatible stream or M3U URLs and opens them in the selected player. Release builds include the Windows x64 LibVLC runtime under `libvlc/win-x64`.
+
+The built-in LibVLC player reads local M3U files and downloads HTTP(S) M3U/M3U8 playlists itself. Series playlists are shown as an episode list, with icon controls for previous/next episode and direct selection of any playlist item. The player also exposes audio track, video track, subtitle track, aspect ratio, audio delay, and subtitle delay controls.
 
 ## Cache And Runtime Settings
 
