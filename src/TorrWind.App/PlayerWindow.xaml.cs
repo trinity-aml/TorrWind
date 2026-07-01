@@ -15,6 +15,7 @@ using TorrWind.Core.Localization;
 using TorrWind.Core.Models;
 using TorrWind.Core.Services;
 using ComboBox = System.Windows.Controls.ComboBox;
+using MenuItem = System.Windows.Controls.MenuItem;
 
 namespace TorrWind.App;
 
@@ -22,6 +23,8 @@ public partial class PlayerWindow : Window
 {
     private const string IconPlay = "\uE768";
     private const string IconPause = "\uE769";
+    private const string IconFullscreen = "\uE740";
+    private const string IconWindowed = "\uE73F";
     private readonly Uri _mediaUri;
     private readonly string _mediaTitle;
     private readonly JsonLocalizationService _localization;
@@ -39,6 +42,12 @@ public partial class PlayerWindow : Window
     private bool _isUpdatingPlaylistSelection;
     private bool _isUpdatingTrackControls;
     private bool _manualStopRequested;
+    private bool _isFullscreen;
+    private WindowState _windowStateBeforeFullscreen;
+    private WindowStyle _windowStyleBeforeFullscreen;
+    private ResizeMode _resizeModeBeforeFullscreen;
+    private bool _topmostBeforeFullscreen;
+    private GridLength _sidebarWidthBeforeFullscreen;
 
     public PlayerWindow(
         Uri mediaUri,
@@ -115,6 +124,8 @@ public partial class PlayerWindow : Window
         PlayPauseButton.ToolTip = _localization["ActionPlay"];
         StopButton.ToolTip = _localization["ActionStop"];
         NextButton.ToolTip = _localization["PlayerNextEpisode"];
+        FullscreenButton.Content = IconFullscreen;
+        FullscreenButton.ToolTip = _localization["PlayerEnterFullscreen"];
         CloseButton.ToolTip = _localization["ActionClose"];
     }
 
@@ -265,6 +276,7 @@ public partial class PlayerWindow : Window
         media.AddOption(":http-reconnect");
         media.AddOption(":network-caching=1500");
         media.AddOption(":file-caching=1000");
+        media.AddOption(":clock-synchro=1");
 
         if (_server is not null && !string.IsNullOrWhiteSpace(_server.Username))
         {
@@ -546,6 +558,42 @@ public partial class PlayerWindow : Window
         Close();
     }
 
+    private void OnFullscreen(object sender, RoutedEventArgs e)
+    {
+        ToggleFullscreen();
+    }
+
+    private void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && _isFullscreen)
+        {
+            SetFullscreen(false);
+            e.Handled = true;
+        }
+    }
+
+    private void OnVideoHostMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left && e.ClickCount >= 2)
+        {
+            ToggleFullscreen();
+            e.Handled = true;
+        }
+    }
+
+    private void OnPlayerRightClick(object sender, MouseButtonEventArgs e)
+    {
+        BuildPlayerContextMenu();
+        PlayerContextMenu.PlacementTarget = sender as UIElement ?? RootLayout;
+        PlayerContextMenu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void OnPlayerContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        BuildPlayerContextMenu();
+    }
+
     private void OnPositionMouseDown(object sender, MouseButtonEventArgs e)
     {
         _isDraggingPosition = true;
@@ -584,7 +632,7 @@ public partial class PlayerWindow : Window
         var time = _mediaPlayer.Time;
         if (length > 0)
         {
-            PositionSlider.Value = Math.Clamp(_mediaPlayer.Position * PositionSlider.Maximum, 0, PositionSlider.Maximum);
+            PositionSlider.Value = Math.Clamp((double)time / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
         }
 
         TimeText.Text = FormatTime(time, length);
@@ -597,7 +645,255 @@ public partial class PlayerWindow : Window
             return;
         }
 
+        var length = _mediaPlayer.Length;
+        if (length > 0)
+        {
+            var target = Math.Clamp(SliderPositionToTime(), 0, Math.Max(0, length - 1));
+            SeekToTime(target);
+            return;
+        }
+
         _mediaPlayer.Position = (float)Math.Clamp(PositionSlider.Value / PositionSlider.Maximum, 0, 1);
+        ReapplyTrackTiming();
+    }
+
+    private bool CanSeek()
+    {
+        return _mediaPlayer is not null && _mediaPlayer.Length > 0;
+    }
+
+    private void SeekRelative(long deltaMs)
+    {
+        if (_mediaPlayer is null || _mediaPlayer.Length <= 0)
+        {
+            return;
+        }
+
+        SeekToTime(_mediaPlayer.Time + deltaMs);
+    }
+
+    private void SeekToTime(long targetMs)
+    {
+        if (_mediaPlayer is null)
+        {
+            return;
+        }
+
+        var length = _mediaPlayer.Length;
+        if (length <= 0)
+        {
+            return;
+        }
+
+        var target = Math.Clamp(targetMs, 0, Math.Max(0, length - 1));
+        _mediaPlayer.Time = target;
+        PositionSlider.Value = Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
+        TimeText.Text = FormatTime(target, length);
+        ReapplyTrackTiming();
+    }
+
+    private void ToggleFullscreen()
+    {
+        SetFullscreen(!_isFullscreen);
+    }
+
+    private void SetFullscreen(bool fullscreen)
+    {
+        if (_isFullscreen == fullscreen)
+        {
+            return;
+        }
+
+        if (fullscreen)
+        {
+            _windowStateBeforeFullscreen = WindowState;
+            _windowStyleBeforeFullscreen = WindowStyle;
+            _resizeModeBeforeFullscreen = ResizeMode;
+            _topmostBeforeFullscreen = Topmost;
+            _sidebarWidthBeforeFullscreen = PlayerSidebarColumn.Width;
+
+            _isFullscreen = true;
+            PlayerSidebar.Visibility = Visibility.Collapsed;
+            PlayerControlsBar.Visibility = Visibility.Collapsed;
+            PlayerSidebarColumn.Width = new GridLength(0);
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            Topmost = true;
+            WindowState = WindowState.Maximized;
+        }
+        else
+        {
+            _isFullscreen = false;
+            PlayerSidebar.Visibility = Visibility.Visible;
+            PlayerControlsBar.Visibility = Visibility.Visible;
+            PlayerSidebarColumn.Width = _sidebarWidthBeforeFullscreen;
+            WindowStyle = _windowStyleBeforeFullscreen;
+            ResizeMode = _resizeModeBeforeFullscreen;
+            Topmost = _topmostBeforeFullscreen;
+            WindowState = _windowStateBeforeFullscreen;
+        }
+
+        UpdateFullscreenButton();
+    }
+
+    private void UpdateFullscreenButton()
+    {
+        FullscreenButton.Content = _isFullscreen ? IconWindowed : IconFullscreen;
+        FullscreenButton.ToolTip = _isFullscreen
+            ? _localization["PlayerExitFullscreen"]
+            : _localization["PlayerEnterFullscreen"];
+    }
+
+    private void ReapplyTrackTiming()
+    {
+        if (_mediaPlayer is null)
+        {
+            return;
+        }
+
+        _mediaPlayer.SetAudioDelay((long)Math.Round(AudioDelaySlider.Value) * 1000);
+        _mediaPlayer.SetSpuDelay((long)Math.Round(SubtitleDelaySlider.Value) * 1000);
+    }
+
+    private void BuildPlayerContextMenu()
+    {
+        PlayerContextMenu.Items.Clear();
+        PlayerContextMenu.Items.Add(CreateMenuItem(_mediaPlayer?.IsPlaying == true ? _localization["ActionPause"] : _localization["ActionPlay"], OnPlayPause, _mediaPlayer is not null));
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["ActionStop"], OnStop, _mediaPlayer is not null));
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["PlayerSeekBackward"], (_, _) => SeekRelative(-30000), CanSeek()));
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["PlayerSeekForward"], (_, _) => SeekRelative(30000), CanSeek()));
+        PlayerContextMenu.Items.Add(new Separator());
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["PlayerPreviousEpisode"], OnPrevious, PreviousButton.IsEnabled));
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["PlayerNextEpisode"], OnNext, NextButton.IsEnabled));
+        PlayerContextMenu.Items.Add(CreatePlaylistMenu());
+        PlayerContextMenu.Items.Add(new Separator());
+        PlayerContextMenu.Items.Add(CreateMenuItem(_isFullscreen ? _localization["PlayerExitFullscreen"] : _localization["PlayerEnterFullscreen"], OnFullscreen, true));
+        PlayerContextMenu.Items.Add(new Separator());
+        PlayerContextMenu.Items.Add(CreateTrackMenu(_localization["PlayerAudioTrack"], AudioTrackCombo));
+        PlayerContextMenu.Items.Add(CreateTrackMenu(_localization["PlayerVideoTrack"], VideoTrackCombo));
+        PlayerContextMenu.Items.Add(CreateTrackMenu(_localization["PlayerSubtitleTrack"], SubtitleTrackCombo));
+        PlayerContextMenu.Items.Add(CreateTrackMenu(_localization["PlayerAspectRatio"], AspectRatioCombo));
+        PlayerContextMenu.Items.Add(CreateDelayMenu(
+            _localization["PlayerAudioDelay"],
+            _localization["PlayerAudioDelayDecrease"],
+            _localization["PlayerAudioDelayReset"],
+            _localization["PlayerAudioDelayIncrease"],
+            AudioDelaySlider));
+        PlayerContextMenu.Items.Add(CreateDelayMenu(
+            _localization["PlayerSubtitleDelay"],
+            _localization["PlayerSubtitleDelayDecrease"],
+            _localization["PlayerSubtitleDelayReset"],
+            _localization["PlayerSubtitleDelayIncrease"],
+            SubtitleDelaySlider));
+        PlayerContextMenu.Items.Add(CreateVolumeMenu());
+        PlayerContextMenu.Items.Add(new Separator());
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["ActionClose"], OnClose, true));
+    }
+
+    private static MenuItem CreateMenuItem(string header, RoutedEventHandler click, bool isEnabled)
+    {
+        var item = new MenuItem
+        {
+            Header = header,
+            IsEnabled = isEnabled
+        };
+        item.Click += click;
+        return item;
+    }
+
+    private MenuItem CreatePlaylistMenu()
+    {
+        var menu = new MenuItem
+        {
+            Header = _localization["PlayerPlaylist"],
+            IsEnabled = _playlist.Count > 0
+        };
+
+        for (var index = 0; index < _playlist.Count; index++)
+        {
+            var itemIndex = index;
+            var playlistItem = _playlist[index];
+            var item = new MenuItem
+            {
+                Header = $"{playlistItem.NumberText} {playlistItem.Title}",
+                IsCheckable = true,
+                IsChecked = itemIndex == _currentPlaylistIndex
+            };
+            item.Click += (_, _) => PlayPlaylistIndex(itemIndex);
+            menu.Items.Add(item);
+        }
+
+        return menu;
+    }
+
+    private MenuItem CreateTrackMenu(string header, ComboBox comboBox)
+    {
+        var menu = new MenuItem
+        {
+            Header = header,
+            IsEnabled = comboBox.Items.Count > 0
+        };
+
+        foreach (var option in comboBox.Items.OfType<PlayerOption>())
+        {
+            var optionItem = option;
+            var item = new MenuItem
+            {
+                Header = option.Name,
+                IsEnabled = comboBox.IsEnabled,
+                IsCheckable = true,
+                IsChecked = IsSelectedOption(comboBox.SelectedItem as PlayerOption, option)
+            };
+            item.Click += (_, _) => comboBox.SelectedItem = optionItem;
+            menu.Items.Add(item);
+        }
+
+        return menu;
+    }
+
+    private MenuItem CreateDelayMenu(string header, string decreaseText, string resetText, string increaseText, Slider slider)
+    {
+        var menu = new MenuItem
+        {
+            Header = header
+        };
+        menu.Items.Add(CreateMenuItem(decreaseText, (_, _) => AdjustDelay(slider, -250), true));
+        menu.Items.Add(CreateMenuItem(resetText, (_, _) => SetDelay(slider, 0), true));
+        menu.Items.Add(CreateMenuItem(increaseText, (_, _) => AdjustDelay(slider, 250), true));
+        return menu;
+    }
+
+    private MenuItem CreateVolumeMenu()
+    {
+        var menu = new MenuItem
+        {
+            Header = _localization["FieldVolume"]
+        };
+        menu.Items.Add(CreateMenuItem(_localization["PlayerVolumeDown"], (_, _) => AdjustVolume(-10), true));
+        menu.Items.Add(CreateMenuItem(_localization["PlayerVolumeUp"], (_, _) => AdjustVolume(10), true));
+        return menu;
+    }
+
+    private static bool IsSelectedOption(PlayerOption? selected, PlayerOption option)
+    {
+        return selected is not null &&
+            selected.Id == option.Id &&
+            string.Equals(selected.Value, option.Value, StringComparison.Ordinal);
+    }
+
+    private void AdjustDelay(Slider slider, double delta)
+    {
+        SetDelay(slider, slider.Value + delta);
+    }
+
+    private static void SetDelay(Slider slider, double value)
+    {
+        slider.Value = Math.Clamp(value, slider.Minimum, slider.Maximum);
+    }
+
+    private void AdjustVolume(double delta)
+    {
+        VolumeSlider.Value = Math.Clamp(VolumeSlider.Value + delta, VolumeSlider.Minimum, VolumeSlider.Maximum);
     }
 
     private long SliderPositionToTime()

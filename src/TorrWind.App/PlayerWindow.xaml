@@ -7,6 +7,7 @@
         MinWidth="860"
         MinHeight="520"
         Background="#101418"
+        PreviewKeyDown="OnWindowKeyDown"
         Loaded="OnLoaded"
         Closing="OnClosing">
   <Window.Resources>
@@ -27,7 +28,10 @@
     </Style>
   </Window.Resources>
 
-  <Grid>
+  <Grid x:Name="RootLayout" PreviewMouseRightButtonUp="OnPlayerRightClick">
+    <Grid.ContextMenu>
+      <ContextMenu x:Name="PlayerContextMenu" Opened="OnPlayerContextMenuOpened" />
+    </Grid.ContextMenu>
     <Grid.RowDefinitions>
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
@@ -36,11 +40,17 @@
     <Grid Grid.Row="0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="320" />
+        <ColumnDefinition x:Name="PlayerSidebarColumn" Width="320" />
       </Grid.ColumnDefinitions>
 
-      <Grid Grid.Column="0" Background="#05070A">
-        <vlc:VideoView x:Name="VideoView" />
+      <Grid x:Name="VideoHost"
+            Grid.Column="0"
+            Background="#05070A"
+            MouseLeftButtonDown="OnVideoHostMouseLeftButtonDown"
+            MouseRightButtonUp="OnPlayerRightClick">
+        <vlc:VideoView x:Name="VideoView"
+                       MouseLeftButtonDown="OnVideoHostMouseLeftButtonDown"
+                       MouseRightButtonUp="OnPlayerRightClick" />
         <TextBlock x:Name="StatusText"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
@@ -51,7 +61,7 @@
                    Margin="24" />
       </Grid>
 
-      <Border Grid.Column="1" Background="#121A23" BorderBrush="#263445" BorderThickness="1,0,0,0">
+      <Border x:Name="PlayerSidebar" Grid.Column="1" Background="#121A23" BorderBrush="#263445" BorderThickness="1,0,0,0">
         <Grid Margin="14">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -150,7 +160,7 @@
       </Border>
     </Grid>
 
-    <Border Grid.Row="1" Background="#17202A" Padding="14">
+    <Border x:Name="PlayerControlsBar" Grid.Row="1" Background="#17202A" Padding="14">
       <Grid>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
@@ -187,6 +197,10 @@
                   Content="&#xE893;"
                   Style="{StaticResource PlayerIconButton}"
                   Click="OnNext" />
+          <Button x:Name="FullscreenButton"
+                  Content="&#xE740;"
+                  Style="{StaticResource PlayerIconButton}"
+                  Click="OnFullscreen" />
         </StackPanel>
 
         <Grid Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
