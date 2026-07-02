@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -30,6 +31,7 @@ public partial class PlayerWindow : Window
     private const string IconWindowed = "\uE73F";
     private const int NetworkStreamCacheMs = 8000;
     private const int FileStreamCacheMs = 3000;
+    private const int WindowMessageLeftButtonDown = 0x0201;
     private const int WindowMessageLeftDoubleClick = 0x0203;
     private const int WindowMessageRightButtonUp = 0x0205;
     private const int WindowMessageContextMenu = 0x007B;
@@ -51,6 +53,11 @@ public partial class PlayerWindow : Window
     private bool _isUpdatingTrackControls;
     private bool _manualStopRequested;
     private bool _isFullscreen;
+    private int _videoHookAttachAttempts;
+    private long _lastNativeLeftClickTicks;
+    private int _lastNativeLeftClickX;
+    private int _lastNativeLeftClickY;
+    private VideoInputNativeWindow? _videoInputWindow;
     private WindowState _windowStateBeforeFullscreen;
     private WindowStyle _windowStyleBeforeFullscreen;
     private ResizeMode _resizeModeBeforeFullscreen;
@@ -99,6 +106,7 @@ public partial class PlayerWindow : Window
             _mediaPlayer.EncounteredError += (_, _) => Dispatcher.Invoke(() => SetPlaybackStatus(_localization["PlayerStatusError"]));
             VideoView.MediaPlayer = _mediaPlayer;
             ComponentDispatcher.ThreadFilterMessage += OnThreadFilterMessage;
+            _ = Dispatcher.BeginInvoke(AttachVideoNativeInputHook, DispatcherPriority.ContextIdle);
 
             PlaylistList.ItemsSource = _playlist;
             await LoadPlaylistAsync().ConfigureAwait(true);
@@ -521,6 +529,8 @@ public partial class PlayerWindow : Window
         _positionTimer.Stop();
         _trackRefreshTimer.Stop();
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
+        _videoInputWindow?.ReleaseHandle();
+        _videoInputWindow = null;
 
         try
         {
@@ -611,6 +621,18 @@ public partial class PlayerWindow : Window
             return;
         }
 
+        if (msg.message == WindowMessageLeftButtonDown)
+        {
+            if (!IsNativeDoubleClick(msg.lParam))
+            {
+                return;
+            }
+
+            ToggleFullscreen();
+            handled = true;
+            return;
+        }
+
         if (msg.message == WindowMessageLeftDoubleClick)
         {
             ToggleFullscreen();
@@ -624,7 +646,64 @@ public partial class PlayerWindow : Window
 
     private static bool IsNativeVideoMouseMessage(int message)
     {
-        return message is WindowMessageLeftDoubleClick or WindowMessageRightButtonUp or WindowMessageContextMenu;
+        return message is WindowMessageLeftButtonDown or WindowMessageLeftDoubleClick or WindowMessageRightButtonUp or WindowMessageContextMenu;
+    }
+
+    private bool HandleVideoNativeMessage(int message, IntPtr lParam)
+    {
+        if (!IsNativeVideoMouseMessage(message))
+        {
+            return false;
+        }
+
+        if (message == WindowMessageLeftButtonDown && !IsNativeDoubleClick(lParam))
+        {
+            return false;
+        }
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (message is WindowMessageLeftButtonDown or WindowMessageLeftDoubleClick)
+            {
+                ToggleFullscreen();
+                return;
+            }
+
+            OpenPlayerContextMenu(VideoHost);
+        });
+
+        return true;
+    }
+
+    private bool IsNativeDoubleClick(IntPtr lParam)
+    {
+        var now = Environment.TickCount64;
+        var x = GetSignedLowWord(lParam);
+        var y = GetSignedHighWord(lParam);
+        var isDoubleClick = now - _lastNativeLeftClickTicks <= GetDoubleClickTime() &&
+            Math.Abs(x - _lastNativeLeftClickX) <= System.Windows.Forms.SystemInformation.DoubleClickSize.Width &&
+            Math.Abs(y - _lastNativeLeftClickY) <= System.Windows.Forms.SystemInformation.DoubleClickSize.Height;
+
+        _lastNativeLeftClickTicks = now;
+        _lastNativeLeftClickX = x;
+        _lastNativeLeftClickY = y;
+
+        if (isDoubleClick)
+        {
+            _lastNativeLeftClickTicks = 0;
+        }
+
+        return isDoubleClick;
+    }
+
+    private static int GetSignedLowWord(IntPtr value)
+    {
+        return unchecked((short)((long)value & 0xFFFF));
+    }
+
+    private static int GetSignedHighWord(IntPtr value)
+    {
+        return unchecked((short)(((long)value >> 16) & 0xFFFF));
     }
 
     private bool IsMouseOverVideoHost()
@@ -647,6 +726,52 @@ public partial class PlayerWindow : Window
         PlayerContextMenu.PlacementTarget = placementTarget;
         PlayerContextMenu.Placement = PlacementMode.MousePoint;
         PlayerContextMenu.IsOpen = true;
+    }
+
+    private void AttachVideoNativeInputHook()
+    {
+        if (_isClosing || _videoInputWindow is not null)
+        {
+            return;
+        }
+
+        var handle = ResolveVideoHostHandle();
+        if (handle == IntPtr.Zero)
+        {
+            if (_videoHookAttachAttempts++ < 20)
+            {
+                _ = Dispatcher.BeginInvoke(AttachVideoNativeInputHook, DispatcherPriority.Background);
+            }
+
+            return;
+        }
+
+        _videoInputWindow = new VideoInputNativeWindow(this);
+        _videoInputWindow.AssignHandle(handle);
+        FileEventLog.User.Info("Player", "Attached native video input hook.", handle.ToString("X"));
+    }
+
+    private IntPtr ResolveVideoHostHandle()
+    {
+        var host = VideoView.GetType()
+            .GetField("_videoHwndHost", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(VideoView);
+
+        return ResolveHandleFromObject(host);
+    }
+
+    private static IntPtr ResolveHandleFromObject(object? value)
+    {
+        if (value is null)
+        {
+            return IntPtr.Zero;
+        }
+
+        var handle = value.GetType()
+            .GetProperty("Handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(value);
+
+        return handle is IntPtr ptr ? ptr : IntPtr.Zero;
     }
 
     private void OnPositionMouseDown(object sender, MouseButtonEventArgs e)
@@ -741,10 +866,59 @@ public partial class PlayerWindow : Window
         }
 
         var target = Math.Clamp(targetMs, 0, Math.Max(0, length - 1));
+        if (IsCurrentAviStream())
+        {
+            RestartCurrentMediaAt(target);
+            return;
+        }
+
         _mediaPlayer.Time = target;
         PositionSlider.Value = Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
         TimeText.Text = FormatTime(target, length);
         ReapplyTrackTiming();
+    }
+
+    private bool IsCurrentAviStream()
+    {
+        if (_currentPlaylistIndex < 0 || _currentPlaylistIndex >= _playlist.Count)
+        {
+            return false;
+        }
+
+        var item = _playlist[_currentPlaylistIndex];
+        var path = WebUtility.UrlDecode(item.Uri.AbsolutePath);
+        return path.EndsWith(".avi", StringComparison.OrdinalIgnoreCase) ||
+            item.Title.EndsWith(".avi", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void RestartCurrentMediaAt(long targetMs)
+    {
+        if (_libVlc is null || _mediaPlayer is null || _currentPlaylistIndex < 0 || _currentPlaylistIndex >= _playlist.Count)
+        {
+            return;
+        }
+
+        var item = _playlist[_currentPlaylistIndex];
+        var length = _mediaPlayer.Length;
+        var target = length > 0
+            ? Math.Clamp(targetMs, 0, Math.Max(0, length - 1))
+            : Math.Max(0, targetMs);
+
+        using var media = new Media(_libVlc, item.Uri);
+        ApplyMediaOptions(media);
+        media.AddOption(":start-time=" + (target / 1000D).ToString("0.###", CultureInfo.InvariantCulture));
+        _manualStopRequested = false;
+        _mediaPlayer.Stop();
+        _mediaPlayer.Play(media);
+        _mediaPlayer.Volume = (int)VolumeSlider.Value;
+        PositionSlider.Value = length > 0
+            ? Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum)
+            : 0;
+        TimeText.Text = FormatTime(target, length);
+        ResetTrackControls();
+        StartTrackRefresh();
+        ReapplyTrackTiming();
+        FileEventLog.User.Info("Player", "Restarted AVI stream at seek target.", $"{item.Uri}; {target}ms");
     }
 
     private void ToggleFullscreen()
@@ -992,12 +1166,33 @@ public partial class PlayerWindow : Window
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out NativePoint point);
 
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
     [StructLayout(LayoutKind.Sequential)]
     private readonly struct NativePoint
     {
         public readonly int X;
 
         public readonly int Y;
+    }
+
+    private sealed class VideoInputNativeWindow : System.Windows.Forms.NativeWindow
+    {
+        private readonly PlayerWindow _owner;
+
+        public VideoInputNativeWindow(PlayerWindow owner)
+        {
+            _owner = owner;
+        }
+
+        protected override void WndProc(ref System.Windows.Forms.Message m)
+        {
+            if (!_owner.HandleVideoNativeMessage(m.Msg, m.LParam))
+            {
+                base.WndProc(ref m);
+            }
+        }
     }
 }
 
