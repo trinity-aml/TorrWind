@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -30,6 +29,7 @@ public partial class PlayerWindow : Window
     private const string IconFullscreen = "\uE740";
     private const string IconWindowed = "\uE73F";
     private const int NetworkStreamCacheMs = 8000;
+    private const int AviNetworkStreamCacheMs = 15000;
     private const int FileStreamCacheMs = 3000;
     private const int WindowMessageLeftButtonDown = 0x0201;
     private const int WindowMessageLeftDoubleClick = 0x0203;
@@ -57,6 +57,7 @@ public partial class PlayerWindow : Window
     private long _lastNativeLeftClickTicks;
     private int _lastNativeLeftClickX;
     private int _lastNativeLeftClickY;
+    private long _lastPointerFullscreenToggleTicks;
     private VideoInputNativeWindow? _videoInputWindow;
     private WindowState _windowStateBeforeFullscreen;
     private WindowStyle _windowStyleBeforeFullscreen;
@@ -280,7 +281,7 @@ public partial class PlayerWindow : Window
         UpdatePlaylistButtons();
 
         using var media = new Media(_libVlc, item.Uri);
-        ApplyMediaOptions(media);
+        ApplyMediaOptions(media, item);
         _mediaPlayer.Play(media);
         _mediaPlayer.Volume = (int)VolumeSlider.Value;
         ResetTrackControls();
@@ -288,14 +289,25 @@ public partial class PlayerWindow : Window
         FileEventLog.User.Info("Player", "Built-in player opened playlist item.", item.Uri.ToString());
     }
 
-    private void ApplyMediaOptions(Media media)
+    private void ApplyMediaOptions(Media media, PlayerPlaylistItem? item = null)
     {
+        var isAvi = IsAviStream(item);
+        var networkCacheMs = isAvi ? AviNetworkStreamCacheMs : NetworkStreamCacheMs;
+
         media.AddOption(":http-reconnect");
-        media.AddOption(":network-caching=" + NetworkStreamCacheMs);
-        media.AddOption(":live-caching=" + NetworkStreamCacheMs);
+        media.AddOption(":network-caching=" + networkCacheMs);
+        media.AddOption(":live-caching=" + networkCacheMs);
         media.AddOption(":file-caching=" + FileStreamCacheMs);
         media.AddOption(":drop-late-frames=0");
         media.AddOption(":skip-frames=0");
+
+        if (isAvi)
+        {
+            media.AddOption(":demux=avi");
+            media.AddOption(":avi-index=3");
+            media.AddOption(":avi-interleaved");
+            media.AddOption(":no-input-fast-seek");
+        }
 
         if (_server is not null && !string.IsNullOrWhiteSpace(_server.Username))
         {
@@ -598,7 +610,7 @@ public partial class PlayerWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left && e.ClickCount >= 2)
         {
-            ToggleFullscreen();
+            ToggleFullscreenFromPointer();
             e.Handled = true;
         }
     }
@@ -628,14 +640,14 @@ public partial class PlayerWindow : Window
                 return;
             }
 
-            ToggleFullscreen();
+            ToggleFullscreenFromPointer();
             handled = true;
             return;
         }
 
         if (msg.message == WindowMessageLeftDoubleClick)
         {
-            ToggleFullscreen();
+            ToggleFullscreenFromPointer();
             handled = true;
             return;
         }
@@ -665,7 +677,7 @@ public partial class PlayerWindow : Window
         {
             if (message is WindowMessageLeftButtonDown or WindowMessageLeftDoubleClick)
             {
-                ToggleFullscreen();
+                ToggleFullscreenFromPointer();
                 return;
             }
 
@@ -868,7 +880,7 @@ public partial class PlayerWindow : Window
         var target = Math.Clamp(targetMs, 0, Math.Max(0, length - 1));
         if (IsCurrentAviStream())
         {
-            RestartCurrentMediaAt(target);
+            SeekAviToTime(target, length);
             return;
         }
 
@@ -885,40 +897,67 @@ public partial class PlayerWindow : Window
             return false;
         }
 
-        var item = _playlist[_currentPlaylistIndex];
-        var path = WebUtility.UrlDecode(item.Uri.AbsolutePath);
-        return path.EndsWith(".avi", StringComparison.OrdinalIgnoreCase) ||
-            item.Title.EndsWith(".avi", StringComparison.OrdinalIgnoreCase);
+        return IsAviStream(_playlist[_currentPlaylistIndex]);
     }
 
-    private void RestartCurrentMediaAt(long targetMs)
+    private static bool IsAviStream(PlayerPlaylistItem? item)
     {
-        if (_libVlc is null || _mediaPlayer is null || _currentPlaylistIndex < 0 || _currentPlaylistIndex >= _playlist.Count)
+        if (item is null)
+        {
+            return false;
+        }
+
+        var path = WebUtility.UrlDecode(item.Uri.AbsolutePath);
+        var query = WebUtility.UrlDecode(item.Uri.Query);
+        return path.Contains(".avi", StringComparison.OrdinalIgnoreCase) ||
+            query.Contains(".avi", StringComparison.OrdinalIgnoreCase) ||
+            item.Title.Contains(".avi", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SeekAviToTime(long target, long length)
+    {
+        if (_mediaPlayer is null)
         {
             return;
         }
 
-        var item = _playlist[_currentPlaylistIndex];
-        var length = _mediaPlayer.Length;
-        var target = length > 0
-            ? Math.Clamp(targetMs, 0, Math.Max(0, length - 1))
-            : Math.Max(0, targetMs);
+        var audioTrack = _mediaPlayer.AudioTrack;
+        if (audioTrack >= 0)
+        {
+            _mediaPlayer.SetAudioTrack(-1);
+        }
 
-        using var media = new Media(_libVlc, item.Uri);
-        ApplyMediaOptions(media);
-        media.AddOption(":start-time=" + (target / 1000D).ToString("0.###", CultureInfo.InvariantCulture));
-        _manualStopRequested = false;
-        _mediaPlayer.Stop();
-        _mediaPlayer.Play(media);
-        _mediaPlayer.Volume = (int)VolumeSlider.Value;
-        PositionSlider.Value = length > 0
-            ? Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum)
-            : 0;
+        _mediaPlayer.Time = target;
+        PositionSlider.Value = Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
         TimeText.Text = FormatTime(target, length);
-        ResetTrackControls();
-        StartTrackRefresh();
         ReapplyTrackTiming();
-        FileEventLog.User.Info("Player", "Restarted AVI stream at seek target.", $"{item.Uri}; {target}ms");
+
+        if (audioTrack >= 0)
+        {
+            _ = Dispatcher.InvokeAsync(async () =>
+            {
+                await Task.Delay(350).ConfigureAwait(true);
+                if (_mediaPlayer is not null && !_isClosing)
+                {
+                    _mediaPlayer.SetAudioTrack(audioTrack);
+                    ReapplyTrackTiming();
+                }
+            }, DispatcherPriority.Background);
+        }
+
+        FileEventLog.User.Info("Player", "Sought AVI stream with audio track reset.", $"{target}ms");
+    }
+
+    private void ToggleFullscreenFromPointer()
+    {
+        var now = Environment.TickCount64;
+        if (now - _lastPointerFullscreenToggleTicks < 500)
+        {
+            return;
+        }
+
+        _lastPointerFullscreenToggleTicks = now;
+        ToggleFullscreen();
     }
 
     private void ToggleFullscreen()

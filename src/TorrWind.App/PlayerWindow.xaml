@@ -50,15 +50,22 @@
             MouseRightButtonUp="OnPlayerRightClick">
         <vlc:VideoView x:Name="VideoView"
                        MouseLeftButtonDown="OnVideoHostMouseLeftButtonDown"
-                       MouseRightButtonUp="OnPlayerRightClick" />
-        <TextBlock x:Name="StatusText"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Foreground="#C9D3DF"
-                   FontSize="16"
-                   TextWrapping="Wrap"
-                   TextAlignment="Center"
-                   Margin="24" />
+                       MouseRightButtonUp="OnPlayerRightClick">
+          <Grid x:Name="VideoInputLayer"
+                Background="Transparent"
+                MouseLeftButtonDown="OnVideoHostMouseLeftButtonDown"
+                MouseRightButtonUp="OnPlayerRightClick">
+            <TextBlock x:Name="StatusText"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="#C9D3DF"
+                       FontSize="16"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       IsHitTestVisible="False"
+                       Margin="24" />
+          </Grid>
+        </vlc:VideoView>
       </Grid>
 
       <Border x:Name="PlayerSidebar" Grid.Column="1" Background="#121A23" BorderBrush="#263445" BorderThickness="1,0,0,0">
