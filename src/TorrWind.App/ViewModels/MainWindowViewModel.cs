@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -32,8 +35,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly AsyncRelayCommand _useSelectedInstalledTorrServerCommand;
     private readonly RelayCommand _deleteSelectedInstalledTorrServerCommand;
     private readonly RelayCommand _openSelectedInstalledTorrServerFolderCommand;
+    private readonly RelayCommand _openDownloadedTorrWindUpdateCommand;
     private AppSettings _settings = AppSettings.CreateDefault();
     private TorrServerRelease? _latestTorrServerRelease;
+    private TorrWindRelease? _latestTorrWindRelease;
     private ServerProfile? _selectedServer;
     private TorrentItem? _selectedTorrent;
     private TorrentFile? _selectedTorrentFile;
@@ -54,12 +59,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _searchCategories = string.Empty;
     private int _searchMinSeeders;
     private int _searchMaxSizeGb;
+    private DateTime? _searchPublishedFrom;
+    private DateTime? _searchPublishedTo;
     private int _lastSearchFailedProviders;
     private string _statusMessage = string.Empty;
     private string _logLocationText = string.Empty;
     private string _runtimeSettingsJson = string.Empty;
     private string _serviceStatusText = string.Empty;
     private string _torrServerReleaseText = string.Empty;
+    private string _torrWindUpdateText = string.Empty;
+    private string _downloadedTorrWindUpdatePath = string.Empty;
     private bool _isRefreshingLibrary;
     private bool _isRefreshingSelectedTorrentLive;
     private bool _isApplyingLanguage;
@@ -125,6 +134,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _openSelectedInstalledTorrServerFolderCommand = CreateCommand(OpenSelectedInstalledTorrServerFolder, () => SelectedInstalledTorrServer is not null);
         OpenSelectedInstalledTorrServerFolderCommand = _openSelectedInstalledTorrServerFolderCommand;
         RollbackTorrServerCommand = CreateAsyncCommand(RollbackTorrServerAsync);
+        CheckTorrWindUpdateCommand = CreateAsyncCommand(CheckTorrWindUpdateAsync);
+        DownloadTorrWindUpdateCommand = CreateAsyncCommand(DownloadTorrWindUpdateAsync);
+        OpenTorrWindUpdatesFolderCommand = CreateCommand(OpenTorrWindUpdatesFolder);
+        _openDownloadedTorrWindUpdateCommand = CreateCommand(OpenDownloadedTorrWindUpdate, () => File.Exists(_downloadedTorrWindUpdatePath));
+        OpenDownloadedTorrWindUpdateCommand = _openDownloadedTorrWindUpdateCommand;
         ApplyLocalServerSettingsCommand = CreateAsyncCommand(ApplyLocalServerSettingsAsync);
         InstallServiceCommand = CreateAsyncCommand(InstallServiceAsync);
         UninstallServiceCommand = CreateAsyncCommand(UninstallServiceAsync);
@@ -286,6 +300,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand OpenSelectedInstalledTorrServerFolderCommand { get; }
 
     public ICommand RollbackTorrServerCommand { get; }
+
+    public ICommand CheckTorrWindUpdateCommand { get; }
+
+    public ICommand DownloadTorrWindUpdateCommand { get; }
+
+    public ICommand OpenTorrWindUpdatesFolderCommand { get; }
+
+    public ICommand OpenDownloadedTorrWindUpdateCommand { get; }
 
     public ICommand ApplyLocalServerSettingsCommand { get; }
 
@@ -546,6 +568,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _searchMaxSizeGb, Math.Max(0, value));
     }
 
+    public DateTime? SearchPublishedFrom
+    {
+        get => _searchPublishedFrom;
+        set => SetProperty(ref _searchPublishedFrom, value?.Date);
+    }
+
+    public DateTime? SearchPublishedTo
+    {
+        get => _searchPublishedTo;
+        set => SetProperty(ref _searchPublishedTo, value?.Date);
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -576,11 +610,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _torrServerReleaseText, value);
     }
 
+    public string TorrWindUpdateText
+    {
+        get => _torrWindUpdateText;
+        set => SetProperty(ref _torrWindUpdateText, value);
+    }
+
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         _settings = await _settingsStore.LoadAsync(cancellationToken).ConfigureAwait(true);
 
         await ApplySettingsToViewAsync(cancellationToken).ConfigureAwait(true);
+        UpdateTorrWindUpdateText();
         StatusMessage = L["StatusReady"];
         await StartLocalServerIfConfiguredAsync().ConfigureAwait(true);
         LogInfo("Application", "ViewModel initialized.");
@@ -2363,6 +2404,24 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OpenDirectory(AppPaths.UserSettingsBackupsDirectory, createDirectory: true);
     }
 
+    private void OpenTorrWindUpdatesFolder()
+    {
+        OpenDirectory(AppPaths.UpdatesDirectory, createDirectory: true);
+    }
+
+    private void OpenDownloadedTorrWindUpdate()
+    {
+        if (string.IsNullOrWhiteSpace(_downloadedTorrWindUpdatePath) ||
+            !File.Exists(_downloadedTorrWindUpdatePath))
+        {
+            StatusMessage = L["StatusNoDownloadedTorrWindUpdate"];
+            _openDownloadedTorrWindUpdateCommand.RaiseCanExecuteChanged();
+            return;
+        }
+
+        OpenFile(_downloadedTorrWindUpdatePath);
+    }
+
     private bool OpenDirectory(string directoryPath, bool createDirectory, bool updateStatus = true)
     {
         try
@@ -2399,6 +2458,38 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             StatusMessage = string.Format(L["StatusFolderOpenFailed"], exception.Message);
             LogError("Shell", "Failed to open folder.", exception, directoryPath);
+            return false;
+        }
+    }
+
+    private bool OpenFile(string filePath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                throw new InvalidOperationException(L["StatusFilePathEmpty"]);
+            }
+
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException(filePath);
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            });
+
+            StatusMessage = string.Format(L["StatusFileOpened"], filePath);
+            LogInfo("Shell", "File opened.", filePath);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusFileOpenFailed"], exception.Message);
+            LogError("Shell", "Failed to open file.", exception, filePath);
             return false;
         }
     }
@@ -2733,6 +2824,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             AddDiagnostic("DiagnosticTorrentTotalSize", TorrentItem.FormatBytes(torrents.Sum(torrent => torrent.SizeBytes)));
 
             await AddRuntimeSettingsDiagnosticsAsync(client).ConfigureAwait(true);
+            await AddWebDavDiagnosticsAsync(client).ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -2755,6 +2847,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             AddDiagnostic("DiagnosticSettingsDownloadLimit", ReadJsonValue(root, "DownloadRateLimit"));
             AddDiagnostic("DiagnosticSettingsUploadLimit", ReadJsonValue(root, "UploadRateLimit"));
             AddDiagnostic("DiagnosticSettingsDlna", FormatBoolText(ReadJsonValue(root, "EnableDLNA", "EnableDlna")));
+            AddDiagnostic("DiagnosticSettingsDlnaFriendlyName", ReadJsonValue(root, "FriendlyName"));
             AddDiagnostic("DiagnosticSettingsTmdbKey", FormatBool(!string.IsNullOrWhiteSpace(ReadNestedJsonValue(root, "TMDBSettings", "APIKey"))));
             AddDiagnostic("DiagnosticSettingsTmdbApiUrl", EmptyAsNotAvailable(ReadNestedJsonValue(root, "TMDBSettings", "APIURL")));
             AddDiagnostic("DiagnosticSettingsTmdbImageUrl", EmptyAsNotAvailable(ReadNestedJsonValue(root, "TMDBSettings", "ImageURL")));
@@ -2764,6 +2857,26 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             AddDiagnostic("DiagnosticSettings", exception.Message);
             LogError("Diagnostics", "Runtime settings diagnostics failed.", exception);
+        }
+    }
+
+    private async Task AddWebDavDiagnosticsAsync(TorrServerClient client)
+    {
+        if (SelectedServer?.IsLocal == true)
+        {
+            AddDiagnostic("DiagnosticWebDavConfigured", FormatBool(LocalServer.EnableWebDav));
+        }
+
+        AddDiagnostic("DiagnosticWebDavUrl", client.WebDavUri.AbsoluteUri);
+        try
+        {
+            var status = await client.ProbeWebDavAsync().ConfigureAwait(true);
+            AddDiagnostic("DiagnosticWebDavEndpoint", FormatHttpStatus(status));
+        }
+        catch (Exception exception)
+        {
+            AddDiagnostic("DiagnosticWebDavEndpoint", exception.Message);
+            LogWarning("Diagnostics", "WebDAV diagnostics failed.", exception.Message);
         }
     }
 
@@ -2886,6 +2999,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         return EmptyAsNotAvailable(value);
+    }
+
+    private static string FormatHttpStatus(HttpStatusCode status)
+    {
+        return ((int)status).ToString(CultureInfo.InvariantCulture) + " " + status;
     }
 
     private string ReadJsonValue(JsonElement root, params string[] names)
@@ -3056,11 +3174,29 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         return results
             .Where(result => SearchMinSeeders <= 0 || result.Seeders >= SearchMinSeeders)
             .Where(result => maxSizeBytes <= 0 || result.SizeBytes <= 0 || result.SizeBytes <= maxSizeBytes)
+            .Where(IsWithinPublishedDateRange)
             .Where(result => categories.Count == 0 ||
                 string.IsNullOrWhiteSpace(result.Category) ||
                 categories.Contains(result.Category))
             .OrderByDescending(result => result.Seeders)
             .ThenByDescending(result => result.PublishedAt);
+    }
+
+    private bool IsWithinPublishedDateRange(SearchResult result)
+    {
+        if (SearchPublishedFrom is null && SearchPublishedTo is null)
+        {
+            return true;
+        }
+
+        if (result.PublishedAt is null)
+        {
+            return false;
+        }
+
+        var publishedDate = result.PublishedAt.Value.LocalDateTime.Date;
+        return (SearchPublishedFrom is null || publishedDate >= SearchPublishedFrom.Value) &&
+            (SearchPublishedTo is null || publishedDate <= SearchPublishedTo.Value);
     }
 
     private async Task SaveSearchHistoryAsync(string query)
@@ -3085,11 +3221,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         {
             await _settingsStore.SaveAsync(_settings).ConfigureAwait(true);
         }
-            catch
-            {
-                // Search history is a convenience feature; failed persistence must not break search.
-                LogWarning("Search", "Search history was not saved.");
-            }
+        catch
+        {
+            // Search history is a convenience feature; failed persistence must not break search.
+            LogWarning("Search", "Search history was not saved.");
+        }
     }
 
     private void RebuildSearchProviderOptions()
@@ -3410,9 +3546,20 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         });
 
         await releases.DownloadAsync(release.DownloadUrl, destination, progress).ConfigureAwait(true);
-        ValidateDownloadedTorrServer(destination, release);
+        var expectedSha256 = await releases.GetExpectedSha256Async(release).ConfigureAwait(true);
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            StatusMessage = L["StatusTorrServerVerifyingChecksum"];
+        }
+
+        ValidateDownloadedTorrServer(destination, release, expectedSha256);
         await SwitchLocalTorrServerExecutableAsync(destination, release.Version, "StatusTorrServerDownloaded").ConfigureAwait(true);
         RefreshInstalledTorrServers(updateStatusMessage: false);
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            LogInfo("TorrServer", "Downloaded TorrServer SHA256 verified.", expectedSha256);
+        }
+
         LogInfo("TorrServer", "TorrServer downloaded.", $"{release.Version}: {destination}");
     }
 
@@ -3459,6 +3606,104 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await SaveSettingsAsync().ConfigureAwait(true);
         StatusMessage = string.Format(L["StatusTorrServerRolledBack"], LocalServer.InstalledVersion);
         LogInfo("TorrServer", "TorrServer rolled back.", LocalServer.InstalledVersion);
+    }
+
+    private async Task<TorrWindRelease> FetchLatestTorrWindReleaseAsync(TorrWindReleaseService releases)
+    {
+        StatusMessage = L["StatusCheckingTorrWindUpdate"];
+        var release = await releases.GetLatestReleaseAsync().ConfigureAwait(true);
+        _latestTorrWindRelease = release;
+        UpdateTorrWindUpdateText();
+        return release;
+    }
+
+    private void UpdateTorrWindUpdateText()
+    {
+        TorrWindUpdateText = _latestTorrWindRelease is null
+            ? string.Format(L["TorrWindUpdateInfoUnchecked"], AppVersion)
+            : string.Format(
+                L["TorrWindUpdateInfo"],
+                AppVersion,
+                _latestTorrWindRelease.Version,
+                _latestTorrWindRelease.PackageName,
+                TorrentItem.FormatBytes(_latestTorrWindRelease.SizeBytes),
+                FormatTorrWindPackageKind(_latestTorrWindRelease.PackageKind));
+    }
+
+    private async Task CheckTorrWindUpdateAsync()
+    {
+        try
+        {
+            var releases = new TorrWindReleaseService();
+            var release = await FetchLatestTorrWindReleaseAsync(releases).ConfigureAwait(true);
+            StatusMessage = IsTorrWindReleaseNewer(release.Version, AppVersion)
+                ? string.Format(L["StatusTorrWindUpdateAvailable"], AppVersion, release.Version)
+                : string.Format(L["StatusTorrWindUpToDate"], AppVersion);
+            LogInfo("TorrWind", "TorrWind update check completed.", $"{AppVersion} -> {release.Version}");
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("TorrWind", "Failed to check TorrWind update.", exception);
+        }
+    }
+
+    private async Task DownloadTorrWindUpdateAsync()
+    {
+        try
+        {
+            var releases = new TorrWindReleaseService();
+            var release = await FetchLatestTorrWindReleaseAsync(releases).ConfigureAwait(true);
+            await DownloadTorrWindUpdateReleaseAsync(releases, release).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = exception.Message;
+            LogError("TorrWind", "Failed to download TorrWind update.", exception);
+        }
+    }
+
+    private async Task DownloadTorrWindUpdateReleaseAsync(TorrWindReleaseService releases, TorrWindRelease release)
+    {
+        AppPaths.EnsureWorkingDirectories();
+        var destination = Path.Combine(
+            AppPaths.UpdatesDirectory,
+            SanitizePathSegment(release.Version),
+            release.PackageName);
+
+        var nextProgressReport = 0L;
+        var progress = new Progress<long>(bytes =>
+        {
+            if (bytes < nextProgressReport && bytes < release.SizeBytes)
+            {
+                return;
+            }
+
+            nextProgressReport = bytes + 1024 * 1024;
+            StatusMessage = string.Format(
+                L["StatusTorrWindUpdateDownloadProgress"],
+                release.Version,
+                TorrentItem.FormatBytes(bytes),
+                TorrentItem.FormatBytes(release.SizeBytes));
+        });
+
+        await releases.DownloadAsync(release.DownloadUrl, destination, progress).ConfigureAwait(true);
+        var expectedSha256 = await releases.GetExpectedSha256Async(release).ConfigureAwait(true);
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            StatusMessage = L["StatusTorrWindVerifyingChecksum"];
+        }
+
+        ValidateDownloadedTorrWindUpdate(destination, release, expectedSha256);
+        _downloadedTorrWindUpdatePath = destination;
+        _openDownloadedTorrWindUpdateCommand.RaiseCanExecuteChanged();
+        StatusMessage = string.Format(L["StatusTorrWindUpdateDownloaded"], release.Version, destination);
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            LogInfo("TorrWind", "Downloaded TorrWind update SHA256 verified.", expectedSha256);
+        }
+
+        LogInfo("TorrWind", "TorrWind update downloaded.", $"{release.Version}: {destination}");
     }
 
     private async Task ApplyLocalServerSettingsAsync()
@@ -3518,7 +3763,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         Directory.Delete(directory);
     }
 
-    private static void ValidateDownloadedTorrServer(string executablePath, TorrServerRelease release)
+    private static void ValidateDownloadedTorrServer(
+        string executablePath,
+        TorrServerRelease release,
+        string? expectedSha256)
     {
         var file = new FileInfo(executablePath);
         if (!file.Exists || file.Length <= 0)
@@ -3531,6 +3779,74 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             throw new InvalidDataException(
                 $"Downloaded TorrServer size mismatch. Expected {release.SizeBytes} bytes, got {file.Length} bytes.");
         }
+
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            var actualSha256 = ComputeSha256(executablePath);
+            if (!string.Equals(actualSha256, expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Downloaded TorrServer SHA256 mismatch. Expected {expectedSha256}, got {actualSha256}.");
+            }
+        }
+    }
+
+    private static string ComputeSha256(string filePath)
+    {
+        using var stream = File.OpenRead(filePath);
+        using var sha256 = SHA256.Create();
+        return Convert.ToHexString(sha256.ComputeHash(stream)).ToLowerInvariant();
+    }
+
+    private static void ValidateDownloadedTorrWindUpdate(
+        string packagePath,
+        TorrWindRelease release,
+        string? expectedSha256)
+    {
+        var file = new FileInfo(packagePath);
+        if (!file.Exists || file.Length <= 0)
+        {
+            throw new InvalidDataException("Downloaded TorrWind update package is empty.");
+        }
+
+        if (release.SizeBytes > 0 && file.Length != release.SizeBytes)
+        {
+            throw new InvalidDataException(
+                $"Downloaded TorrWind update size mismatch. Expected {release.SizeBytes} bytes, got {file.Length} bytes.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            var actualSha256 = ComputeSha256(packagePath);
+            if (!string.Equals(actualSha256, expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Downloaded TorrWind update SHA256 mismatch. Expected {expectedSha256}, got {actualSha256}.");
+            }
+        }
+    }
+
+    private static bool IsTorrWindReleaseNewer(string releaseVersion, string currentVersion)
+    {
+        var normalizedRelease = NormalizeReleaseVersion(releaseVersion);
+        var normalizedCurrent = NormalizeReleaseVersion(currentVersion);
+        if (Version.TryParse(normalizedRelease, out var release) &&
+            Version.TryParse(normalizedCurrent, out var current))
+        {
+            return release > current;
+        }
+
+        return !string.Equals(normalizedRelease, normalizedCurrent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string FormatTorrWindPackageKind(string packageKind)
+    {
+        return packageKind switch
+        {
+            "Installer" => L["TorrWindPackageInstaller"],
+            "Portable" => L["TorrWindPackagePortable"],
+            _ => EmptyAsNotAvailable(packageKind)
+        };
     }
 
     private static string NormalizeReleaseVersion(string value)
@@ -3901,6 +4217,19 @@ public sealed class TorrServerReleaseItem
         : Release.PublishedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     public string SizeText => TorrentItem.FormatBytes(Release.SizeBytes);
+
+    public string ChecksumText
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Release.Sha256))
+            {
+                return "SHA256";
+            }
+
+            return Release.ChecksumDownloadUrl is null ? string.Empty : "SHA256 asset";
+        }
+    }
 }
 
 public sealed class InstalledTorrServerItem

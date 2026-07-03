@@ -45,6 +45,11 @@ public sealed class AppSettings
                 ReaderReadAheadPercent = 95,
                 TorrentDisconnectTimeoutSeconds = 30,
                 ConnectionsLimit = 25,
+                DhtConnectionsLimit = 500,
+                RetrackersMode = 1,
+                ShowFsActiveTorrents = true,
+                StoreSettingsInJson = true,
+                EnableLpd = true,
                 TmdbApiUrl = "https://api.themoviedb.org",
                 TmdbImageUrl = "https://image.tmdb.org",
                 TmdbImageUrlRu = "https://imagetmdb.com",
@@ -212,6 +217,8 @@ public sealed class LocalServerSettings
 
     public bool EnableDlna { get; set; }
 
+    public string FriendlyName { get; set; } = string.Empty;
+
     public bool EnableWebDav { get; set; }
 
     public CacheMode CacheMode { get; set; } = CacheMode.Memory;
@@ -225,6 +232,54 @@ public sealed class LocalServerSettings
     public int TorrentDisconnectTimeoutSeconds { get; set; } = 30;
 
     public int ConnectionsLimit { get; set; } = 25;
+
+    public int DhtConnectionsLimit { get; set; } = 500;
+
+    public int PeersListenPort { get; set; }
+
+    public int RetrackersMode { get; set; } = 1;
+
+    public bool RemoveCacheOnDrop { get; set; }
+
+    public bool PadTailPartial { get; set; }
+
+    public bool ForceEncrypt { get; set; }
+
+    public bool EnableDebug { get; set; }
+
+    public bool EnableRutorSearch { get; set; }
+
+    public bool EnableTorznabSearch { get; set; }
+
+    public bool EnableIPv6 { get; set; }
+
+    public bool DisableTcp { get; set; }
+
+    public bool DisableUtp { get; set; }
+
+    public bool DisableUpnp { get; set; }
+
+    public bool DisableDht { get; set; }
+
+    public bool DisablePex { get; set; }
+
+    public bool DisableUpload { get; set; }
+
+    public bool DisableEndGame { get; set; }
+
+    public bool EnableLpd { get; set; } = true;
+
+    public string TrustedProxies { get; set; } = string.Empty;
+
+    public bool ShowFsActiveTorrents { get; set; } = true;
+
+    public bool StoreSettingsInJson { get; set; } = true;
+
+    public bool StoreViewedInJson { get; set; }
+
+    public bool EnableProxy { get; set; }
+
+    public string ProxyHosts { get; set; } = string.Empty;
 
     public int DownloadSpeedLimitKb { get; set; }
 

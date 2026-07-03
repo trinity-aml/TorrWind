@@ -14,14 +14,16 @@ TorrWind хранит настройки, журналы, скачанные б�
 ## Возможности
 
 - Управление профилями локального и удаленного TorrServer.
-- Скачивание и обновление локального TorrServer из GitHub Releases.
+- Скачивание и обновление локального TorrServer из GitHub Releases с проверкой SHA256, если digest есть в metadata релиза.
 - Запуск локального TorrServer как процесса и опциональная установка службы Windows через `TorrWind.Service.exe`.
+- Проверка и скачивание обновлений TorrWind из GitHub Releases в `Data/updates`.
 - Добавление, удаление, drop и wipe торрентов и magnet-ссылок.
 - Список файлов торрента, проигрывание выбранного файла, продолжение просмотра и плейлист от выбранного файла.
 - Встроенный mpv-плеер с навигацией по M3U-плейлистам, настройками аудио/видео/субтитров и запуском внешнего плеера.
 - Вкладка TorrServer Web UI как резервный интерфейс.
 - Поиск через Torznab-совместимые индексеры, включая Jackett/Prowlarr-подобные endpoints.
 - Редактор Runtime JSON для настроек TorrServer.
+- Field-редактор расширенных runtime-настроек TorrServer.
 - Настройки кеша в памяти или на диске. Для новых профилей по умолчанию используется memory cache 64 МБ.
 - Диагностический отчет, журналы GUI/службы, импорт/экспорт настроек и экспорт support bundle.
 - Локализация через JSON-файлы в `locales`.
@@ -165,11 +167,12 @@ git push origin v1.0.0
 Data/TorrServer
 Data/TorrServer/versions
 Data/TorrServer/cache
+Data/updates
 ```
 
 GUI умеет:
 
-- скачивать и обновлять TorrServer из GitHub releases `YouROK/TorrServer`;
+- скачивать и обновлять TorrServer из GitHub releases `YouROK/TorrServer` и проверять SHA256, если она доступна;
 - переключаться между скачанными локальными версиями;
 - запускать и останавливать TorrServer как дочерний процесс;
 - устанавливать, удалять, запускать, останавливать и опрашивать `TorrWindService`;
@@ -252,7 +255,8 @@ Data/logs/service.jsonl
 - запускать TorrWind вместе с Windows;
 - связать `.torrent` файлы;
 - зарегистрировать обработчик `magnet:`;
-- установить и опционально запустить `TorrWindService`.
+- выбрать режим локального TorrServer: управление через GUI или `TorrWindService`;
+- установить и опционально запустить `TorrWindService`, если выбран режим службы.
 
 `TorrWind.exe` принимает:
 

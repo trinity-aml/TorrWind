@@ -25,6 +25,9 @@ public static class AppPaths
     public static string UserSettingsBackupsDirectory =>
         Path.Combine(DataDirectory, "backups");
 
+    public static string UpdatesDirectory =>
+        Path.Combine(DataDirectory, "updates");
+
     public static string ProgramDataLogsDirectory =>
         UserLogsDirectory;
 
@@ -65,6 +68,7 @@ public static class AppPaths
         Directory.CreateDirectory(DefaultLocalServerDirectory);
         Directory.CreateDirectory(UserLogsDirectory);
         Directory.CreateDirectory(UserSettingsBackupsDirectory);
+        Directory.CreateDirectory(UpdatesDirectory);
         Directory.CreateDirectory(PlaylistsDirectory);
     }
 }

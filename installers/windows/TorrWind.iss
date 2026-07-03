@@ -38,6 +38,8 @@ english.WindowsIntegrationGroup=Windows integration:
 russian.WindowsIntegrationGroup=Интеграция Windows:
 english.WindowsServiceGroup=Windows service:
 russian.WindowsServiceGroup=Служба Windows:
+english.LocalServerModeGroup=Local TorrServer mode:
+russian.LocalServerModeGroup=Режим локального TorrServer:
 english.DesktopIconTask=Create a desktop icon
 russian.DesktopIconTask=Создать значок на рабочем столе
 english.StartupTask=Start TorrWind with Windows
@@ -46,8 +48,10 @@ english.FileAssociationTask=Associate .torrent files with TorrWind
 russian.FileAssociationTask=Связать .torrent файлы с TorrWind
 english.MagnetAssociationTask=Register TorrWind as the magnet link handler
 russian.MagnetAssociationTask=Зарегистрировать TorrWind для magnet-ссылок
-english.InstallServiceTask=Install TorrWindService for local TorrServer
-russian.InstallServiceTask=Установить TorrWindService для локального TorrServer
+english.GuiModeTask=Use GUI-managed local TorrServer
+russian.GuiModeTask=Использовать локальный TorrServer под управлением GUI
+english.ServiceModeTask=Install TorrWindService for local TorrServer
+russian.ServiceModeTask=Установить TorrWindService для локального TorrServer
 english.StartServiceTask=Start TorrWindService after installation
 russian.StartServiceTask=Запустить TorrWindService после установки
 english.InstallingServiceStatus=Installing TorrWindService...
@@ -78,8 +82,9 @@ Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm
 Name: "startup"; Description: "{cm:StartupTask}"; GroupDescription: "{cm:StartupGroup}"
 Name: "fileassoc"; Description: "{cm:FileAssociationTask}"; GroupDescription: "{cm:WindowsIntegrationGroup}"
 Name: "magnetassoc"; Description: "{cm:MagnetAssociationTask}"; GroupDescription: "{cm:WindowsIntegrationGroup}"
-Name: "installservice"; Description: "{cm:InstallServiceTask}"; GroupDescription: "{cm:WindowsServiceGroup}"
-Name: "installservice\startservice"; Description: "{cm:StartServiceTask}"; Flags: unchecked
+Name: "guimode"; Description: "{cm:GuiModeTask}"; GroupDescription: "{cm:LocalServerModeGroup}"; Flags: exclusive
+Name: "servicemode"; Description: "{cm:ServiceModeTask}"; GroupDescription: "{cm:LocalServerModeGroup}"; Flags: exclusive unchecked
+Name: "servicemode\startservice"; Description: "{cm:StartServiceTask}"; Flags: unchecked
 
 [Registry]
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "TorrWind"; ValueData: """{app}\TorrWind.exe"" --minimized"; Flags: uninsdeletevalue; Tasks: startup
@@ -93,8 +98,8 @@ Root: HKCR; Subkey: "magnet\DefaultIcon"; ValueType: string; ValueName: ""; Valu
 Root: HKCR; Subkey: "magnet\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\TorrWind.exe"" ""%1"""; Tasks: magnetassoc
 
 [Run]
-Filename: "{app}\TorrWind.Service.exe"; Parameters: "install"; StatusMsg: "{cm:InstallingServiceStatus}"; Flags: runhidden waituntilterminated; Tasks: installservice
-Filename: "{app}\TorrWind.Service.exe"; Parameters: "start"; StatusMsg: "{cm:StartingServiceStatus}"; Flags: runhidden waituntilterminated; Tasks: installservice\startservice
+Filename: "{app}\TorrWind.Service.exe"; Parameters: "install"; StatusMsg: "{cm:InstallingServiceStatus}"; Flags: runhidden waituntilterminated; Tasks: servicemode
+Filename: "{app}\TorrWind.Service.exe"; Parameters: "start"; StatusMsg: "{cm:StartingServiceStatus}"; Flags: runhidden waituntilterminated; Tasks: servicemode\startservice
 Filename: "{app}\TorrWind.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

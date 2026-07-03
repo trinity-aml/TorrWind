@@ -43,38 +43,38 @@ The first usable version should cover:
 - Search via TorrServer Torznab endpoint.
 - Search directly through configured Torznab-compatible providers such as Jackett and Prowlarr.
 - Manage multiple search providers, including URL, API key, categories, enabled flag, timeout, and certificate-error override.
-- Filter search by category, seeders, and maximum size.
+- Filter search by category, seeders, maximum size, and publish-date range.
 - Keep a local recent-query search history.
 - Show copyable and savable diagnostics for TorrWind version/runtime environment, selected server availability, `/echo`, library count/size, runtime settings, local executable path, and `TorrWindService` state.
+- Show DLNA/WebDAV diagnostics, including DLNA runtime state/friendly name and WebDAV endpoint status.
 - Export a support bundle containing diagnostics, GUI/service logs, and sanitized settings with secrets redacted.
 - Show a combined event log for GUI events, service events, and TorrServer child process stdout/stderr.
 - Read, validate, format, copy, and apply the full TorrServer runtime settings JSON through `POST /settings`.
 - Check the latest `TorrServer-windows-amd64.exe` release from YouROK/TorrServer, load recent releases with Windows x64 assets, show installed/latest/asset details, and download either latest or the selected release with progress status.
+- Verify downloaded TorrServer binaries by SHA256 when GitHub release metadata or checksum assets provide a digest.
 - Store downloaded TorrServer binaries in versioned directories.
 - Scan locally downloaded TorrServer binaries, switch to a selected local version without network access, and delete inactive local versions.
 - Open local data/cache/log/backup/version folders from the GUI.
+- Check the latest TorrWind release from `trinity-aml/TorrWind`, download the installer or portable update package into `Data\updates`, verify SHA256 when available, and open the downloaded package.
 - Roll back to the previous configured TorrServer binary.
 - Optionally start the configured local TorrServer executable together with the GUI when service mode is not selected.
 - Install/uninstall `TorrWindService` with UAC elevation only for install/remove operations.
 - Start, stop, and query `TorrWindService` from the GUI without elevation.
 - English/Russian installer UI text.
+- Installer UI for local TorrServer mode choice: GUI-managed process or `TorrWindService`.
 - Installer tasks for `.torrent` file association and `magnet:` protocol registration.
 - Generate `accs.db` for local HTTP auth.
 - Generate `wip.txt` and `bip.txt` for local IP allow/block lists.
 - Pass local TorrServer CLI flags for HTTPS, force HTTPS, read-only database, search without auth, max stream size, WebDAV, proxy URL/mode, bind address, and ports.
 - Provide file/folder pickers for local executable, data/cache directories, SSL certificate/key files, and custom external player path.
 - Apply runtime settings through TorrServer `POST /settings`: cache size, RAM/disk cache mode, disk cache path, download/upload speed limits, DLNA, SSL settings, and TMDB API/image settings.
+- Provide field-based runtime settings for advanced TorrServer options including retrackers mode, DHT/peer limits, BT protocol toggles, cache drop/tail behavior, Rutor/Torznab search toggles, JSON storage flags, trusted proxies, and P2P proxy hosts.
 - Enable/disable WebDAV through local server launch arguments.
 - Keep DLNA as a settings/API item because it is not consistently exposed as a launch argument across TorrServer versions.
 
 ## Phase 2
 
-- Installer UI for service choice.
-- Self-update for TorrWind.
-- Checksum/signature verification when TorrServer release metadata provides it.
-- Field-based editor for more TorrServer settings.
-- Deeper DLNA/WebDAV diagnostics.
-- Publish-date range filtering.
+- Signature verification when TorrServer release metadata provides a signature and trust material.
 
 ## Data Locations
 
@@ -83,6 +83,7 @@ The first usable version should cover:
 - Service event log: `<TorrWind.exe directory>\Data\logs\service.jsonl`
 - Local TorrServer binaries/data: `<TorrWind.exe directory>\Data\TorrServer`
 - Generated playlists: `<TorrWind.exe directory>\Data\playlists`
+- Downloaded TorrWind update packages: `<TorrWind.exe directory>\Data\updates`
 
 TorrWind keeps its settings, logs, backups, playlists, and local TorrServer files in the application working folder. It does not use `%AppData%` or `%ProgramData%` for normal operation.
 

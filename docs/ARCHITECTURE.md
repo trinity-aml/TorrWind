@@ -71,6 +71,12 @@ The settings UI can query the latest GitHub release without downloading it and c
 
 The UI also scans the local version cache under the same directory and can switch to a selected local executable without contacting GitHub. Before switching to a newly downloaded or locally selected binary, TorrWind keeps the previous executable path and version in settings. The rollback command swaps the current and previous executable values. Inactive local version binaries can be deleted from the same settings section; TorrWind refuses to delete the active executable. The settings tab can open both the version cache root and the selected version's containing folder through shell-open commands.
 
+## TorrWind Updates
+
+The settings UI can query the latest `trinity-aml/TorrWind` GitHub release and select the Windows x64 installer asset, falling back to the portable zip if an installer is not present. Downloaded update packages are stored under `<TorrWind.exe directory>\Data\updates\<version>\`. TorrWind verifies the package size and SHA256 digest when GitHub release metadata or the release `SHA256SUMS` asset provides it.
+
+TorrWind does not overwrite its own running executable. After a package is downloaded and verified, the GUI can open the installer or portable zip through Windows Shell so the installer or user-controlled portable replacement performs the actual update.
+
 ## Local Server Configuration
 
 Before starting a local TorrServer process or service child process, TorrWind writes files into the configured TorrServer data directory:
@@ -83,7 +89,7 @@ The launch argument builder maps supported local settings to TorrServer flags su
 
 The settings UI keeps path editing as plain text fields but adds Windows file/folder pickers for the local TorrServer executable, data/cache directories, SSL certificate/key files, and custom external player executable. Folder-open commands create managed TorrWind directories when needed, then ask Windows Shell/Explorer to open them.
 
-Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields. TorrWind also writes TorrServer's nested `TMDBSettings` object for `APIKey`, `APIURL`, `ImageURL`, and `ImageURLRu`.
+Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields. The field-based settings UI covers cache sizing, RAM/disk cache mode, drop/tail cache behavior, disconnect timeout, peer/DHT limits, retrackers mode, transfer limits, DLNA name, Rutor/Torznab search toggles, BT protocol toggles, JSON storage flags, trusted reverse proxies, P2P proxy hosts, SSL files, and TorrServer's nested `TMDBSettings` object for `APIKey`, `APIURL`, `ImageURL`, and `ImageURLRu`.
 
 ## Service Management
 
@@ -93,7 +99,7 @@ The settings screen exposes service install/uninstall/start/stop/status. Before 
 
 ## Installer
 
-The Inno Setup script installs the GUI and service helper into `Program Files` and includes English/Russian installer messages. It can optionally install/start `TorrWindService`, create a desktop icon, register `TorrWind.exe --minimized` for Windows startup, associate `.torrent` files, and register TorrWind as a `magnet:` protocol handler.
+The Inno Setup script installs the GUI and service helper into `Program Files` and includes English/Russian installer messages. It exposes a local TorrServer mode choice between GUI-managed startup and `TorrWindService`; the service mode can also start the service after installation. The installer can create a desktop icon, register `TorrWind.exe --minimized` for Windows startup, associate `.torrent` files, and register TorrWind as a `magnet:` protocol handler.
 
 Shell activation is handled in the GUI startup path. `TorrWind.exe` ignores control arguments such as `--minimized` and adds supported `.torrent` paths, `.torrent` HTTP(S) URLs, `magnet:`, and `torrs://` links to the currently selected writable server profile.
 

@@ -36,6 +36,15 @@ For beginners, `portable zip` is usually simpler. The working folder, settings, 
 
 Do not run the portable version directly from the archive. Extract it first.
 
+## Updating TorrWind
+
+1. Open `Settings -> Service`.
+2. Click `Check TorrWind update`.
+3. If a newer release is available, click `Download TorrWind update`.
+4. Click `Open downloaded update`.
+
+TorrWind stores downloaded update packages under `Data\updates`. The app verifies SHA256 when the release provides a checksum. For portable builds, close TorrWind before replacing files from the new portable zip.
+
 ## First Local TorrServer Setup
 
 1. Open `Settings -> TorrServer`.
@@ -323,4 +332,3 @@ The support bundle redacts sensitive values from settings, but it is still a goo
 - Do not publish your API keys, passwords, or magnet links as plain text.
 - Make a settings backup before updates or manual JSON editing.
 - For the first run, use the simplest setup: local TorrServer, 64 MB memory cache, built-in mpv.
-

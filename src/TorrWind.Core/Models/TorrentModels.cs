@@ -381,6 +381,8 @@ public sealed class SearchResult
 
     public DateTimeOffset? PublishedAt { get; set; }
 
+    public string PublishedAtText => PublishedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture) ?? string.Empty;
+
     public static SearchResult FromTorrServerJson(JsonElement element, string providerName)
     {
         return new SearchResult

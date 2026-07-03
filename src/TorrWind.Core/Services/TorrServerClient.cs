@@ -36,9 +36,19 @@ public sealed class TorrServerClient : IDisposable
 
     public Uri WebUiUri => _server.BaseUri;
 
+    public Uri WebDavUri => new(_server.BaseUri, "dav/");
+
     public async Task<string> GetEchoAsync(CancellationToken cancellationToken = default)
     {
         return await _httpClient.GetStringAsync("echo", cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpStatusCode> ProbeWebDavAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod("PROPFIND"), "dav/");
+        request.Headers.TryAddWithoutValidation("Depth", "0");
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return response.StatusCode;
     }
 
     public async Task<IReadOnlyList<TorrentItem>> GetTorrentsAsync(CancellationToken cancellationToken = default)
@@ -263,15 +273,40 @@ public sealed class TorrServerClient : IDisposable
         sets["CacheSize"] = Math.Max(1, settings.CacheSizeMb) * 1024L * 1024L;
         sets["PreloadCache"] = Math.Clamp(settings.PreloadCachePercent, 0, 100);
         sets["ReaderReadAHead"] = Math.Clamp(settings.ReaderReadAheadPercent, 5, 100);
+        sets["PadTailPartial"] = settings.PadTailPartial;
         sets["TorrentDisconnectTimeout"] = Math.Max(1, settings.TorrentDisconnectTimeoutSeconds);
         sets["ConnectionsLimit"] = Math.Max(1, settings.ConnectionsLimit);
+        sets["DHTConnectionsLimit"] = Math.Max(1, settings.DhtConnectionsLimit);
+        sets["PeersListenPort"] = Math.Max(0, settings.PeersListenPort);
         sets["UseDisk"] = settings.CacheMode == CacheMode.Disk;
         sets["TorrentsSavePath"] = settings.CacheMode == CacheMode.Disk
             ? ResolveDiskCachePath(settings)
             : string.Empty;
+        sets["RemoveCacheOnDrop"] = settings.RemoveCacheOnDrop;
+        sets["ForceEncrypt"] = settings.ForceEncrypt;
+        sets["RetrackersMode"] = Math.Clamp(settings.RetrackersMode, 0, 3);
+        sets["EnableDebug"] = settings.EnableDebug;
         sets["DownloadRateLimit"] = Math.Max(0, settings.DownloadSpeedLimitKb);
         sets["UploadRateLimit"] = Math.Max(0, settings.UploadSpeedLimitKb);
         sets["EnableDLNA"] = settings.EnableDlna;
+        sets["FriendlyName"] = settings.FriendlyName ?? string.Empty;
+        sets["EnableRutorSearch"] = settings.EnableRutorSearch;
+        sets["EnableTorznabSearch"] = settings.EnableTorznabSearch;
+        sets["EnableIPv6"] = settings.EnableIPv6;
+        sets["DisableTCP"] = settings.DisableTcp;
+        sets["DisableUTP"] = settings.DisableUtp;
+        sets["DisableUPNP"] = settings.DisableUpnp;
+        sets["DisableDHT"] = settings.DisableDht;
+        sets["DisablePEX"] = settings.DisablePex;
+        sets["DisableUpload"] = settings.DisableUpload;
+        sets["DisableEndGame"] = settings.DisableEndGame;
+        sets["EnableLPD"] = settings.EnableLpd;
+        sets["TrustedProxies"] = SplitListToJsonArray(settings.TrustedProxies);
+        sets["ShowFSActiveTorr"] = settings.ShowFsActiveTorrents;
+        sets["StoreSettingsInJson"] = settings.StoreSettingsInJson;
+        sets["StoreViewedInJson"] = settings.StoreViewedInJson;
+        sets["EnableProxy"] = settings.EnableProxy;
+        sets["ProxyHosts"] = SplitListToJsonArray(settings.ProxyHosts);
         sets["SslPort"] = settings.SslPort;
         sets["SslCert"] = settings.CertificatePath;
         sets["SslKey"] = settings.CertificateKeyPath;
@@ -327,6 +362,26 @@ public sealed class TorrServerClient : IDisposable
         }
 
         return Path.Combine(LocalTorrServerConfigurationWriter.GetDataDirectory(settings), "cache");
+    }
+
+    private static JsonArray SplitListToJsonArray(string? value)
+    {
+        var array = new JsonArray();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return array;
+        }
+
+        var items = value
+            .Split([',', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            array.Add(item);
+        }
+
+        return array;
     }
 
     private static string FirstNotEmpty(string? value, string fallback)

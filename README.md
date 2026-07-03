@@ -14,14 +14,16 @@ TorrWind keeps its settings, logs, downloaded TorrServer binaries, playlists, ba
 ## Features
 
 - Local and remote TorrServer profile management.
-- Local TorrServer download/update from GitHub releases.
+- Local TorrServer download/update from GitHub releases with SHA256 verification when release metadata provides a digest.
 - Local TorrServer process control and optional Windows Service mode through `TorrWind.Service.exe`.
+- TorrWind update check/download from GitHub releases into `Data/updates`.
 - Torrent and magnet add/remove/drop/wipe actions.
 - Torrent file list, selected-file playback, continue playlist, and playlist-from-current-file actions.
 - Built-in mpv player with M3U playlist navigation, audio/video/subtitle controls, and external-player launch.
 - TorrServer Web UI fallback tab.
 - Torznab-compatible indexer search, including Jackett/Prowlarr style endpoints.
 - Runtime JSON editor for TorrServer settings.
+- Field editor for advanced TorrServer runtime settings.
 - Cache settings with memory or disk mode. New profiles default to 64 MB memory cache.
 - Diagnostics report, GUI/service logs, settings import/export, and support bundle export.
 - JSON localization files in `locales`.
@@ -165,11 +167,12 @@ Local TorrServer files are stored under:
 Data/TorrServer
 Data/TorrServer/versions
 Data/TorrServer/cache
+Data/updates
 ```
 
 The GUI can:
 
-- download/update TorrServer from `YouROK/TorrServer` GitHub releases;
+- download/update TorrServer from `YouROK/TorrServer` GitHub releases and verify SHA256 when available;
 - switch between downloaded local versions;
 - start/stop TorrServer as a child process;
 - install/uninstall/start/stop/query `TorrWindService`;
@@ -252,7 +255,8 @@ The installer can:
 - start TorrWind with Windows;
 - associate `.torrent` files;
 - register `magnet:` links;
-- install and optionally start `TorrWindService`.
+- choose GUI-managed local TorrServer mode or `TorrWindService`;
+- install and optionally start `TorrWindService` when service mode is selected.
 
 `TorrWind.exe` accepts:
 
