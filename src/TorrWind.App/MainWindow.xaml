@@ -966,6 +966,7 @@
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTorrServerExe]}" VerticalAlignment="Center" Margin="0,0,12,10" />
