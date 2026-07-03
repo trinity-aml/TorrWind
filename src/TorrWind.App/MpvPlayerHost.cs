@@ -32,6 +32,8 @@ internal sealed class MpvPlayerHost : IDisposable
 
     public event EventHandler? Exited;
 
+    public event EventHandler? TracksChanged;
+
     public bool IsStarted => _process is { HasExited: false } && _pipe?.IsConnected == true;
 
     public async Task StartAsync(IntPtr videoWindowHandle, ServerProfile? server, CancellationToken cancellationToken)
@@ -389,6 +391,15 @@ internal sealed class MpvPlayerHost : IDisposable
             string.Equals(GetString(root["reason"]), "eof", StringComparison.OrdinalIgnoreCase))
         {
             EndReached?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (eventName is not null &&
+            (eventName.Equals("file-loaded", StringComparison.OrdinalIgnoreCase) ||
+                eventName.Equals("tracks-changed", StringComparison.OrdinalIgnoreCase) ||
+                eventName.Equals("track-switched", StringComparison.OrdinalIgnoreCase)))
+        {
+            TracksChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -638,9 +649,42 @@ internal sealed class MpvPlayerHost : IDisposable
 
     private static int? GetInt(JsonNode? node)
     {
+        if (node is null)
+        {
+            return null;
+        }
+
         try
         {
-            return node?.GetValue<int>();
+            return node.GetValue<int>();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            var value = node.GetValue<long>();
+            return value is >= int.MinValue and <= int.MaxValue ? (int)value : null;
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            var value = node.GetValue<double>();
+            return double.IsFinite(value) && value is >= int.MinValue and <= int.MaxValue
+                ? (int)value
+                : null;
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            return int.TryParse(node.GetValue<string>(), out var value) ? value : null;
         }
         catch
         {
@@ -662,9 +706,25 @@ internal sealed class MpvPlayerHost : IDisposable
 
     private static bool GetBoolean(JsonNode? node)
     {
+        if (node is null)
+        {
+            return false;
+        }
+
         try
         {
-            return node?.GetValue<bool>() == true;
+            return node.GetValue<bool>();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            var value = node.GetValue<string>();
+            return value.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("1", StringComparison.OrdinalIgnoreCase);
         }
         catch
         {

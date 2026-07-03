@@ -30,7 +30,6 @@ public partial class PlayerWindow : Window
     private const string IconPause = "\uE769";
     private const string IconFullscreen = "\uE740";
     private const string IconWindowed = "\uE73F";
-    private const int LowLevelMouseHook = 14;
     private const int WindowMessageLeftButtonDown = 0x0201;
     private const int WindowMessageLeftDoubleClick = 0x0203;
     private const int WindowMessageRightButtonUp = 0x0205;
@@ -56,16 +55,13 @@ public partial class PlayerWindow : Window
     private WinFormsLabel? _nativeStatusLabel;
     private HttpClient? _httpClient;
     private int _currentPlaylistIndex = -1;
-    private int _trackRefreshAttempts;
     private long _currentTimeMs;
     private long _currentLengthMs;
+    private string? _lastTrackListSignature;
     private long _lastNativeLeftClickTicks;
     private int _lastNativeLeftClickX;
     private int _lastNativeLeftClickY;
     private long _lastPointerFullscreenToggleTicks;
-    private long _lastLowLevelLeftClickTicks;
-    private int _lastLowLevelLeftClickX;
-    private int _lastLowLevelLeftClickY;
     private bool _isDraggingPosition;
     private bool _isClosing;
     private bool _isUpdatingPlaylistSelection;
@@ -77,8 +73,6 @@ public partial class PlayerWindow : Window
     private bool _isFullscreen;
     private bool _isPlayerPaused = true;
     private bool _isPlayerIdle = true;
-    private LowLevelMouseProc? _lowLevelMouseProc;
-    private IntPtr _lowLevelMouseHook;
     private WindowState _windowStateBeforeFullscreen;
     private WindowStyle _windowStyleBeforeFullscreen;
     private ResizeMode _resizeModeBeforeFullscreen;
@@ -125,9 +119,9 @@ public partial class PlayerWindow : Window
             _player = new MpvPlayerHost();
             _player.EndReached += OnMpvEndReached;
             _player.Exited += OnMpvExited;
+            _player.TracksChanged += OnMpvTracksChanged;
 
             ComponentDispatcher.ThreadFilterMessage += OnThreadFilterMessage;
-            InstallLowLevelMouseHook();
 
             PlaylistList.ItemsSource = _playlist;
             await _player.StartAsync(GetVideoWindowHandle(), _server, CancellationToken.None).ConfigureAwait(true);
@@ -445,6 +439,23 @@ public partial class PlayerWindow : Window
         }));
     }
 
+    private void OnMpvTracksChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            if (_isClosing)
+            {
+                return;
+            }
+
+            await RefreshTrackControlsAsync().ConfigureAwait(true);
+            if (!_isPlayerIdle)
+            {
+                _trackRefreshTimer.Start();
+            }
+        }));
+    }
+
     private void OnMediaEnded()
     {
         if (_isClosing || _manualStopRequested)
@@ -503,12 +514,18 @@ public partial class PlayerWindow : Window
 
     private void StartTrackRefresh()
     {
-        _trackRefreshAttempts = 0;
+        _lastTrackListSignature = null;
         _trackRefreshTimer.Start();
     }
 
     private async void OnTrackRefreshTimerTick(object? sender, EventArgs e)
     {
+        if (_isClosing || _isPlayerIdle)
+        {
+            _trackRefreshTimer.Stop();
+            return;
+        }
+
         if (_isRefreshingTracks)
         {
             return;
@@ -518,11 +535,6 @@ public partial class PlayerWindow : Window
         try
         {
             await RefreshTrackControlsAsync().ConfigureAwait(true);
-            _trackRefreshAttempts++;
-            if (_trackRefreshAttempts >= 10)
-            {
-                _trackRefreshTimer.Stop();
-            }
         }
         finally
         {
@@ -548,17 +560,41 @@ public partial class PlayerWindow : Window
             return;
         }
 
+        var signature = BuildTrackListSignature(tracks);
+        if (_lastTrackListSignature is not null &&
+            string.Equals(signature, _lastTrackListSignature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastTrackListSignature = signature;
+
         _isUpdatingTrackControls = true;
         try
         {
             SetTrackItems(AudioTrackCombo, tracks.Where(track => track.Type.Equals("audio", StringComparison.OrdinalIgnoreCase)), _localization["PlayerNoAudioTracks"]);
             SetTrackItems(VideoTrackCombo, tracks.Where(track => track.Type.Equals("video", StringComparison.OrdinalIgnoreCase)), _localization["PlayerNoVideoTracks"]);
             SetTrackItems(SubtitleTrackCombo, tracks.Where(track => track.Type.Equals("sub", StringComparison.OrdinalIgnoreCase)), _localization["PlayerNoSubtitleTracks"]);
+            FileEventLog.User.Info("Player", "mpv tracks refreshed.", CountTracksByType(tracks));
         }
         finally
         {
             _isUpdatingTrackControls = false;
         }
+    }
+
+    private static string BuildTrackListSignature(IReadOnlyList<MpvTrack> tracks)
+    {
+        return string.Join("|", tracks.Select(track =>
+            $"{track.Id}:{track.Type}:{track.Name}:{track.Selected}"));
+    }
+
+    private static string CountTracksByType(IReadOnlyList<MpvTrack> tracks)
+    {
+        var audio = tracks.Count(track => track.Type.Equals("audio", StringComparison.OrdinalIgnoreCase));
+        var video = tracks.Count(track => track.Type.Equals("video", StringComparison.OrdinalIgnoreCase));
+        var subtitles = tracks.Count(track => track.Type.Equals("sub", StringComparison.OrdinalIgnoreCase));
+        return $"audio={audio}; video={video}; subtitles={subtitles}; total={tracks.Count}";
     }
 
     private void SetTrackItems(
@@ -657,7 +693,6 @@ public partial class PlayerWindow : Window
         _positionTimer.Stop();
         _trackRefreshTimer.Stop();
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
-        UninstallLowLevelMouseHook();
 
         try
         {
@@ -665,6 +700,7 @@ public partial class PlayerWindow : Window
             {
                 _player.EndReached -= OnMpvEndReached;
                 _player.Exited -= OnMpvExited;
+                _player.TracksChanged -= OnMpvTracksChanged;
                 _player.Dispose();
             }
 
@@ -809,98 +845,6 @@ public partial class PlayerWindow : Window
     private static bool IsNativeVideoMouseMessage(int message)
     {
         return message is WindowMessageLeftButtonDown or WindowMessageLeftDoubleClick or WindowMessageRightButtonUp or WindowMessageContextMenu;
-    }
-
-    private void InstallLowLevelMouseHook()
-    {
-        if (_lowLevelMouseHook != IntPtr.Zero)
-        {
-            return;
-        }
-
-        _lowLevelMouseProc = OnLowLevelMouseMessage;
-        _lowLevelMouseHook = SetWindowsHookEx(LowLevelMouseHook, _lowLevelMouseProc, GetModuleHandle(null), 0);
-        if (_lowLevelMouseHook == IntPtr.Zero)
-        {
-            FileEventLog.User.Warning("Player", "Failed to install low-level mouse hook.", Marshal.GetLastWin32Error().ToString());
-        }
-    }
-
-    private void UninstallLowLevelMouseHook()
-    {
-        if (_lowLevelMouseHook == IntPtr.Zero)
-        {
-            return;
-        }
-
-        if (!UnhookWindowsHookEx(_lowLevelMouseHook))
-        {
-            FileEventLog.User.Warning("Player", "Failed to uninstall low-level mouse hook.", Marshal.GetLastWin32Error().ToString());
-        }
-
-        _lowLevelMouseHook = IntPtr.Zero;
-        _lowLevelMouseProc = null;
-    }
-
-    private IntPtr OnLowLevelMouseMessage(int nCode, IntPtr wParam, IntPtr lParam)
-    {
-        if (nCode >= 0 && ShouldHandleLowLevelMouse())
-        {
-            var message = wParam.ToInt32();
-            var mouse = Marshal.PtrToStructure<MouseHookStruct>(lParam);
-
-            if (message == WindowMessageLeftButtonDown && IsLowLevelDoubleClick(mouse.Point.X, mouse.Point.Y))
-            {
-                Dispatcher.BeginInvoke(new Action(ToggleFullscreenFromPointer));
-                return new IntPtr(1);
-            }
-
-            if (message == WindowMessageRightButtonUp)
-            {
-                Dispatcher.BeginInvoke(new Action(() => OpenPlayerContextMenu(VideoHost)));
-                return new IntPtr(1);
-            }
-        }
-
-        return CallNextHookEx(_lowLevelMouseHook, nCode, wParam, lParam);
-    }
-
-    private bool ShouldHandleLowLevelMouse()
-    {
-        return !_isClosing &&
-            IsPlayerForeground() &&
-            IsMouseOverVideoHost();
-    }
-
-    private bool IsPlayerForeground()
-    {
-        var playerHandle = new WindowInteropHelper(this).Handle;
-        if (playerHandle == IntPtr.Zero)
-        {
-            return false;
-        }
-
-        var foregroundHandle = GetForegroundWindow();
-        return foregroundHandle == playerHandle || IsChild(playerHandle, foregroundHandle);
-    }
-
-    private bool IsLowLevelDoubleClick(int x, int y)
-    {
-        var now = Environment.TickCount64;
-        var isDoubleClick = now - _lastLowLevelLeftClickTicks <= GetDoubleClickTime() &&
-            Math.Abs(x - _lastLowLevelLeftClickX) <= System.Windows.Forms.SystemInformation.DoubleClickSize.Width &&
-            Math.Abs(y - _lastLowLevelLeftClickY) <= System.Windows.Forms.SystemInformation.DoubleClickSize.Height;
-
-        _lastLowLevelLeftClickTicks = now;
-        _lastLowLevelLeftClickX = x;
-        _lastLowLevelLeftClickY = y;
-
-        if (isDoubleClick)
-        {
-            _lastLowLevelLeftClickTicks = 0;
-        }
-
-        return isDoubleClick;
     }
 
     private bool IsNativeDoubleClick(IntPtr lParam)
@@ -1413,12 +1357,6 @@ public partial class PlayerWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern bool IsChild(IntPtr parentHandle, IntPtr childHandle);
-
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(
         IntPtr windowHandle,
@@ -1429,44 +1367,12 @@ public partial class PlayerWindow : Window
         int height,
         uint flags);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr SetWindowsHookEx(
-        int hookId,
-        LowLevelMouseProc callback,
-        IntPtr moduleHandle,
-        uint threadId);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool UnhookWindowsHookEx(IntPtr hookHandle);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr CallNextHookEx(IntPtr hookHandle, int code, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern IntPtr GetModuleHandle(string? moduleName);
-
-    private delegate IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam);
-
     [StructLayout(LayoutKind.Sequential)]
     private readonly struct NativePoint
     {
         public readonly int X;
 
         public readonly int Y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private readonly struct MouseHookStruct
-    {
-        public readonly NativePoint Point;
-
-        public readonly uint MouseData;
-
-        public readonly uint Flags;
-
-        public readonly uint Time;
-
-        public readonly IntPtr ExtraInfo;
     }
 }
 
