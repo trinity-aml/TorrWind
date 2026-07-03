@@ -2,7 +2,7 @@
 
 Languages: English | [Русский](README.ru.md)
 
-Beginner guide: [Русский](docs/BEGINNER_GUIDE_RU.md)
+Beginner guide: [English](docs/BEGINNER_GUIDE.md) | [Русский](docs/BEGINNER_GUIDE_RU.md)
 
 TorrWind is a Windows 10/11 x64 desktop client for local and remote TorrServer instances.
 

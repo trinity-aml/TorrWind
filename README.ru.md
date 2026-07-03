@@ -2,7 +2,7 @@
 
 Языки: [English](README.md) | Русский
 
-Гид для новичков: [установка, настройка и использование](docs/BEGINNER_GUIDE_RU.md)
+Гид для новичков: [Русский](docs/BEGINNER_GUIDE_RU.md) | [English](docs/BEGINNER_GUIDE.md)
 
 TorrWind - desktop-клиент для Windows 10/11 x64, предназначенный для управления локальными и удаленными экземплярами TorrServer.
 
