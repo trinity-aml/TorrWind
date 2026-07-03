@@ -213,6 +213,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<PlayerKindOption> PlayerKindOptions { get; } = [];
 
+    public ObservableCollection<RetrackersModeOption> RetrackersModeOptions { get; } = [];
+
     public IReadOnlyList<CacheMode> CacheModes { get; } = Enum.GetValues<CacheMode>();
 
     public IReadOnlyList<ExternalPlayerKind> ExternalPlayerKinds { get; } = Enum.GetValues<ExternalPlayerKind>();
@@ -919,6 +921,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
         await _localization.LoadAsync(_settings.Language, cancellationToken).ConfigureAwait(true);
         RebuildPlayerKindOptions();
+        RebuildRetrackersModeOptions();
 
         Servers.Clear();
         foreach (var server in _settings.Servers)
@@ -2907,6 +2910,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _settings.Language = SelectedLanguage;
         await _localization.LoadAsync(SelectedLanguage).ConfigureAwait(true);
         RebuildPlayerKindOptions();
+        RebuildRetrackersModeOptions();
         RebuildSearchProviderOptions();
         UpdateTorrServerReleaseText();
         await SaveSettingsAsync().ConfigureAwait(true);
@@ -3267,6 +3271,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.Custom, L["PlayerCustom"]));
         Player.PreferredPlayer = selected;
         OnPropertyChanged(nameof(Player));
+    }
+
+    private void RebuildRetrackersModeOptions()
+    {
+        var selected = LocalServer.RetrackersMode;
+        RetrackersModeOptions.Clear();
+        RetrackersModeOptions.Add(new RetrackersModeOption(0, L["RetrackersModeNone"]));
+        RetrackersModeOptions.Add(new RetrackersModeOption(1, L["RetrackersModeAdd"]));
+        RetrackersModeOptions.Add(new RetrackersModeOption(2, L["RetrackersModeRemove"]));
+        RetrackersModeOptions.Add(new RetrackersModeOption(3, L["RetrackersModeReplace"]));
+        LocalServer.RetrackersMode = Math.Clamp(selected, 0, 3);
+        OnPropertyChanged(nameof(LocalServer));
     }
 
     private void SelectSearchProviderOption(SearchProviderSettings provider)
@@ -4140,6 +4156,19 @@ public sealed class PlayerKindOption
     }
 
     public ExternalPlayerKind Kind { get; }
+
+    public string Name { get; }
+}
+
+public sealed class RetrackersModeOption
+{
+    public RetrackersModeOption(int value, string name)
+    {
+        Value = value;
+        Name = name;
+    }
+
+    public int Value { get; }
 
     public string Name { get; }
 }

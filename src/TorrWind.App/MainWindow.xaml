@@ -822,7 +822,11 @@
                       <TextBlock Text="{Binding L[FieldPeersListenPort]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                       <TextBox Width="90" Text="{Binding LocalServer.PeersListenPort, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldRetrackersMode]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="70" Text="{Binding LocalServer.RetrackersMode, UpdateSourceTrigger=PropertyChanged}" />
+                      <ComboBox Width="180"
+                                ItemsSource="{Binding RetrackersModeOptions}"
+                                DisplayMemberPath="Name"
+                                SelectedValuePath="Value"
+                                SelectedValue="{Binding LocalServer.RetrackersMode}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,0,12,10" />
