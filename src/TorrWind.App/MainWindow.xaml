@@ -790,6 +790,7 @@
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="Auto" />
                       </Grid.ColumnDefinitions>
                       <ComboBox Grid.Column="0" ItemsSource="{Binding CacheModes}" SelectedItem="{Binding LocalServer.CacheMode}" />
                       <TextBox Grid.Column="1" Text="{Binding LocalServer.CacheSizeMb, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
@@ -797,6 +798,7 @@
                       <TextBox Grid.Column="3" Text="{Binding LocalServer.PreloadCachePercent, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Grid.Column="4" Text="{Binding L[FieldReadAheadCache]}" VerticalAlignment="Center" Margin="12,0,8,0" />
                       <TextBox Grid.Column="5" Text="{Binding LocalServer.ReaderReadAheadPercent, UpdateSourceTrigger=PropertyChanged}" />
+                      <CheckBox Grid.Column="6" Content="{Binding L[FieldRemoveCacheOnDrop]}" IsChecked="{Binding LocalServer.RemoveCacheOnDrop}" Margin="14,0,0,0" />
                     </Grid>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldCachePath]}" VerticalAlignment="Center" Margin="0,0,12,10" />
@@ -842,41 +844,35 @@
                       <CheckBox Content="{Binding L[FieldSsl]}" IsChecked="{Binding LocalServer.UseSsl}" />
                       <CheckBox Content="{Binding L[FieldDlna]}" IsChecked="{Binding LocalServer.EnableDlna}" />
                       <CheckBox Content="{Binding L[FieldWebDav]}" IsChecked="{Binding LocalServer.EnableWebDav}" />
-                      <CheckBox Content="{Binding L[FieldRutorSearch]}" IsChecked="{Binding LocalServer.EnableRutorSearch}" />
-                      <CheckBox Content="{Binding L[FieldTorznabSearch]}" IsChecked="{Binding LocalServer.EnableTorznabSearch}" />
                       <TextBlock Text="{Binding L[FieldFriendlyName]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                       <TextBox Width="220" Text="{Binding LocalServer.FriendlyName, UpdateSourceTrigger=PropertyChanged}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <WrapPanel Grid.Row="6" Grid.Column="1" Margin="0,0,0,10">
+                      <TextBlock Text="{Binding L[FieldUsername]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="180" Text="{Binding LocalServer.Username, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBox Width="220" Text="{Binding LocalServer.Password, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                      <TextBlock Text="{Binding L[FieldPassword]}" VerticalAlignment="Center" Margin="14,0,8,0" />
+                      <TextBox Width="220" Text="{Binding LocalServer.Password, UpdateSourceTrigger=PropertyChanged}" />
                       <CheckBox Content="{Binding L[FieldSearchWithoutAuth]}" IsChecked="{Binding LocalServer.AllowSearchWithoutAuth}" Margin="14,0,0,0" />
-                    </StackPanel>
+                    </WrapPanel>
 
                     <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <Grid Grid.Row="7" Grid.Column="1" Margin="0,0,0,10">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                      </Grid.ColumnDefinitions>
-                      <TextBox Grid.Column="0" Text="{Binding LocalServer.SslPort, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBox Grid.Column="1" Text="{Binding LocalServer.CertificatePath, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
-                      <Button Grid.Column="2" Content="{Binding L[ActionBrowse]}" Click="OnBrowseSslCertificate" Margin="10,0,0,0" />
-                      <TextBox Grid.Column="3" Text="{Binding LocalServer.CertificateKeyPath, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
-                      <Button Grid.Column="4" Content="{Binding L[ActionBrowse]}" Click="OnBrowseSslKey" Margin="10,0,0,0" />
-                      <CheckBox Grid.Column="5" Content="{Binding L[FieldForceHttps]}" IsChecked="{Binding LocalServer.ForceHttps}" Margin="14,0,0,0" />
-                    </Grid>
+                    <WrapPanel Grid.Row="7" Grid.Column="1" Margin="0,0,0,10">
+                      <TextBlock Text="{Binding L[FieldSslPort]}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <TextBox Width="80" Text="{Binding LocalServer.SslPort, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBlock Text="{Binding L[FieldSslCert]}" VerticalAlignment="Center" Margin="14,0,8,0" />
+                      <TextBox Width="300" Text="{Binding LocalServer.CertificatePath, UpdateSourceTrigger=PropertyChanged}" />
+                      <Button Content="{Binding L[ActionBrowse]}" Click="OnBrowseSslCertificate" Margin="10,0,0,0" />
+                      <TextBlock Text="{Binding L[FieldSslKey]}" VerticalAlignment="Center" Margin="14,0,8,0" />
+                      <TextBox Width="300" Text="{Binding LocalServer.CertificateKeyPath, UpdateSourceTrigger=PropertyChanged}" />
+                      <Button Content="{Binding L[ActionBrowse]}" Click="OnBrowseSslKey" Margin="10,0,0,0" />
+                      <CheckBox Content="{Binding L[FieldForceHttps]}" IsChecked="{Binding LocalServer.ForceHttps}" Margin="14,0,0,0" />
+                    </WrapPanel>
 
                     <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <WrapPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,10">
                       <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding LocalServer.ReadOnlyDatabase}" />
-                      <CheckBox Content="{Binding L[FieldRemoveCacheOnDrop]}" IsChecked="{Binding LocalServer.RemoveCacheOnDrop}" />
                       <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding LocalServer.ForceEncrypt}" />
                       <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding LocalServer.EnableDebug}" />
                       <TextBlock Text="{Binding L[FieldMaxStreamSize]}" VerticalAlignment="Center" Margin="12,0,8,0" />
@@ -884,10 +880,12 @@
                     </WrapPanel>
 
                     <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldProxy]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <StackPanel Grid.Row="9" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <WrapPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,10">
+                      <TextBlock Text="{Binding L[FieldProxyUrl]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="360" Text="{Binding LocalServer.ProxyUrl, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBox Width="140" Text="{Binding LocalServer.ProxyMode, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
-                    </StackPanel>
+                      <TextBlock Text="{Binding L[FieldProxyMode]}" VerticalAlignment="Center" Margin="14,0,8,0" />
+                      <TextBox Width="140" Text="{Binding LocalServer.ProxyMode, UpdateSourceTrigger=PropertyChanged}" />
+                    </WrapPanel>
 
                     <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,10">

@@ -243,10 +243,6 @@ public sealed class LocalServerSettings
 
     public bool EnableDebug { get; set; }
 
-    public bool EnableRutorSearch { get; set; }
-
-    public bool EnableTorznabSearch { get; set; }
-
     public bool EnableIPv6 { get; set; }
 
     public bool DisableTcp { get; set; }

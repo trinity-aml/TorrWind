@@ -288,8 +288,6 @@ public sealed class TorrServerClient : IDisposable
         sets["UploadRateLimit"] = Math.Max(0, settings.UploadSpeedLimitKb);
         sets["EnableDLNA"] = settings.EnableDlna;
         sets["FriendlyName"] = settings.FriendlyName ?? string.Empty;
-        sets["EnableRutorSearch"] = settings.EnableRutorSearch;
-        sets["EnableTorznabSearch"] = settings.EnableTorznabSearch;
         sets["EnableIPv6"] = settings.EnableIPv6;
         sets["DisableTCP"] = settings.DisableTcp;
         sets["DisableUTP"] = settings.DisableUtp;

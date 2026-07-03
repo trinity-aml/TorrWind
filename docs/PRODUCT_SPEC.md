@@ -68,7 +68,7 @@ The first usable version should cover:
 - Pass local TorrServer CLI flags for HTTPS, force HTTPS, read-only database, search without auth, max stream size, WebDAV, proxy URL/mode, bind address, and ports.
 - Provide file/folder pickers for local executable, data/cache directories, SSL certificate/key files, and custom external player path.
 - Apply runtime settings through TorrServer `POST /settings`: cache size, RAM/disk cache mode, disk cache path, download/upload speed limits, DLNA, SSL settings, and TMDB API/image settings.
-- Provide field-based runtime settings for advanced official TorrServer `BTSets` options including retrackers mode, peer listen port, BT protocol toggles, cache drop behavior, Rutor/Torznab search toggles, responsive reader, playback timecode tracking, JSON storage flags, and P2P proxy hosts.
+- Provide field-based runtime settings for advanced official TorrServer `BTSets` options including retrackers mode, peer listen port, BT protocol toggles, cache drop behavior, responsive reader, playback timecode tracking, JSON storage flags, and P2P proxy hosts.
 - Enable/disable WebDAV through local server launch arguments.
 - Keep DLNA as a settings/API item because it is not consistently exposed as a launch argument across TorrServer versions.
 
