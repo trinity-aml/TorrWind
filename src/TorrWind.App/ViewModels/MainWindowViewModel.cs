@@ -2565,7 +2565,11 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 LocalServer.ConnectionsLimit,
                 LocalServer.DownloadSpeedLimitKb,
                 LocalServer.UploadSpeedLimitKb,
-                LocalServer.AllowLanAccess
+                LocalServer.AllowLanAccess,
+                HasTmdbApiKey = !string.IsNullOrWhiteSpace(LocalServer.TmdbApiKey),
+                LocalServer.TmdbApiUrl,
+                LocalServer.TmdbImageUrl,
+                LocalServer.TmdbImageUrlRu
             },
             Player = new
             {
@@ -2699,6 +2703,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             AddDiagnostic("DiagnosticSettingsDownloadLimit", ReadJsonValue(root, "DownloadRateLimit"));
             AddDiagnostic("DiagnosticSettingsUploadLimit", ReadJsonValue(root, "UploadRateLimit"));
             AddDiagnostic("DiagnosticSettingsDlna", FormatBoolText(ReadJsonValue(root, "EnableDLNA", "EnableDlna")));
+            AddDiagnostic("DiagnosticSettingsTmdbKey", FormatBool(!string.IsNullOrWhiteSpace(ReadNestedJsonValue(root, "TMDBSettings", "APIKey"))));
+            AddDiagnostic("DiagnosticSettingsTmdbApiUrl", EmptyAsNotAvailable(ReadNestedJsonValue(root, "TMDBSettings", "APIURL")));
+            AddDiagnostic("DiagnosticSettingsTmdbImageUrl", EmptyAsNotAvailable(ReadNestedJsonValue(root, "TMDBSettings", "ImageURL")));
+            AddDiagnostic("DiagnosticSettingsTmdbImageUrlRu", EmptyAsNotAvailable(ReadNestedJsonValue(root, "TMDBSettings", "ImageURLRu")));
         }
         catch (Exception exception)
         {
@@ -2839,6 +2847,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         return L["DiagnosticNotAvailable"];
+    }
+
+    private static string ReadNestedJsonValue(JsonElement root, string objectName, string name)
+    {
+        if (TryFindJsonProperty(root, objectName, out var container) &&
+            container.ValueKind == JsonValueKind.Object &&
+            TryFindJsonProperty(container, name, out var value))
+        {
+            return FormatJsonValue(value);
+        }
+
+        return string.Empty;
     }
 
     private static bool TryFindJsonProperty(JsonElement element, string name, out JsonElement value, int depth = 0)

@@ -83,7 +83,7 @@ The launch argument builder maps supported local settings to TorrServer flags su
 
 The settings UI keeps path editing as plain text fields but adds Windows file/folder pickers for the local TorrServer executable, data/cache directories, SSL certificate/key files, and custom external player executable. Folder-open commands create managed TorrWind directories when needed, then ask Windows Shell/Explorer to open them.
 
-Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields.
+Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields. TorrWind also writes TorrServer's nested `TMDBSettings` object for `APIKey`, `APIURL`, `ImageURL`, and `ImageURLRu`.
 
 ## Service Management
 

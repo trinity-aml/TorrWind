@@ -276,6 +276,17 @@ public sealed class TorrServerClient : IDisposable
         sets["SslCert"] = settings.CertificatePath;
         sets["SslKey"] = settings.CertificateKeyPath;
 
+        if (sets["TMDBSettings"] is not JsonObject tmdbSettings)
+        {
+            tmdbSettings = [];
+            sets["TMDBSettings"] = tmdbSettings;
+        }
+
+        tmdbSettings["APIKey"] = settings.TmdbApiKey ?? string.Empty;
+        tmdbSettings["APIURL"] = FirstNotEmpty(settings.TmdbApiUrl, "https://api.themoviedb.org");
+        tmdbSettings["ImageURL"] = FirstNotEmpty(settings.TmdbImageUrl, "https://image.tmdb.org");
+        tmdbSettings["ImageURLRu"] = FirstNotEmpty(settings.TmdbImageUrlRu, "https://imagetmdb.com");
+
         var payload = new JsonObject
         {
             ["action"] = "set",
@@ -316,6 +327,11 @@ public sealed class TorrServerClient : IDisposable
         }
 
         return Path.Combine(LocalTorrServerConfigurationWriter.GetDataDirectory(settings), "cache");
+    }
+
+    private static string FirstNotEmpty(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     }
 
     private async Task<IReadOnlyList<SearchResult>> SearchServerJsonAsync(

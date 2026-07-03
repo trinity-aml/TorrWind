@@ -63,7 +63,7 @@ The first usable version should cover:
 - Generate `wip.txt` and `bip.txt` for local IP allow/block lists.
 - Pass local TorrServer CLI flags for HTTPS, force HTTPS, read-only database, search without auth, max stream size, WebDAV, proxy URL/mode, bind address, and ports.
 - Provide file/folder pickers for local executable, data/cache directories, SSL certificate/key files, and custom external player path.
-- Apply runtime settings through TorrServer `POST /settings`: cache size, RAM/disk cache mode, disk cache path, download/upload speed limits, DLNA, and SSL settings.
+- Apply runtime settings through TorrServer `POST /settings`: cache size, RAM/disk cache mode, disk cache path, download/upload speed limits, DLNA, SSL settings, and TMDB API/image settings.
 - Enable/disable WebDAV through local server launch arguments.
 - Keep DLNA as a settings/API item because it is not consistently exposed as a launch argument across TorrServer versions.
 

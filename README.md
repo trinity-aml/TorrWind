@@ -2,6 +2,8 @@
 
 Languages: English | [Русский](README.ru.md)
 
+Beginner guide: [Русский](docs/BEGINNER_GUIDE_RU.md)
+
 TorrWind is a Windows 10/11 x64 desktop client for local and remote TorrServer instances.
 
 Repository: https://github.com/trinity-aml/TorrWind  
@@ -171,7 +173,7 @@ The GUI can:
 - switch between downloaded local versions;
 - start/stop TorrServer as a child process;
 - install/uninstall/start/stop/query `TorrWindService`;
-- apply TorrServer runtime settings from the native settings screen or Runtime JSON tab.
+- apply TorrServer runtime settings from the native settings screen or Runtime JSON tab, including TMDB API and image URL settings.
 
 Service install/uninstall/start/stop can request elevation. Normal settings editing and remote-server use do not require administrator rights.
 

@@ -45,6 +45,9 @@ public sealed class AppSettings
                 ReaderReadAheadPercent = 95,
                 TorrentDisconnectTimeoutSeconds = 30,
                 ConnectionsLimit = 25,
+                TmdbApiUrl = "https://api.themoviedb.org",
+                TmdbImageUrl = "https://image.tmdb.org",
+                TmdbImageUrlRu = "https://imagetmdb.com",
                 DataDirectory = AppPaths.DefaultLocalServerDirectory,
                 TemporaryDataPath = Path.Combine(AppPaths.DefaultLocalServerDirectory, "cache")
             }
@@ -228,6 +231,14 @@ public sealed class LocalServerSettings
     public int UploadSpeedLimitKb { get; set; }
 
     public bool AllowLanAccess { get; set; }
+
+    public string TmdbApiKey { get; set; } = string.Empty;
+
+    public string TmdbApiUrl { get; set; } = "https://api.themoviedb.org";
+
+    public string TmdbImageUrl { get; set; } = "https://image.tmdb.org";
+
+    public string TmdbImageUrlRu { get; set; } = "https://imagetmdb.com";
 }
 
 public enum CacheMode

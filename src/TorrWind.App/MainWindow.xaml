@@ -760,6 +760,7 @@
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldCache]}" VerticalAlignment="Center" Margin="0,0,12,10" />
@@ -859,7 +860,29 @@
                       <TextBox Width="140" Text="{Binding LocalServer.ProxyMode, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
                     </StackPanel>
 
-                    <StackPanel Grid.Row="10" Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                    <Grid Grid.Row="10" Grid.Column="1" Margin="0,0,0,10">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTmdbApiKey]}" VerticalAlignment="Center" Margin="0,0,8,8" />
+                      <TextBox Grid.Row="0" Grid.Column="1" MinWidth="180" Text="{Binding LocalServer.TmdbApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,8" />
+                      <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding L[FieldTmdbApiUrl]}" VerticalAlignment="Center" Margin="0,0,8,8" />
+                      <TextBox Grid.Row="0" Grid.Column="3" MinWidth="180" Text="{Binding LocalServer.TmdbApiUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                      <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldTmdbImageUrl]}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <TextBox Grid.Row="1" Grid.Column="1" MinWidth="180" Text="{Binding LocalServer.TmdbImageUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
+                      <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding L[FieldTmdbImageUrlRu]}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <TextBox Grid.Row="1" Grid.Column="3" MinWidth="180" Text="{Binding LocalServer.TmdbImageUrlRu, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+
+                    <StackPanel Grid.Row="11" Grid.Column="1" Orientation="Horizontal">
                       <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" />
                       <Button Content="{Binding L[ActionApplyRuntimeSettings]}" Command="{Binding ApplyLocalServerSettingsCommand}" />
                     </StackPanel>
