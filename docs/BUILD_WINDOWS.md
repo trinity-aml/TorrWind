@@ -5,6 +5,7 @@
 - Windows 10/11 x64
 - .NET 8 SDK or newer
 - Visual Studio 2022 with .NET desktop development workload, or `dotnet` CLI
+- 7-Zip/p7zip for bundling the mpv runtime
 - Inno Setup 6 if building the installer
 
 ## Build
@@ -26,7 +27,19 @@ dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
 .\scripts\publish-win-x64.ps1
 ```
 
-This publishes `TorrWind.exe`, `TorrWind.Service.exe`, and the Windows x64 LibVLC runtime into `artifacts\publish\TorrWind`.
+This publishes `TorrWind.exe` and `TorrWind.Service.exe` into `artifacts\publish\TorrWind`. It also downloads the latest shinchiro Windows x64 mpv runtime, verifies the SHA256 digest from the GitHub release metadata when present, and installs it into `artifacts\publish\TorrWind\Runtime\mpv`.
+
+Offline or custom mpv runtime:
+
+```powershell
+.\scripts\publish-win-x64.ps1 -MpvRuntimeArchivePath .\mpv-x86_64-YYYYMMDD-git-xxxxxxx.7z
+```
+
+Skip bundling mpv for a local publish:
+
+```powershell
+.\scripts\publish-win-x64.ps1 -SkipMpvRuntime
+```
 
 Create a portable zip:
 

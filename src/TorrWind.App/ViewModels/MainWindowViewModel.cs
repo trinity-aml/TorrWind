@@ -690,6 +690,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 .ConfigureAwait(true);
             await AddFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile + ".1", "logs/service.jsonl.1", cancellationToken)
                 .ConfigureAwait(true);
+            await AddFileEntryIfExistsAsync(archive, AppPaths.MpvPlayerLogFile, "logs/mpv-player.log", cancellationToken)
+                .ConfigureAwait(true);
 
             StatusMessage = string.Format(L["StatusSupportBundleSaved"], filePath);
             LogInfo("Diagnostics", "Support bundle saved.", filePath);
@@ -1549,7 +1551,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void OpenMediaUri(Uri mediaUri, string title, string logMessage)
     {
-        if (_settings.Player.PreferredPlayer == ExternalPlayerKind.BuiltInLibVlc)
+        if (_settings.Player.PreferredPlayer == ExternalPlayerKind.BuiltInMpv)
         {
             if (BuiltInPlayerRequested is null)
             {
@@ -2504,7 +2506,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 "- logs/gui.jsonl",
                 "- logs/gui.jsonl.1 when present",
                 "- logs/service.jsonl",
-                "- logs/service.jsonl.1 when present"
+                "- logs/service.jsonl.1 when present",
+                "- logs/mpv-player.log when present"
             ]) + Environment.NewLine;
     }
 
@@ -3048,7 +3051,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         var selected = Player.PreferredPlayer;
         PlayerKindOptions.Clear();
-        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.BuiltInLibVlc, L["PlayerBuiltInLibVlc"]));
+        PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.BuiltInMpv, L["PlayerBuiltInMpv"]));
         PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.SystemDefault, L["PlayerSystemDefault"]));
         PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.Vlc, L["PlayerVlc"]));
         PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.MpcHc, L["PlayerMpcHc"]));

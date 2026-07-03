@@ -132,7 +132,7 @@ public sealed class AppSettingsStore
         if (settings.SettingsSchemaVersion < AppSettings.CurrentSettingsSchemaVersion &&
             settings.Player.PreferredPlayer == ExternalPlayerKind.SystemDefault)
         {
-            settings.Player.PreferredPlayer = ExternalPlayerKind.BuiltInLibVlc;
+            settings.Player.PreferredPlayer = ExternalPlayerKind.BuiltInMpv;
         }
 
         settings.SettingsSchemaVersion = AppSettings.CurrentSettingsSchemaVersion;

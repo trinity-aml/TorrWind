@@ -3,7 +3,7 @@
 ## Projects
 
 `TorrWind.App`
-: WPF desktop application, tray integration, native UI, Web UI tab, built-in LibVLC playback with M3U playlist navigation, external-player launch, and profile management.
+: WPF desktop application, tray integration, native UI, Web UI tab, built-in mpv playback with M3U playlist navigation, external-player launch, and profile management.
 
 `TorrWind.Service`
 : Windows service helper. It supervises the configured local `TorrServer.exe` process and exposes `install`, `uninstall`, `start`, and `stop` commands for installers and manual administration.
@@ -43,7 +43,7 @@ The library UI uses the full `/torrents` action surface needed by the MVP: `list
 
 `TorznabSearchClient` handles direct search against configured Torznab-compatible providers. Provider settings are stored in `<TorrWind.exe directory>\Data\settings.json` with name, URL, API key, default categories, enabled state, timeout, and certificate behavior. The UI can search the selected TorrServer, one configured provider, or all enabled providers; results are normalized into `SearchResult` and then filtered by seed count, maximum size, and category.
 
-The built-in player resolves TorrServer stream and M3U/M3U8 URLs before handing media to LibVLC. If the selected URL is a playlist, the WPF player reads local M3U files directly or downloads HTTP(S) playlists with the active server profile credentials and certificate behavior, parses the stream entries, and exposes them as a selectable episode list. LibVLC is then pointed at the concrete stream URL for the selected item, while the same window provides previous/next controls, audio/video/subtitle track selectors, aspect ratio selection, and audio/subtitle delay sliders.
+The built-in player resolves TorrServer stream and M3U/M3U8 URLs before handing media to mpv. If the selected URL is a playlist, the WPF player reads local M3U files directly or downloads HTTP(S) playlists with the active server profile credentials and certificate behavior, parses the stream entries, and exposes them as a selectable episode list. TorrWind embeds `mpv.exe` into the WPF player window with `--wid` and controls it through mpv JSON IPC, while the same window provides previous/next controls, audio/video/subtitle track selectors, aspect ratio selection, and audio/subtitle delay sliders. Release scripts bundle the Windows x64 mpv runtime under `Runtime\mpv`; mpv logs are stored under `<TorrWind.exe directory>\Data\logs\mpv-player.log`.
 
 Settings import/export uses the same `AppSettingsStore` serializer as the live settings file. Import first writes a timestamped backup under `<TorrWind.exe directory>\Data\backups`, prunes old backups according to `SettingsBackupRetentionCount`, then replaces the in-memory `AppSettings`, rebuilds the observable UI collections, and persists the imported state back to the normal settings location. Backup restore uses the same flow. The settings tab scans the backups directory into `SettingsBackupItem` rows so the user can refresh, open the backup folder, restore, delete, manually browse backup files, and set the retention count. A retention value of `0` disables pruning.
 

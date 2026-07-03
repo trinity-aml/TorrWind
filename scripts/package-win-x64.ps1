@@ -2,6 +2,8 @@
 param(
     [string]$Version = "1.0.0",
     [string]$Configuration = "Release",
+    [string]$MpvRuntimeArchivePath = "",
+    [switch]$SkipMpvRuntime,
     [switch]$SkipPublish
 )
 
@@ -13,7 +15,20 @@ $PortableDir = Join-Path $Root "artifacts\portable"
 $ZipPath = Join-Path $PortableDir "TorrWind-$Version-win-x64-portable.zip"
 
 if (-not $SkipPublish) {
-    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration -Version $Version
+    $publishArgs = @{
+        Configuration = $Configuration
+        Version = $Version
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($MpvRuntimeArchivePath)) {
+        $publishArgs["MpvRuntimeArchivePath"] = $MpvRuntimeArchivePath
+    }
+
+    if ($SkipMpvRuntime) {
+        $publishArgs["SkipMpvRuntime"] = $true
+    }
+
+    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") @publishArgs
 }
 
 if (-not (Test-Path $PublishDir)) {

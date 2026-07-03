@@ -12,13 +12,15 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
-using LibVLCSharp.Shared;
-using LibVLCSharp.Shared.Structures;
 using TorrWind.Core.Localization;
 using TorrWind.Core.Models;
 using TorrWind.Core.Services;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MenuItem = System.Windows.Controls.MenuItem;
+using WinFormsLabel = System.Windows.Forms.Label;
+using WinFormsMouseButtons = System.Windows.Forms.MouseButtons;
+using WinFormsMouseEventArgs = System.Windows.Forms.MouseEventArgs;
+using WinFormsPanel = System.Windows.Forms.Panel;
 
 namespace TorrWind.App;
 
@@ -28,13 +30,19 @@ public partial class PlayerWindow : Window
     private const string IconPause = "\uE769";
     private const string IconFullscreen = "\uE740";
     private const string IconWindowed = "\uE73F";
-    private const int NetworkStreamCacheMs = 8000;
-    private const int AviNetworkStreamCacheMs = 15000;
-    private const int FileStreamCacheMs = 3000;
+    private const int LowLevelMouseHook = 14;
     private const int WindowMessageLeftButtonDown = 0x0201;
     private const int WindowMessageLeftDoubleClick = 0x0203;
     private const int WindowMessageRightButtonUp = 0x0205;
     private const int WindowMessageContextMenu = 0x007B;
+    private const uint SetWindowPosNoMove = 0x0002;
+    private const uint SetWindowPosNoSize = 0x0001;
+    private const uint SetWindowPosShowWindow = 0x0040;
+    private const uint SetWindowPosFrameChanged = 0x0020;
+
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private static readonly IntPtr HwndNotTopmost = new(-2);
+
     private readonly Uri _mediaUri;
     private readonly string _mediaTitle;
     private readonly JsonLocalizationService _localization;
@@ -42,28 +50,44 @@ public partial class PlayerWindow : Window
     private readonly DispatcherTimer _positionTimer;
     private readonly DispatcherTimer _trackRefreshTimer;
     private readonly ObservableCollection<PlayerPlaylistItem> _playlist = [];
-    private LibVLC? _libVlc;
-    private MediaPlayer? _mediaPlayer;
+
+    private MpvPlayerHost? _player;
+    private WinFormsPanel? _mpvPanel;
+    private WinFormsLabel? _nativeStatusLabel;
     private HttpClient? _httpClient;
     private int _currentPlaylistIndex = -1;
     private int _trackRefreshAttempts;
-    private bool _isDraggingPosition;
-    private bool _isClosing;
-    private bool _isUpdatingPlaylistSelection;
-    private bool _isUpdatingTrackControls;
-    private bool _manualStopRequested;
-    private bool _isFullscreen;
-    private int _videoHookAttachAttempts;
+    private long _currentTimeMs;
+    private long _currentLengthMs;
     private long _lastNativeLeftClickTicks;
     private int _lastNativeLeftClickX;
     private int _lastNativeLeftClickY;
     private long _lastPointerFullscreenToggleTicks;
-    private VideoInputNativeWindow? _videoInputWindow;
+    private long _lastLowLevelLeftClickTicks;
+    private int _lastLowLevelLeftClickX;
+    private int _lastLowLevelLeftClickY;
+    private bool _isDraggingPosition;
+    private bool _isClosing;
+    private bool _isUpdatingPlaylistSelection;
+    private bool _isUpdatingTrackControls;
+    private bool _isPollingPosition;
+    private bool _isRefreshingTracks;
+    private bool _manualStopRequested;
+    private bool _hasHandledEnd;
+    private bool _isFullscreen;
+    private bool _isPlayerPaused = true;
+    private bool _isPlayerIdle = true;
+    private LowLevelMouseProc? _lowLevelMouseProc;
+    private IntPtr _lowLevelMouseHook;
     private WindowState _windowStateBeforeFullscreen;
     private WindowStyle _windowStyleBeforeFullscreen;
     private ResizeMode _resizeModeBeforeFullscreen;
     private bool _topmostBeforeFullscreen;
     private GridLength _sidebarWidthBeforeFullscreen;
+    private double _leftBeforeFullscreen;
+    private double _topBeforeFullscreen;
+    private double _widthBeforeFullscreen;
+    private double _heightBeforeFullscreen;
 
     public PlayerWindow(
         Uri mediaUri,
@@ -89,6 +113,7 @@ public partial class PlayerWindow : Window
         };
         _trackRefreshTimer.Tick += OnTrackRefreshTimerTick;
 
+        ConfigureVideoHost();
         ConfigureText();
         ConfigureStaticOptions();
     }
@@ -97,28 +122,62 @@ public partial class PlayerWindow : Window
     {
         try
         {
-            LibVLCSharp.Shared.Core.Initialize();
-            _libVlc = new LibVLC("--no-video-title-show");
-            _mediaPlayer = new MediaPlayer(_libVlc);
-            _mediaPlayer.Playing += (_, _) => Dispatcher.Invoke(OnMediaPlaying);
-            _mediaPlayer.Paused += (_, _) => Dispatcher.Invoke(() => SetPlaybackStatus(_localization["PlayerStatusPaused"]));
-            _mediaPlayer.Stopped += (_, _) => Dispatcher.Invoke(() => SetPlaybackStatus(_localization["PlayerStatusStopped"]));
-            _mediaPlayer.EndReached += (_, _) => Dispatcher.BeginInvoke(OnMediaEnded);
-            _mediaPlayer.EncounteredError += (_, _) => Dispatcher.Invoke(() => SetPlaybackStatus(_localization["PlayerStatusError"]));
-            VideoView.MediaPlayer = _mediaPlayer;
+            _player = new MpvPlayerHost();
+            _player.EndReached += OnMpvEndReached;
+            _player.Exited += OnMpvExited;
+
             ComponentDispatcher.ThreadFilterMessage += OnThreadFilterMessage;
-            _ = Dispatcher.BeginInvoke(AttachVideoNativeInputHook, DispatcherPriority.ContextIdle);
+            InstallLowLevelMouseHook();
 
             PlaylistList.ItemsSource = _playlist;
+            await _player.StartAsync(GetVideoWindowHandle(), _server, CancellationToken.None).ConfigureAwait(true);
             await LoadPlaylistAsync().ConfigureAwait(true);
-            PlayPlaylistIndex(0);
+            await PlayPlaylistIndexAsync(0).ConfigureAwait(true);
             _positionTimer.Start();
         }
         catch (Exception exception)
         {
             StatusText.Text = exception.Message;
-            FileEventLog.User.Error("Player", "Built-in LibVLC player failed to start.", exception, _mediaUri.ToString());
+            StatusText.Visibility = Visibility.Visible;
+            if (_nativeStatusLabel is not null)
+            {
+                _nativeStatusLabel.Text = exception.Message;
+                _nativeStatusLabel.Visible = true;
+            }
+
+            FileEventLog.User.Error("Player", "Built-in mpv player failed to start.", exception, _mediaUri.ToString());
         }
+    }
+
+    private void ConfigureVideoHost()
+    {
+        _mpvPanel = new WinFormsPanel
+        {
+            Dock = System.Windows.Forms.DockStyle.Fill,
+            BackColor = System.Drawing.Color.Black
+        };
+        _mpvPanel.MouseDown += OnNativeVideoMouseDown;
+        _nativeStatusLabel = new WinFormsLabel
+        {
+            Dock = System.Windows.Forms.DockStyle.Fill,
+            BackColor = System.Drawing.Color.Black,
+            ForeColor = System.Drawing.Color.FromArgb(201, 211, 223),
+            TextAlign = System.Drawing.ContentAlignment.MiddleCenter
+        };
+        _nativeStatusLabel.MouseDown += OnNativeVideoMouseDown;
+        _mpvPanel.Controls.Add(_nativeStatusLabel);
+        MpvHostControl.Child = _mpvPanel;
+    }
+
+    private IntPtr GetVideoWindowHandle()
+    {
+        if (_mpvPanel is null)
+        {
+            throw new InvalidOperationException("Video host is not initialized.");
+        }
+
+        _mpvPanel.CreateControl();
+        return _mpvPanel.Handle;
     }
 
     private void ConfigureText()
@@ -136,6 +195,10 @@ public partial class PlayerWindow : Window
         VolumeLabel.Text = _localization["FieldVolume"];
         TimeText.Text = FormatTime(0, 0);
         StatusText.Text = _localization["PlayerStatusReady"];
+        if (_nativeStatusLabel is not null)
+        {
+            _nativeStatusLabel.Text = StatusText.Text;
+        }
 
         PreviousButton.ToolTip = _localization["PlayerPreviousEpisode"];
         PlayPauseButton.Content = IconPlay;
@@ -263,57 +326,59 @@ public partial class PlayerWindow : Window
 
     private void PlayPlaylistIndex(int index)
     {
-        if (_libVlc is null || _mediaPlayer is null || index < 0 || index >= _playlist.Count)
+        _ = PlayPlaylistIndexAsync(index);
+    }
+
+    private async Task PlayPlaylistIndexAsync(int index)
+    {
+        if (_player is null || index < 0 || index >= _playlist.Count)
         {
             return;
         }
 
-        _manualStopRequested = false;
-        _currentPlaylistIndex = index;
-        var item = _playlist[index];
-        TitleText.Text = $"{item.NumberText} {item.Title}";
-        Title = string.Format(_localization["PlayerWindowTitle"], item.Title);
-        StatusText.Text = _localization["PlayerStatusReady"];
-        StatusText.Visibility = Visibility.Visible;
-        PositionSlider.Value = 0;
-        TimeText.Text = FormatTime(0, 0);
-        UpdatePlaylistSelection(index);
-        UpdatePlaylistButtons();
+        try
+        {
+            _manualStopRequested = false;
+            _hasHandledEnd = false;
+            _currentPlaylistIndex = index;
+            var item = _playlist[index];
+            TitleText.Text = $"{item.NumberText} {item.Title}";
+            Title = string.Format(_localization["PlayerWindowTitle"], item.Title);
+            StatusText.Text = _localization["PlayerStatusReady"];
+            StatusText.Visibility = Visibility.Visible;
+            PositionSlider.Value = 0;
+            _currentTimeMs = 0;
+            _currentLengthMs = 0;
+            TimeText.Text = FormatTime(0, 0);
+            UpdatePlaylistSelection(index);
+            UpdatePlaylistButtons();
 
-        using var media = new Media(_libVlc, item.Uri);
-        ApplyMediaOptions(media, item);
-        _mediaPlayer.Play(media);
-        _mediaPlayer.Volume = (int)VolumeSlider.Value;
-        ResetTrackControls();
-        StartTrackRefresh();
-        FileEventLog.User.Info("Player", "Built-in player opened playlist item.", item.Uri.ToString());
+            await PlayMediaItemAsync(item).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            SetPlaybackStatus(_localization["PlayerStatusError"]);
+            FileEventLog.User.Error("Player", "Failed to open media in built-in mpv player.", exception, _playlist.ElementAtOrDefault(index)?.Uri.ToString() ?? string.Empty);
+        }
     }
 
-    private void ApplyMediaOptions(Media media, PlayerPlaylistItem? item = null)
+    private async Task PlayMediaItemAsync(PlayerPlaylistItem item)
     {
-        var isAvi = IsAviStream(item);
-        var networkCacheMs = isAvi ? AviNetworkStreamCacheMs : NetworkStreamCacheMs;
-
-        media.AddOption(":http-reconnect");
-        media.AddOption(":network-caching=" + networkCacheMs);
-        media.AddOption(":live-caching=" + networkCacheMs);
-        media.AddOption(":file-caching=" + FileStreamCacheMs);
-        media.AddOption(":drop-late-frames=0");
-        media.AddOption(":skip-frames=0");
-
-        if (isAvi)
+        if (_player is null)
         {
-            media.AddOption(":demux=avi");
-            media.AddOption(":avi-index=3");
-            media.AddOption(":avi-interleaved");
-            media.AddOption(":no-input-fast-seek");
+            return;
         }
 
-        if (_server is not null && !string.IsNullOrWhiteSpace(_server.Username))
-        {
-            media.AddOption(":http-user=" + _server.Username);
-            media.AddOption(":http-pwd=" + (_server.Password ?? string.Empty));
-        }
+        ResetTrackControls();
+        await _player.LoadFileAsync(item.Uri, CancellationToken.None).ConfigureAwait(true);
+        await _player.SetVolumeAsync(VolumeSlider.Value, CancellationToken.None).ConfigureAwait(true);
+        await ReapplyTrackTimingAsync().ConfigureAwait(true);
+        _isPlayerIdle = false;
+        _isPlayerPaused = false;
+        SetPlaybackStatus(_localization["PlayerStatusPlaying"]);
+        StartTrackRefresh();
+
+        FileEventLog.User.Info("Player", "Built-in mpv player opened playlist item.", item.Uri.ToString());
     }
 
     private void OnPlaylistSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -350,6 +415,36 @@ public partial class PlayerWindow : Window
         PlayPlaylistIndex(_currentPlaylistIndex + 1);
     }
 
+    private void OnMpvEndReached(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_isClosing || _hasHandledEnd)
+            {
+                return;
+            }
+
+            _hasHandledEnd = true;
+            OnMediaEnded();
+        }));
+    }
+
+    private void OnMpvExited(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_isClosing)
+            {
+                return;
+            }
+
+            _isPlayerIdle = true;
+            _isPlayerPaused = true;
+            SetPlaybackStatus(_localization["PlayerStatusError"]);
+            FileEventLog.User.Warning("Player", "mpv process exited unexpectedly.", string.Empty);
+        }));
+    }
+
     private void OnMediaEnded()
     {
         if (_isClosing || _manualStopRequested)
@@ -363,6 +458,8 @@ public partial class PlayerWindow : Window
             return;
         }
 
+        _isPlayerIdle = true;
+        _isPlayerPaused = true;
         SetPlaybackStatus(_localization["PlayerStatusStopped"]);
     }
 
@@ -404,42 +501,59 @@ public partial class PlayerWindow : Window
         return _httpClient;
     }
 
-    private void OnMediaPlaying()
-    {
-        SetPlaybackStatus(_localization["PlayerStatusPlaying"]);
-        RefreshTrackControls();
-        StartTrackRefresh();
-    }
-
     private void StartTrackRefresh()
     {
         _trackRefreshAttempts = 0;
         _trackRefreshTimer.Start();
     }
 
-    private void OnTrackRefreshTimerTick(object? sender, EventArgs e)
+    private async void OnTrackRefreshTimerTick(object? sender, EventArgs e)
     {
-        RefreshTrackControls();
-        _trackRefreshAttempts++;
-        if (_trackRefreshAttempts >= 8)
+        if (_isRefreshingTracks)
         {
-            _trackRefreshTimer.Stop();
+            return;
+        }
+
+        _isRefreshingTracks = true;
+        try
+        {
+            await RefreshTrackControlsAsync().ConfigureAwait(true);
+            _trackRefreshAttempts++;
+            if (_trackRefreshAttempts >= 10)
+            {
+                _trackRefreshTimer.Stop();
+            }
+        }
+        finally
+        {
+            _isRefreshingTracks = false;
         }
     }
 
-    private void RefreshTrackControls()
+    private async Task RefreshTrackControlsAsync()
     {
-        if (_mediaPlayer is null)
+        if (_player is null)
         {
+            return;
+        }
+
+        IReadOnlyList<MpvTrack> tracks;
+        try
+        {
+            tracks = await _player.GetTracksAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            FileEventLog.User.Warning("Player", "Failed to refresh mpv track list.", exception.Message);
             return;
         }
 
         _isUpdatingTrackControls = true;
         try
         {
-            SetTrackItems(AudioTrackCombo, _mediaPlayer.AudioTrackDescription, _mediaPlayer.AudioTrack, _localization["PlayerNoAudioTracks"]);
-            SetTrackItems(VideoTrackCombo, _mediaPlayer.VideoTrackDescription, _mediaPlayer.VideoTrack, _localization["PlayerNoVideoTracks"]);
-            SetTrackItems(SubtitleTrackCombo, _mediaPlayer.SpuDescription, _mediaPlayer.Spu, _localization["PlayerNoSubtitleTracks"]);
+            SetTrackItems(AudioTrackCombo, tracks.Where(track => track.Type.Equals("audio", StringComparison.OrdinalIgnoreCase)), _localization["PlayerNoAudioTracks"]);
+            SetTrackItems(VideoTrackCombo, tracks.Where(track => track.Type.Equals("video", StringComparison.OrdinalIgnoreCase)), _localization["PlayerNoVideoTracks"]);
+            SetTrackItems(SubtitleTrackCombo, tracks.Where(track => track.Type.Equals("sub", StringComparison.OrdinalIgnoreCase)), _localization["PlayerNoSubtitleTracks"]);
         }
         finally
         {
@@ -447,24 +561,29 @@ public partial class PlayerWindow : Window
         }
     }
 
-    private static void SetTrackItems(
+    private void SetTrackItems(
         ComboBox comboBox,
-        IEnumerable<TrackDescription>? descriptions,
-        int selectedId,
+        IEnumerable<MpvTrack> tracks,
         string emptyLabel)
     {
-        var items = descriptions?
-            .Select(track => new PlayerOption(track.Id, string.IsNullOrWhiteSpace(track.Name) ? track.Id.ToString() : track.Name))
-            .ToList() ?? [];
-
-        if (items.Count == 0)
+        var trackList = tracks.ToList();
+        var items = new List<PlayerOption>();
+        if (trackList.Count == 0)
         {
             items.Add(new PlayerOption(-1, emptyLabel));
         }
+        else
+        {
+            items.Add(new PlayerOption(-1, _localization["PlayerTrackDisabled"]));
+            items.AddRange(trackList.Select(track => new PlayerOption(track.Id, track.Name)));
+        }
 
         comboBox.ItemsSource = items;
-        comboBox.SelectedItem = items.FirstOrDefault(item => item.Id == selectedId) ?? items.FirstOrDefault();
-        comboBox.IsEnabled = items.Count > 1 || items[0].Id >= 0;
+        var selectedTrack = trackList.FirstOrDefault(track => track.Selected);
+        comboBox.SelectedItem = selectedTrack is null
+            ? items[0]
+            : items.FirstOrDefault(item => item.Id == selectedTrack.Id) ?? items[0];
+        comboBox.IsEnabled = trackList.Count > 0;
     }
 
     private void ResetTrackControls()
@@ -478,6 +597,9 @@ public partial class PlayerWindow : Window
             AudioTrackCombo.SelectedIndex = 0;
             VideoTrackCombo.SelectedIndex = 0;
             SubtitleTrackCombo.SelectedIndex = 0;
+            AudioTrackCombo.IsEnabled = false;
+            VideoTrackCombo.IsEnabled = false;
+            SubtitleTrackCombo.IsEnabled = false;
         }
         finally
         {
@@ -487,52 +609,46 @@ public partial class PlayerWindow : Window
 
     private void OnAudioTrackSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_isUpdatingTrackControls && _mediaPlayer is not null && AudioTrackCombo.SelectedItem is PlayerOption option)
+        if (!_isUpdatingTrackControls && AudioTrackCombo.SelectedItem is PlayerOption option)
         {
-            _mediaPlayer.SetAudioTrack(option.Id);
+            _ = RunPlayerCommandAsync(() => _player?.SetTrackAsync("aid", option.Id, CancellationToken.None) ?? Task.CompletedTask);
         }
     }
 
     private void OnVideoTrackSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_isUpdatingTrackControls && _mediaPlayer is not null && VideoTrackCombo.SelectedItem is PlayerOption option)
+        if (!_isUpdatingTrackControls && VideoTrackCombo.SelectedItem is PlayerOption option)
         {
-            _mediaPlayer.SetVideoTrack(option.Id);
+            _ = RunPlayerCommandAsync(() => _player?.SetTrackAsync("vid", option.Id, CancellationToken.None) ?? Task.CompletedTask);
         }
     }
 
     private void OnSubtitleTrackSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_isUpdatingTrackControls && _mediaPlayer is not null && SubtitleTrackCombo.SelectedItem is PlayerOption option)
+        if (!_isUpdatingTrackControls && SubtitleTrackCombo.SelectedItem is PlayerOption option)
         {
-            _mediaPlayer.SetSpu(option.Id);
+            _ = RunPlayerCommandAsync(() => _player?.SetTrackAsync("sid", option.Id, CancellationToken.None) ?? Task.CompletedTask);
         }
     }
 
     private void OnAspectRatioSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_mediaPlayer is not null && AspectRatioCombo.SelectedItem is PlayerOption option)
+        if (AspectRatioCombo.SelectedItem is PlayerOption option)
         {
-            _mediaPlayer.AspectRatio = string.IsNullOrWhiteSpace(option.Value) ? null : option.Value;
+            _ = RunPlayerCommandAsync(() => _player?.SetAspectRatioAsync(option.Value, CancellationToken.None) ?? Task.CompletedTask);
         }
     }
 
     private void OnAudioDelayChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_mediaPlayer is not null)
-        {
-            _mediaPlayer.SetAudioDelay((long)Math.Round(e.NewValue) * 1000);
-            AudioDelayLabel.Text = string.Format(_localization["PlayerAudioDelayWithValue"], (int)e.NewValue);
-        }
+        AudioDelayLabel.Text = string.Format(_localization["PlayerAudioDelayWithValue"], (int)e.NewValue);
+        _ = RunPlayerCommandAsync(() => _player?.SetAudioDelayAsync(e.NewValue / 1000d, CancellationToken.None) ?? Task.CompletedTask);
     }
 
     private void OnSubtitleDelayChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_mediaPlayer is not null)
-        {
-            _mediaPlayer.SetSpuDelay((long)Math.Round(e.NewValue) * 1000);
-            SubtitleDelayLabel.Text = string.Format(_localization["PlayerSubtitleDelayWithValue"], (int)e.NewValue);
-        }
+        SubtitleDelayLabel.Text = string.Format(_localization["PlayerSubtitleDelayWithValue"], (int)e.NewValue);
+        _ = RunPlayerCommandAsync(() => _player?.SetSubtitleDelayAsync(e.NewValue / 1000d, CancellationToken.None) ?? Task.CompletedTask);
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -541,20 +657,20 @@ public partial class PlayerWindow : Window
         _positionTimer.Stop();
         _trackRefreshTimer.Stop();
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
-        _videoInputWindow?.ReleaseHandle();
-        _videoInputWindow = null;
+        UninstallLowLevelMouseHook();
 
         try
         {
-            if (_mediaPlayer is not null)
+            if (_player is not null)
             {
-                _mediaPlayer.Stop();
-                VideoView.MediaPlayer = null;
-                _mediaPlayer.Dispose();
+                _player.EndReached -= OnMpvEndReached;
+                _player.Exited -= OnMpvExited;
+                _player.Dispose();
             }
 
             _httpClient?.Dispose();
-            _libVlc?.Dispose();
+            MpvHostControl.Child = null;
+            _mpvPanel?.Dispose();
         }
         catch (Exception exception)
         {
@@ -562,29 +678,49 @@ public partial class PlayerWindow : Window
         }
     }
 
-    private void OnPlayPause(object sender, RoutedEventArgs e)
+    private async void OnPlayPause(object sender, RoutedEventArgs e)
     {
-        if (_mediaPlayer is null)
+        if (_player is null)
         {
             return;
         }
 
-        if (_mediaPlayer.IsPlaying)
+        try
         {
-            _mediaPlayer.Pause();
-            return;
-        }
+            if (_isPlayerIdle)
+            {
+                _manualStopRequested = false;
+                await PlayPlaylistIndexAsync(Math.Max(0, _currentPlaylistIndex)).ConfigureAwait(true);
+                return;
+            }
 
-        _manualStopRequested = false;
-        _mediaPlayer.Play();
+            _manualStopRequested = false;
+            await _player.SetPauseAsync(!_isPlayerPaused, CancellationToken.None).ConfigureAwait(true);
+            _isPlayerPaused = !_isPlayerPaused;
+            SetPlaybackStatus(_isPlayerPaused ? _localization["PlayerStatusPaused"] : _localization["PlayerStatusPlaying"]);
+        }
+        catch (Exception exception)
+        {
+            FileEventLog.User.Warning("Player", "Failed to toggle mpv playback.", exception.Message);
+        }
     }
 
-    private void OnStop(object sender, RoutedEventArgs e)
+    private async void OnStop(object sender, RoutedEventArgs e)
     {
         _manualStopRequested = true;
-        _mediaPlayer?.Stop();
+        _hasHandledEnd = true;
+        _currentTimeMs = 0;
+        _isPlayerPaused = true;
+        _isPlayerIdle = true;
+
+        if (_player is not null)
+        {
+            await RunPlayerCommandAsync(() => _player.StopAsync(CancellationToken.None)).ConfigureAwait(true);
+        }
+
         PositionSlider.Value = 0;
-        TimeText.Text = FormatTime(0, _mediaPlayer?.Length ?? 0);
+        TimeText.Text = FormatTime(0, _currentLengthMs);
+        SetPlaybackStatus(_localization["PlayerStatusStopped"]);
     }
 
     private void OnClose(object sender, RoutedEventArgs e)
@@ -619,6 +755,20 @@ public partial class PlayerWindow : Window
     {
         OpenPlayerContextMenu(sender as UIElement ?? VideoHost);
         e.Handled = true;
+    }
+
+    private void OnNativeVideoMouseDown(object? sender, WinFormsMouseEventArgs e)
+    {
+        if (e.Button == WinFormsMouseButtons.Left && e.Clicks >= 2)
+        {
+            Dispatcher.BeginInvoke(new Action(ToggleFullscreenFromPointer));
+            return;
+        }
+
+        if (e.Button == WinFormsMouseButtons.Right)
+        {
+            Dispatcher.BeginInvoke(new Action(() => OpenPlayerContextMenu(VideoHost)));
+        }
     }
 
     private void OnPlayerContextMenuOpened(object sender, RoutedEventArgs e)
@@ -661,30 +811,96 @@ public partial class PlayerWindow : Window
         return message is WindowMessageLeftButtonDown or WindowMessageLeftDoubleClick or WindowMessageRightButtonUp or WindowMessageContextMenu;
     }
 
-    private bool HandleVideoNativeMessage(int message, IntPtr lParam)
+    private void InstallLowLevelMouseHook()
     {
-        if (!IsNativeVideoMouseMessage(message))
+        if (_lowLevelMouseHook != IntPtr.Zero)
         {
-            return false;
+            return;
         }
 
-        if (message == WindowMessageLeftButtonDown && !IsNativeDoubleClick(lParam))
+        _lowLevelMouseProc = OnLowLevelMouseMessage;
+        _lowLevelMouseHook = SetWindowsHookEx(LowLevelMouseHook, _lowLevelMouseProc, GetModuleHandle(null), 0);
+        if (_lowLevelMouseHook == IntPtr.Zero)
         {
-            return false;
+            FileEventLog.User.Warning("Player", "Failed to install low-level mouse hook.", Marshal.GetLastWin32Error().ToString());
+        }
+    }
+
+    private void UninstallLowLevelMouseHook()
+    {
+        if (_lowLevelMouseHook == IntPtr.Zero)
+        {
+            return;
         }
 
-        Dispatcher.BeginInvoke(() =>
+        if (!UnhookWindowsHookEx(_lowLevelMouseHook))
         {
-            if (message is WindowMessageLeftButtonDown or WindowMessageLeftDoubleClick)
+            FileEventLog.User.Warning("Player", "Failed to uninstall low-level mouse hook.", Marshal.GetLastWin32Error().ToString());
+        }
+
+        _lowLevelMouseHook = IntPtr.Zero;
+        _lowLevelMouseProc = null;
+    }
+
+    private IntPtr OnLowLevelMouseMessage(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && ShouldHandleLowLevelMouse())
+        {
+            var message = wParam.ToInt32();
+            var mouse = Marshal.PtrToStructure<MouseHookStruct>(lParam);
+
+            if (message == WindowMessageLeftButtonDown && IsLowLevelDoubleClick(mouse.Point.X, mouse.Point.Y))
             {
-                ToggleFullscreenFromPointer();
-                return;
+                Dispatcher.BeginInvoke(new Action(ToggleFullscreenFromPointer));
+                return new IntPtr(1);
             }
 
-            OpenPlayerContextMenu(VideoHost);
-        });
+            if (message == WindowMessageRightButtonUp)
+            {
+                Dispatcher.BeginInvoke(new Action(() => OpenPlayerContextMenu(VideoHost)));
+                return new IntPtr(1);
+            }
+        }
 
-        return true;
+        return CallNextHookEx(_lowLevelMouseHook, nCode, wParam, lParam);
+    }
+
+    private bool ShouldHandleLowLevelMouse()
+    {
+        return !_isClosing &&
+            IsPlayerForeground() &&
+            IsMouseOverVideoHost();
+    }
+
+    private bool IsPlayerForeground()
+    {
+        var playerHandle = new WindowInteropHelper(this).Handle;
+        if (playerHandle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var foregroundHandle = GetForegroundWindow();
+        return foregroundHandle == playerHandle || IsChild(playerHandle, foregroundHandle);
+    }
+
+    private bool IsLowLevelDoubleClick(int x, int y)
+    {
+        var now = Environment.TickCount64;
+        var isDoubleClick = now - _lastLowLevelLeftClickTicks <= GetDoubleClickTime() &&
+            Math.Abs(x - _lastLowLevelLeftClickX) <= System.Windows.Forms.SystemInformation.DoubleClickSize.Width &&
+            Math.Abs(y - _lastLowLevelLeftClickY) <= System.Windows.Forms.SystemInformation.DoubleClickSize.Height;
+
+        _lastLowLevelLeftClickTicks = now;
+        _lastLowLevelLeftClickX = x;
+        _lastLowLevelLeftClickY = y;
+
+        if (isDoubleClick)
+        {
+            _lastLowLevelLeftClickTicks = 0;
+        }
+
+        return isDoubleClick;
     }
 
     private bool IsNativeDoubleClick(IntPtr lParam)
@@ -740,52 +956,6 @@ public partial class PlayerWindow : Window
         PlayerContextMenu.IsOpen = true;
     }
 
-    private void AttachVideoNativeInputHook()
-    {
-        if (_isClosing || _videoInputWindow is not null)
-        {
-            return;
-        }
-
-        var handle = ResolveVideoHostHandle();
-        if (handle == IntPtr.Zero)
-        {
-            if (_videoHookAttachAttempts++ < 20)
-            {
-                _ = Dispatcher.BeginInvoke(AttachVideoNativeInputHook, DispatcherPriority.Background);
-            }
-
-            return;
-        }
-
-        _videoInputWindow = new VideoInputNativeWindow(this);
-        _videoInputWindow.AssignHandle(handle);
-        FileEventLog.User.Info("Player", "Attached native video input hook.", handle.ToString("X"));
-    }
-
-    private IntPtr ResolveVideoHostHandle()
-    {
-        var host = VideoView.GetType()
-            .GetField("_videoHwndHost", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-            ?.GetValue(VideoView);
-
-        return ResolveHandleFromObject(host);
-    }
-
-    private static IntPtr ResolveHandleFromObject(object? value)
-    {
-        if (value is null)
-        {
-            return IntPtr.Zero;
-        }
-
-        var handle = value.GetType()
-            .GetProperty("Handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
-            ?.GetValue(value);
-
-        return handle is IntPtr ptr ? ptr : IntPtr.Zero;
-    }
-
     private void OnPositionMouseDown(object sender, MouseButtonEventArgs e)
     {
         _isDraggingPosition = true;
@@ -794,158 +964,112 @@ public partial class PlayerWindow : Window
     private void OnPositionMouseUp(object sender, MouseButtonEventArgs e)
     {
         _isDraggingPosition = false;
-        SeekToSliderPosition();
+        _ = SeekToSliderPositionAsync();
     }
 
     private void OnPositionValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_isDraggingPosition)
         {
-            TimeText.Text = FormatTime(SliderPositionToTime(), _mediaPlayer?.Length ?? 0);
+            TimeText.Text = FormatTime(SliderPositionToTime(), _currentLengthMs);
         }
     }
 
     private void OnVolumeValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_mediaPlayer is not null)
+        _ = RunPlayerCommandAsync(() => _player?.SetVolumeAsync(e.NewValue, CancellationToken.None) ?? Task.CompletedTask);
+    }
+
+    private async void OnPositionTimerTick(object? sender, EventArgs e)
+    {
+        if (_player is null || _isDraggingPosition || _isClosing || _isPollingPosition)
         {
-            _mediaPlayer.Volume = (int)Math.Round(e.NewValue);
+            return;
+        }
+
+        _isPollingPosition = true;
+        try
+        {
+            var state = await _player.GetStateAsync(CancellationToken.None).ConfigureAwait(true);
+            _currentTimeMs = state.TimeMs;
+            _currentLengthMs = state.DurationMs;
+            _isPlayerPaused = state.Paused;
+            _isPlayerIdle = state.IdleActive;
+
+            if (state.EofReached && !_manualStopRequested && !_hasHandledEnd)
+            {
+                _hasHandledEnd = true;
+                OnMediaEnded();
+                return;
+            }
+
+            if (_currentLengthMs > 0)
+            {
+                PositionSlider.Value = Math.Clamp((double)_currentTimeMs / _currentLengthMs * PositionSlider.Maximum, 0, PositionSlider.Maximum);
+            }
+
+            TimeText.Text = FormatTime(_currentTimeMs, _currentLengthMs);
+            SetPlaybackStatus(_isPlayerIdle
+                ? _localization["PlayerStatusStopped"]
+                : _isPlayerPaused
+                    ? _localization["PlayerStatusPaused"]
+                    : _localization["PlayerStatusPlaying"]);
+        }
+        catch (Exception exception)
+        {
+            FileEventLog.User.Warning("Player", "Failed to poll mpv playback state.", exception.Message);
+        }
+        finally
+        {
+            _isPollingPosition = false;
         }
     }
 
-    private void OnPositionTimerTick(object? sender, EventArgs e)
+    private async Task SeekToSliderPositionAsync()
     {
-        if (_mediaPlayer is null || _isDraggingPosition || _isClosing)
+        if (_player is null || _currentLengthMs <= 0)
         {
             return;
         }
 
-        var length = _mediaPlayer.Length;
-        var time = _mediaPlayer.Time;
-        if (length > 0)
-        {
-            PositionSlider.Value = Math.Clamp((double)time / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
-        }
-
-        TimeText.Text = FormatTime(time, length);
-    }
-
-    private void SeekToSliderPosition()
-    {
-        if (_mediaPlayer is null)
-        {
-            return;
-        }
-
-        var length = _mediaPlayer.Length;
-        if (length > 0)
-        {
-            var target = Math.Clamp(SliderPositionToTime(), 0, Math.Max(0, length - 1));
-            SeekToTime(target);
-            return;
-        }
-
-        _mediaPlayer.Position = (float)Math.Clamp(PositionSlider.Value / PositionSlider.Maximum, 0, 1);
-        ReapplyTrackTiming();
+        var target = Math.Clamp(SliderPositionToTime(), 0, Math.Max(0, _currentLengthMs - 1));
+        await SeekToTimeAsync(target).ConfigureAwait(true);
     }
 
     private bool CanSeek()
     {
-        return _mediaPlayer is not null && _mediaPlayer.Length > 0;
+        return _player is not null && _currentLengthMs > 0;
     }
 
     private void SeekRelative(long deltaMs)
     {
-        if (_mediaPlayer is null || _mediaPlayer.Length <= 0)
+        if (_player is null || _currentLengthMs <= 0)
         {
             return;
         }
 
-        SeekToTime(_mediaPlayer.Time + deltaMs);
+        _ = SeekToTimeAsync(_currentTimeMs + deltaMs);
     }
 
-    private void SeekToTime(long targetMs)
+    private async Task SeekToTimeAsync(long targetMs)
     {
-        if (_mediaPlayer is null)
+        if (_player is null || _currentLengthMs <= 0)
         {
             return;
         }
 
-        var length = _mediaPlayer.Length;
-        if (length <= 0)
+        var target = Math.Clamp(targetMs, 0, Math.Max(0, _currentLengthMs - 1));
+        try
         {
-            return;
+            await _player.SeekAbsoluteAsync(target, CancellationToken.None).ConfigureAwait(true);
+            _currentTimeMs = target;
+            PositionSlider.Value = Math.Clamp((double)target / _currentLengthMs * PositionSlider.Maximum, 0, PositionSlider.Maximum);
+            TimeText.Text = FormatTime(target, _currentLengthMs);
         }
-
-        var target = Math.Clamp(targetMs, 0, Math.Max(0, length - 1));
-        if (IsCurrentAviStream())
+        catch (Exception exception)
         {
-            SeekAviToTime(target, length);
-            return;
+            FileEventLog.User.Warning("Player", "Failed to seek mpv playback.", exception.Message);
         }
-
-        _mediaPlayer.Time = target;
-        PositionSlider.Value = Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
-        TimeText.Text = FormatTime(target, length);
-        ReapplyTrackTiming();
-    }
-
-    private bool IsCurrentAviStream()
-    {
-        if (_currentPlaylistIndex < 0 || _currentPlaylistIndex >= _playlist.Count)
-        {
-            return false;
-        }
-
-        return IsAviStream(_playlist[_currentPlaylistIndex]);
-    }
-
-    private static bool IsAviStream(PlayerPlaylistItem? item)
-    {
-        if (item is null)
-        {
-            return false;
-        }
-
-        var path = WebUtility.UrlDecode(item.Uri.AbsolutePath);
-        var query = WebUtility.UrlDecode(item.Uri.Query);
-        return path.Contains(".avi", StringComparison.OrdinalIgnoreCase) ||
-            query.Contains(".avi", StringComparison.OrdinalIgnoreCase) ||
-            item.Title.Contains(".avi", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void SeekAviToTime(long target, long length)
-    {
-        if (_mediaPlayer is null)
-        {
-            return;
-        }
-
-        var audioTrack = _mediaPlayer.AudioTrack;
-        if (audioTrack >= 0)
-        {
-            _mediaPlayer.SetAudioTrack(-1);
-        }
-
-        _mediaPlayer.Time = target;
-        PositionSlider.Value = Math.Clamp((double)target / length * PositionSlider.Maximum, 0, PositionSlider.Maximum);
-        TimeText.Text = FormatTime(target, length);
-        ReapplyTrackTiming();
-
-        if (audioTrack >= 0)
-        {
-            _ = Dispatcher.InvokeAsync(async () =>
-            {
-                await Task.Delay(350).ConfigureAwait(true);
-                if (_mediaPlayer is not null && !_isClosing)
-                {
-                    _mediaPlayer.SetAudioTrack(audioTrack);
-                    ReapplyTrackTiming();
-                }
-            }, DispatcherPriority.Background);
-        }
-
-        FileEventLog.User.Info("Player", "Sought AVI stream with audio track reset.", $"{target}ms");
     }
 
     private void ToggleFullscreenFromPointer()
@@ -979,15 +1103,20 @@ public partial class PlayerWindow : Window
             _resizeModeBeforeFullscreen = ResizeMode;
             _topmostBeforeFullscreen = Topmost;
             _sidebarWidthBeforeFullscreen = PlayerSidebarColumn.Width;
+            _leftBeforeFullscreen = Left;
+            _topBeforeFullscreen = Top;
+            _widthBeforeFullscreen = Width;
+            _heightBeforeFullscreen = Height;
 
             _isFullscreen = true;
             PlayerSidebar.Visibility = Visibility.Collapsed;
             PlayerControlsBar.Visibility = Visibility.Collapsed;
             PlayerSidebarColumn.Width = new GridLength(0);
+            WindowState = WindowState.Normal;
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
             Topmost = true;
-            WindowState = WindowState.Maximized;
+            ApplyFullscreenWindowPlacement();
         }
         else
         {
@@ -995,13 +1124,69 @@ public partial class PlayerWindow : Window
             PlayerSidebar.Visibility = Visibility.Visible;
             PlayerControlsBar.Visibility = Visibility.Visible;
             PlayerSidebarColumn.Width = _sidebarWidthBeforeFullscreen;
+            WindowState = WindowState.Normal;
             WindowStyle = _windowStyleBeforeFullscreen;
             ResizeMode = _resizeModeBeforeFullscreen;
             Topmost = _topmostBeforeFullscreen;
+            Left = _leftBeforeFullscreen;
+            Top = _topBeforeFullscreen;
+            Width = _widthBeforeFullscreen;
+            Height = _heightBeforeFullscreen;
             WindowState = _windowStateBeforeFullscreen;
+            ApplyRestoredWindowZOrder();
         }
 
         UpdateFullscreenButton();
+    }
+
+    private void ApplyFullscreenWindowPlacement()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var bounds = System.Windows.Forms.Screen.FromHandle(handle).Bounds;
+        Left = bounds.Left;
+        Top = bounds.Top;
+        Width = bounds.Width;
+        Height = bounds.Height;
+        Activate();
+
+        if (!SetWindowPos(
+            handle,
+            HwndTopmost,
+            bounds.Left,
+            bounds.Top,
+            bounds.Width,
+            bounds.Height,
+            SetWindowPosShowWindow | SetWindowPosFrameChanged))
+        {
+            FileEventLog.User.Warning("Player", "Failed to apply fullscreen window placement.", Marshal.GetLastWin32Error().ToString());
+        }
+    }
+
+    private void ApplyRestoredWindowZOrder()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var zOrder = _topmostBeforeFullscreen ? HwndTopmost : HwndNotTopmost;
+        if (!SetWindowPos(
+            handle,
+            zOrder,
+            0,
+            0,
+            0,
+            0,
+            SetWindowPosNoMove | SetWindowPosNoSize | SetWindowPosShowWindow | SetWindowPosFrameChanged))
+        {
+            FileEventLog.User.Warning("Player", "Failed to restore window z-order.", Marshal.GetLastWin32Error().ToString());
+        }
     }
 
     private void UpdateFullscreenButton()
@@ -1012,22 +1197,24 @@ public partial class PlayerWindow : Window
             : _localization["PlayerEnterFullscreen"];
     }
 
-    private void ReapplyTrackTiming()
+    private async Task ReapplyTrackTimingAsync()
     {
-        if (_mediaPlayer is null)
+        if (_player is null)
         {
             return;
         }
 
-        _mediaPlayer.SetAudioDelay((long)Math.Round(AudioDelaySlider.Value) * 1000);
-        _mediaPlayer.SetSpuDelay((long)Math.Round(SubtitleDelaySlider.Value) * 1000);
+        await _player.SetAudioDelayAsync(AudioDelaySlider.Value / 1000d, CancellationToken.None).ConfigureAwait(true);
+        await _player.SetSubtitleDelayAsync(SubtitleDelaySlider.Value / 1000d, CancellationToken.None).ConfigureAwait(true);
     }
 
     private void BuildPlayerContextMenu()
     {
+        var hasPlayer = _player is not null;
+        var isPlaying = hasPlayer && !_isPlayerIdle && !_isPlayerPaused;
         PlayerContextMenu.Items.Clear();
-        PlayerContextMenu.Items.Add(CreateMenuItem(_mediaPlayer?.IsPlaying == true ? _localization["ActionPause"] : _localization["ActionPlay"], OnPlayPause, _mediaPlayer is not null));
-        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["ActionStop"], OnStop, _mediaPlayer is not null));
+        PlayerContextMenu.Items.Add(CreateMenuItem(isPlaying ? _localization["ActionPause"] : _localization["ActionPlay"], OnPlayPause, hasPlayer));
+        PlayerContextMenu.Items.Add(CreateMenuItem(_localization["ActionStop"], OnStop, hasPlayer));
         PlayerContextMenu.Items.Add(CreateMenuItem(_localization["PlayerSeekBackward"], (_, _) => SeekRelative(-30000), CanSeek()));
         PlayerContextMenu.Items.Add(CreateMenuItem(_localization["PlayerSeekForward"], (_, _) => SeekRelative(30000), CanSeek()));
         PlayerContextMenu.Items.Add(new Separator());
@@ -1166,22 +1353,40 @@ public partial class PlayerWindow : Window
 
     private long SliderPositionToTime()
     {
-        var length = _mediaPlayer?.Length ?? 0;
-        return length <= 0
+        return _currentLengthMs <= 0
             ? 0
-            : (long)(length * Math.Clamp(PositionSlider.Value / PositionSlider.Maximum, 0, 1));
+            : (long)(_currentLengthMs * Math.Clamp(PositionSlider.Value / PositionSlider.Maximum, 0, 1));
     }
 
     private void SetPlaybackStatus(string status)
     {
+        var isPlaying = _player is not null && !_isPlayerIdle && !_isPlayerPaused;
         StatusText.Text = status;
-        StatusText.Visibility = _mediaPlayer?.IsPlaying == true
+        StatusText.Visibility = isPlaying
             ? Visibility.Collapsed
             : Visibility.Visible;
-        PlayPauseButton.Content = _mediaPlayer?.IsPlaying == true ? IconPause : IconPlay;
-        PlayPauseButton.ToolTip = _mediaPlayer?.IsPlaying == true
+        if (_nativeStatusLabel is not null)
+        {
+            _nativeStatusLabel.Text = status;
+            _nativeStatusLabel.Visible = !isPlaying;
+        }
+
+        PlayPauseButton.Content = isPlaying ? IconPause : IconPlay;
+        PlayPauseButton.ToolTip = isPlaying
             ? _localization["ActionPause"]
             : _localization["ActionPlay"];
+    }
+
+    private async Task RunPlayerCommandAsync(Func<Task> command)
+    {
+        try
+        {
+            await command().ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            FileEventLog.User.Warning("Player", "mpv command failed.", exception.Message);
+        }
     }
 
     private static string FormatTime(long timeMs, long lengthMs)
@@ -1208,6 +1413,40 @@ public partial class PlayerWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool IsChild(IntPtr parentHandle, IntPtr childHandle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr windowHandle,
+        IntPtr insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint flags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(
+        int hookId,
+        LowLevelMouseProc callback,
+        IntPtr moduleHandle,
+        uint threadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnhookWindowsHookEx(IntPtr hookHandle);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallNextHookEx(IntPtr hookHandle, int code, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr GetModuleHandle(string? moduleName);
+
+    private delegate IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam);
+
     [StructLayout(LayoutKind.Sequential)]
     private readonly struct NativePoint
     {
@@ -1216,22 +1455,18 @@ public partial class PlayerWindow : Window
         public readonly int Y;
     }
 
-    private sealed class VideoInputNativeWindow : System.Windows.Forms.NativeWindow
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct MouseHookStruct
     {
-        private readonly PlayerWindow _owner;
+        public readonly NativePoint Point;
 
-        public VideoInputNativeWindow(PlayerWindow owner)
-        {
-            _owner = owner;
-        }
+        public readonly uint MouseData;
 
-        protected override void WndProc(ref System.Windows.Forms.Message m)
-        {
-            if (!_owner.HandleVideoNativeMessage(m.Msg, m.LParam))
-            {
-                base.WndProc(ref m);
-            }
-        }
+        public readonly uint Flags;
+
+        public readonly uint Time;
+
+        public readonly IntPtr ExtraInfo;
     }
 }
 

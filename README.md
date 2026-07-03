@@ -16,7 +16,7 @@ TorrWind keeps its settings, logs, downloaded TorrServer binaries, playlists, ba
 - Local TorrServer process control and optional Windows Service mode through `TorrWind.Service.exe`.
 - Torrent and magnet add/remove/drop/wipe actions.
 - Torrent file list, selected-file playback, continue playlist, and playlist-from-current-file actions.
-- Built-in LibVLC player with M3U playlist navigation, audio/video/subtitle controls, and external-player launch.
+- Built-in mpv player with M3U playlist navigation, audio/video/subtitle controls, and external-player launch.
 - TorrServer Web UI fallback tab.
 - Torznab-compatible indexer search, including Jackett/Prowlarr style endpoints.
 - Runtime JSON editor for TorrServer settings.
@@ -57,6 +57,8 @@ Publish self-contained Windows x64 files:
 ```powershell
 .\scripts\publish-win-x64.ps1 -Version 1.0.0
 ```
+
+The publish script downloads the latest shinchiro Windows x64 mpv runtime, verifies the GitHub release SHA256 digest when present, and installs it into `artifacts/publish/TorrWind/Runtime/mpv`. Install 7-Zip before release packaging. For offline builds, pass `-MpvRuntimeArchivePath <mpv-x86_64-...7z>`; to publish without bundled mpv, pass `-SkipMpvRuntime`.
 
 Create a portable zip:
 
@@ -101,6 +103,8 @@ Create a portable Windows x64 zip:
 ```bash
 pwsh ./scripts/package-win-x64.ps1 -Version 1.0.0
 ```
+
+The packaging scripts also bundle mpv through `scripts/install-mpv-runtime.ps1`. Install `p7zip`/`7z` in Linux build environments, or pass `-MpvRuntimeArchivePath <mpv-x86_64-...7z>` for offline builds.
 
 Build the installer through Wine + Inno Setup:
 
@@ -199,18 +203,18 @@ TorrWind normalizes common Jackett/Prowlarr/JacPro-style URLs, supports API keys
 
 ## Playback
 
-Playback can use the built-in LibVLC player or an external player:
+Playback can use the built-in mpv player or an external player:
 
-- built-in LibVLC;
+- built-in mpv;
 - system default player;
 - VLC;
 - MPC-HC;
 - PotPlayer;
 - custom executable path.
 
-TorrWind generates TorrServer-compatible stream or M3U URLs and opens them in the selected player. Release builds include the Windows x64 LibVLC runtime under `libvlc/win-x64`.
+TorrWind generates TorrServer-compatible stream or M3U URLs and opens them in the selected player. Release builds bundle the Windows x64 mpv runtime under `Runtime\mpv`; TorrWind also looks for `mpv.exe` in the application folder, `mpv`, `tools\mpv`, and then `PATH`.
 
-The built-in LibVLC player reads local M3U files and downloads HTTP(S) M3U/M3U8 playlists itself. Series playlists are shown as an episode list, with icon controls for previous/next episode and direct selection of any playlist item. The player also exposes audio track, video track, subtitle track, aspect ratio, audio delay, and subtitle delay controls.
+The built-in mpv player reads local M3U files and downloads HTTP(S) M3U/M3U8 playlists itself. Series playlists are shown as an episode list, with icon controls for previous/next episode and direct selection of any playlist item. The player also exposes audio track, video track, subtitle track, aspect ratio, audio delay, and subtitle delay controls.
 
 ## Cache And Runtime Settings
 

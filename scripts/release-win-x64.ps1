@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$Version = "1.0.0",
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    [string]$MpvRuntimeArchivePath = "",
+    [switch]$SkipMpvRuntime
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,7 +14,20 @@ $InstallerPath = Join-Path $Root "artifacts\installer\TorrWind-$Version-win-x64.
 $PortablePath = Join-Path $Root "artifacts\portable\TorrWind-$Version-win-x64-portable.zip"
 $ChecksumPath = Join-Path $Root "artifacts\TorrWind-$Version-SHA256SUMS.txt"
 
-& (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration -Version $Version
+$publishArgs = @{
+    Configuration = $Configuration
+    Version = $Version
+}
+
+if (-not [string]::IsNullOrWhiteSpace($MpvRuntimeArchivePath)) {
+    $publishArgs["MpvRuntimeArchivePath"] = $MpvRuntimeArchivePath
+}
+
+if ($SkipMpvRuntime) {
+    $publishArgs["SkipMpvRuntime"] = $true
+}
+
+& (Join-Path $PSScriptRoot "publish-win-x64.ps1") @publishArgs
 & (Join-Path $PSScriptRoot "package-win-x64.ps1") -Version $Version -Configuration $Configuration -SkipPublish
 & (Join-Path $PSScriptRoot "build-installer.ps1") -Version $Version -Configuration $Configuration -SkipPublish
 

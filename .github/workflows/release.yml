@@ -34,8 +34,8 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Install Inno Setup
-        run: choco install innosetup --yes --no-progress
+      - name: Install packaging tools
+        run: choco install innosetup 7zip --yes --no-progress
 
       - name: Resolve version
         shell: pwsh
@@ -57,6 +57,8 @@ jobs:
 
       - name: Build release artifacts
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/release-win-x64.ps1 -Version $env:VERSION -Configuration Release
 
       - name: Upload workflow artifacts

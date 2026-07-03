@@ -4,6 +4,8 @@ param(
     [string]$Configuration = "Release",
     [string]$InnoCompilerPath = "",
     [string]$WinePrefix = "",
+    [string]$MpvRuntimeArchivePath = "",
+    [switch]$SkipMpvRuntime,
     [switch]$SkipPublish
 )
 
@@ -14,7 +16,20 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $InnoScript = Join-Path $Root "installers\windows\TorrWind.iss"
 
 if (-not $SkipPublish) {
-    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") -Configuration $Configuration -Version $Version
+    $publishArgs = @{
+        Configuration = $Configuration
+        Version = $Version
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($MpvRuntimeArchivePath)) {
+        $publishArgs["MpvRuntimeArchivePath"] = $MpvRuntimeArchivePath
+    }
+
+    if ($SkipMpvRuntime) {
+        $publishArgs["SkipMpvRuntime"] = $true
+    }
+
+    & (Join-Path $PSScriptRoot "publish-win-x64.ps1") @publishArgs
 }
 
 function Find-WindowsIscc {

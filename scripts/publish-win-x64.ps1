@@ -3,7 +3,9 @@ param(
     [string]$Configuration = "Release",
     [string]$Version = "1.0.0",
     [string]$Runtime = "win-x64",
-    [bool]$SelfContained = $true
+    [bool]$SelfContained = $true,
+    [string]$MpvRuntimeArchivePath = "",
+    [switch]$SkipMpvRuntime
 )
 
 $ErrorActionPreference = "Stop"
@@ -56,5 +58,19 @@ dotnet publish $ServiceProject @common -o $PublishDir
 
 Copy-Item (Join-Path $Root "README.md") $PublishDir -Force
 Copy-Item (Join-Path $Root "LICENSE") $PublishDir -Force
+
+if (-not $SkipMpvRuntime) {
+    $mpvArgs = @{
+        DestinationDir = Join-Path $PublishDir "Runtime\mpv"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($MpvRuntimeArchivePath)) {
+        $mpvArgs["SourceArchivePath"] = $MpvRuntimeArchivePath
+    }
+
+    & (Join-Path $PSScriptRoot "install-mpv-runtime.ps1") @mpvArgs
+} else {
+    Write-Host "Skipping bundled mpv runtime."
+}
 
 Write-Host "Published TorrWind to $PublishDir"

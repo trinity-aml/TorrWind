@@ -238,7 +238,7 @@ public enum CacheMode
 
 public sealed class PlayerSettings
 {
-    public ExternalPlayerKind PreferredPlayer { get; set; } = ExternalPlayerKind.BuiltInLibVlc;
+    public ExternalPlayerKind PreferredPlayer { get; set; } = ExternalPlayerKind.BuiltInMpv;
 
     public string CustomPlayerPath { get; set; } = string.Empty;
 
@@ -247,12 +247,12 @@ public sealed class PlayerSettings
 
 public enum ExternalPlayerKind
 {
-    SystemDefault,
-    Vlc,
-    MpcHc,
-    PotPlayer,
-    Custom,
-    BuiltInLibVlc
+    SystemDefault = 0,
+    Vlc = 1,
+    MpcHc = 2,
+    PotPlayer = 3,
+    Custom = 4,
+    BuiltInMpv = 5
 }
 
 public sealed class SearchProviderSettings : INotifyPropertyChanged

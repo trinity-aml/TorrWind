@@ -37,6 +37,9 @@ public static class AppPaths
     public static string ServiceLogFile =>
         Path.Combine(ProgramDataLogsDirectory, "service.jsonl");
 
+    public static string MpvPlayerLogFile =>
+        Path.Combine(UserLogsDirectory, "mpv-player.log");
+
     public static string UserSettingsFile =>
         Path.Combine(DataDirectory, "settings.json");
 
