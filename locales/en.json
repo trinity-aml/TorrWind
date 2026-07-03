@@ -113,6 +113,7 @@
   "ColumnFile": "Files",
   "ColumnSeason": "Season",
   "ColumnEpisode": "Episode",
+  "ColumnResolution": "Resolution",
   "ColumnMime": "Type",
   "FieldName": "Name",
   "FieldTitle": "Title",

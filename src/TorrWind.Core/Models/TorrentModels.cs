@@ -85,13 +85,13 @@ public sealed class TorrentItem
         if (element.TryGetProperty("files", out var files) || element.TryGetProperty("Files", out files))
         {
             item.Files = files.ValueKind == JsonValueKind.Array
-                ? files.EnumerateArray().Select(TorrentFile.FromJson).ToArray()
+                ? files.EnumerateArray().Select(TorrentFile.FromJson).Where(file => file.IsVideoFile).ToArray()
                 : [];
         }
         else if (element.TryGetProperty("file_stats", out files) || element.TryGetProperty("FileStats", out files))
         {
             item.Files = files.ValueKind == JsonValueKind.Array
-                ? files.EnumerateArray().Select(TorrentFile.FromJson).ToArray()
+                ? files.EnumerateArray().Select(TorrentFile.FromJson).Where(file => file.IsVideoFile).ToArray()
                 : [];
         }
 
@@ -116,14 +116,119 @@ public sealed class TorrentItem
 
 public sealed class TorrentFile
 {
+    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".264",
+        ".265",
+        ".3g2",
+        ".3gp",
+        ".3gp2",
+        ".3gpp",
+        ".amv",
+        ".asf",
+        ".av1",
+        ".avc",
+        ".avi",
+        ".bik",
+        ".cine",
+        ".dav",
+        ".divx",
+        ".drc",
+        ".dv",
+        ".dvr",
+        ".dvr-ms",
+        ".evo",
+        ".f4p",
+        ".f4v",
+        ".flc",
+        ".fli",
+        ".flv",
+        ".gvi",
+        ".gxf",
+        ".h261",
+        ".h263",
+        ".h264",
+        ".h265",
+        ".hdmov",
+        ".hevc",
+        ".iso",
+        ".ismv",
+        ".ivf",
+        ".m1v",
+        ".m2p",
+        ".m2t",
+        ".m2ts",
+        ".m2v",
+        ".m4v",
+        ".mj2",
+        ".mjp",
+        ".mjpg",
+        ".mjpeg",
+        ".mk3d",
+        ".mkv",
+        ".mod",
+        ".mov",
+        ".movie",
+        ".mp2v",
+        ".mp4",
+        ".mp4v",
+        ".mpe",
+        ".mpeg",
+        ".mpeg1",
+        ".mpeg2",
+        ".mpeg4",
+        ".mpg",
+        ".mpv",
+        ".mts",
+        ".mtv",
+        ".mxf",
+        ".mxg",
+        ".nsv",
+        ".nut",
+        ".obu",
+        ".ogm",
+        ".ogv",
+        ".qt",
+        ".rec",
+        ".rm",
+        ".rmvb",
+        ".roq",
+        ".rv",
+        ".smk",
+        ".ssif",
+        ".svi",
+        ".tod",
+        ".tp",
+        ".trp",
+        ".ts",
+        ".tts",
+        ".vdr",
+        ".viv",
+        ".vivo",
+        ".vob",
+        ".vp6",
+        ".vro",
+        ".webm",
+        ".wm",
+        ".wmv",
+        ".wtv",
+        ".xesc",
+        ".y4m",
+        ".yuv"
+    };
+
     private static readonly Regex[] EpisodePatterns =
     [
         new(@"(?i)(?:^|[\s._\-\[])[sс](?<season>\d{1,2})[\s._\-\]]*[eе](?<episode>\d{1,3})(?:[\s._\-\]]*[eе]\d{1,3})?", RegexOptions.Compiled),
         new(@"(?i)(?:^|[\s._\-\[])(?<season>\d{1,2})x(?<episode>\d{1,3})", RegexOptions.Compiled)
     ];
 
-    private static readonly Regex TechnicalSuffixPattern = new(
-        @"(?i)(?:^|[\s._\-])(?:2160p|1080p|720p|480p|web[\s._\-]?dl|webrip|bdrip|bluray|hdrip|dvdrip|x264|x265|h[\s._\-]?264|h[\s._\-]?265|hevc|aac|ac3|eac3|ddp?[\s._\-]?\d(?:[\s._\-]?\d)?|nf|amzn|itunes|okko|kion|lostfilm|newstudio)\b.*$",
+    private static readonly Regex ResolutionPattern = new(
+        @"(?i)(?:^|[\s._\-\[\(])(?<resolution>(?:4320|2160|1440|1080|900|720|576|540|480|360|240)p|(?:8k|4k|uhd|qhd|fhd|hd|sd))(?:$|[\s._\-\]\)])",
+        RegexOptions.Compiled);
+
+    private static readonly Regex DimensionsPattern = new(
+        @"(?i)(?:^|[\s._\-\[\(])(?<width>\d{3,5})\s*[xх]\s*(?<height>\d{3,5})(?:$|[\s._\-\]\)])",
         RegexOptions.Compiled);
 
     public int Id { get; set; }
@@ -134,7 +239,15 @@ public sealed class TorrentFile
 
     public string MimeType { get; set; } = string.Empty;
 
+    public string Resolution { get; set; } = string.Empty;
+
     public string SizeText => TorrentItem.FormatBytes(SizeBytes);
+
+    public bool IsVideoFile => IsVideoFilePath(Path, MimeType);
+
+    public string DisplayName => CleanFileName(Path);
+
+    public string ResolutionText => Resolution;
 
     public string SeasonText => TryParseEpisode(Path, out var season, out _, out _)
         ? season.ToString(CultureInfo.InvariantCulture)
@@ -144,19 +257,35 @@ public sealed class TorrentFile
         ? episode.ToString(CultureInfo.InvariantCulture)
         : string.Empty;
 
-    public string EpisodeTitle => TryParseEpisode(Path, out _, out _, out var title)
-        ? title
-        : CleanFileName(Path);
+    public string EpisodeTitle => DisplayName;
 
     public static TorrentFile FromJson(JsonElement element)
     {
+        var path = element.ReadString("path", "Path", "name", "Name");
         return new TorrentFile
         {
             Id = element.ReadInt32("id", "Id", "index", "Index"),
-            Path = element.ReadString("path", "Path", "name", "Name"),
+            Path = path,
             SizeBytes = element.ReadInt64("size", "Size", "length", "Length"),
-            MimeType = element.ReadString("mime", "Mime", "mime_type", "MimeType")
+            MimeType = element.ReadString("mime", "Mime", "mime_type", "MimeType"),
+            Resolution = ResolveResolution(
+                path,
+                element.ReadString("resolution", "Resolution", "video_resolution", "VideoResolution"),
+                element.ReadInt32("width", "Width", "video_width", "VideoWidth"),
+                element.ReadInt32("height", "Height", "video_height", "VideoHeight"))
         };
+    }
+
+    public static bool IsVideoFilePath(string path, string mimeType = "")
+    {
+        var mime = mimeType.Split(';', 2)[0].Trim();
+        if (mime.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var extension = System.IO.Path.GetExtension(path.Replace('\\', '/')).Trim();
+        return !string.IsNullOrWhiteSpace(extension) && VideoExtensions.Contains(extension);
     }
 
     private static bool TryParseEpisode(string path, out int season, out int episode, out string title)
@@ -172,14 +301,7 @@ public sealed class TorrentFile
                 continue;
             }
 
-            var candidate = fileName[(match.Index + match.Length)..];
-            candidate = TechnicalSuffixPattern.Replace(candidate, string.Empty);
-            title = NormalizeEpisodeTitle(candidate);
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                title = NormalizeEpisodeTitle(fileName);
-            }
-
+            title = fileName;
             return true;
         }
 
@@ -199,14 +321,41 @@ public sealed class TorrentFile
             : fileName[..^extension.Length];
     }
 
-    private static string NormalizeEpisodeTitle(string value)
+    private static string ResolveResolution(string path, string explicitResolution, int width, int height)
     {
-        return value
-            .Trim(' ', '.', '_', '-', '[', ']', '(', ')')
-            .Replace('.', ' ')
-            .Replace('_', ' ')
-            .Replace("  ", " ", StringComparison.Ordinal)
-            .Trim();
+        if (!string.IsNullOrWhiteSpace(explicitResolution))
+        {
+            return explicitResolution.Trim();
+        }
+
+        if (width > 0 && height > 0)
+        {
+            return width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var fileName = CleanFileName(path);
+        var dimensionsMatch = DimensionsPattern.Match(fileName);
+        if (dimensionsMatch.Success)
+        {
+            return dimensionsMatch.Groups["width"].Value + "x" + dimensionsMatch.Groups["height"].Value;
+        }
+
+        var resolutionMatch = ResolutionPattern.Match(fileName);
+        if (!resolutionMatch.Success)
+        {
+            return string.Empty;
+        }
+
+        return resolutionMatch.Groups["resolution"].Value.ToUpperInvariant() switch
+        {
+            "8K" => "4320p",
+            "4K" or "UHD" => "2160p",
+            "QHD" => "1440p",
+            "FHD" => "1080p",
+            "HD" => "720p",
+            "SD" => "480p",
+            var value => value
+        };
     }
 }
 

@@ -64,6 +64,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isRefreshingSelectedTorrentLive;
     private bool _isApplyingLanguage;
     private bool _suppressLanguageApply;
+    private bool _suppressSelectedTorrentDetailsRefresh;
+    private int _selectedTorrentDetailsRequestVersion;
     private const int ClipboardCannotOpen = unchecked((int)0x800401D0);
     private const uint ClipboardFormatUnicodeText = 13;
     private const uint GlobalMemoryMoveable = 0x0002;
@@ -388,6 +390,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(HasSelectedTorrentPoster));
                 SelectedTorrentFile = value?.Files.Count == 1 ? value.Files[0] : null;
                 LoadSelectedTorrentEditor(value);
+                QueueSelectedTorrentDetailsRefresh(value);
             }
         }
     }
@@ -1240,6 +1243,47 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void QueueSelectedTorrentDetailsRefresh(TorrentItem? torrent)
+    {
+        var requestVersion = ++_selectedTorrentDetailsRequestVersion;
+        var server = SelectedServer;
+        if (_suppressSelectedTorrentDetailsRefresh ||
+            _isRefreshingLibrary ||
+            _isRefreshingSelectedTorrentLive ||
+            server is null ||
+            torrent is null ||
+            string.IsNullOrWhiteSpace(torrent.Hash))
+        {
+            return;
+        }
+
+        _ = RefreshSelectedTorrentDetailsFromApiAsync(server, torrent.Hash, requestVersion);
+    }
+
+    private async Task RefreshSelectedTorrentDetailsFromApiAsync(ServerProfile server, string hash, int requestVersion)
+    {
+        try
+        {
+            using var client = new TorrServerClient(server);
+            var updated = await client.GetTorrentAsync(hash).ConfigureAwait(true);
+            if (requestVersion != _selectedTorrentDetailsRequestVersion ||
+                SelectedServer is null ||
+                SelectedServer.Id != server.Id ||
+                SelectedTorrent is null ||
+                !string.Equals(SelectedTorrent.Hash, hash, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            ReplaceSelectedTorrent(updated, SelectedTorrentFile?.Id);
+            LogInfo("Library", "Torrent details loaded from API.", updated.Title);
+        }
+        catch (Exception exception)
+        {
+            LogWarning("Library", "Failed to load selected torrent details from API.", exception.Message);
+        }
+    }
+
     private async Task RefreshAfterTorrentAddedAsync(
         TorrServerClient client,
         IReadOnlyList<TorrentItem> addedTorrents,
@@ -1973,14 +2017,22 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             Torrents[index.Value] = updated;
         }
 
-        SelectedTorrent = updated;
-        if (preferredFileId is not null)
+        _suppressSelectedTorrentDetailsRefresh = true;
+        try
         {
-            var selectedFile = updated.Files.FirstOrDefault(file => file.Id == preferredFileId.Value);
-            if (selectedFile is not null)
+            SelectedTorrent = updated;
+            if (preferredFileId is not null)
             {
-                SelectedTorrentFile = selectedFile;
+                var selectedFile = updated.Files.FirstOrDefault(file => file.Id == preferredFileId.Value);
+                if (selectedFile is not null)
+                {
+                    SelectedTorrentFile = selectedFile;
+                }
             }
+        }
+        finally
+        {
+            _suppressSelectedTorrentDetailsRefresh = false;
         }
     }
 

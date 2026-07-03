@@ -191,7 +191,8 @@
                         <GridView>
                           <GridViewColumn Header="{Binding L[ColumnSeason]}" DisplayMemberBinding="{Binding SeasonText}" Width="70" />
                           <GridViewColumn Header="{Binding L[ColumnEpisode]}" DisplayMemberBinding="{Binding EpisodeText}" Width="70" />
-                          <GridViewColumn Header="{Binding L[ColumnName]}" DisplayMemberBinding="{Binding EpisodeTitle}" Width="470" />
+                          <GridViewColumn Header="{Binding L[ColumnName]}" DisplayMemberBinding="{Binding DisplayName}" Width="380" />
+                          <GridViewColumn Header="{Binding L[ColumnResolution]}" DisplayMemberBinding="{Binding ResolutionText}" Width="90" />
                           <GridViewColumn Header="{Binding L[ColumnSize]}" DisplayMemberBinding="{Binding SizeText}" Width="95" />
                         </GridView>
                       </ListView.View>
