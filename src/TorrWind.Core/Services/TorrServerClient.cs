@@ -273,10 +273,8 @@ public sealed class TorrServerClient : IDisposable
         sets["CacheSize"] = Math.Max(1, settings.CacheSizeMb) * 1024L * 1024L;
         sets["PreloadCache"] = Math.Clamp(settings.PreloadCachePercent, 0, 100);
         sets["ReaderReadAHead"] = Math.Clamp(settings.ReaderReadAheadPercent, 5, 100);
-        sets["PadTailPartial"] = settings.PadTailPartial;
         sets["TorrentDisconnectTimeout"] = Math.Max(1, settings.TorrentDisconnectTimeoutSeconds);
         sets["ConnectionsLimit"] = Math.Max(1, settings.ConnectionsLimit);
-        sets["DHTConnectionsLimit"] = Math.Max(1, settings.DhtConnectionsLimit);
         sets["PeersListenPort"] = Math.Max(0, settings.PeersListenPort);
         sets["UseDisk"] = settings.CacheMode == CacheMode.Disk;
         sets["TorrentsSavePath"] = settings.CacheMode == CacheMode.Disk
@@ -299,12 +297,13 @@ public sealed class TorrServerClient : IDisposable
         sets["DisableDHT"] = settings.DisableDht;
         sets["DisablePEX"] = settings.DisablePex;
         sets["DisableUpload"] = settings.DisableUpload;
-        sets["DisableEndGame"] = settings.DisableEndGame;
         sets["EnableLPD"] = settings.EnableLpd;
-        sets["TrustedProxies"] = SplitListToJsonArray(settings.TrustedProxies);
+        sets["LPDIPv6"] = settings.LpdIPv6;
+        sets["ResponsiveMode"] = settings.ResponsiveMode;
         sets["ShowFSActiveTorr"] = settings.ShowFsActiveTorrents;
         sets["StoreSettingsInJson"] = settings.StoreSettingsInJson;
         sets["StoreViewedInJson"] = settings.StoreViewedInJson;
+        sets["TrackTimecode"] = settings.TrackTimecode;
         sets["EnableProxy"] = settings.EnableProxy;
         sets["ProxyHosts"] = SplitListToJsonArray(settings.ProxyHosts);
         sets["SslPort"] = settings.SslPort;

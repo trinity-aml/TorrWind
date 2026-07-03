@@ -89,7 +89,7 @@ The launch argument builder maps supported local settings to TorrServer flags su
 
 The settings UI keeps path editing as plain text fields but adds Windows file/folder pickers for the local TorrServer executable, data/cache directories, SSL certificate/key files, and custom external player executable. Folder-open commands create managed TorrWind directories when needed, then ask Windows Shell/Explorer to open them.
 
-Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields. The field-based settings UI covers cache sizing, RAM/disk cache mode, drop/tail cache behavior, disconnect timeout, peer/DHT limits, retrackers mode, transfer limits, DLNA name, Rutor/Torznab search toggles, BT protocol toggles, JSON storage flags, trusted reverse proxies, P2P proxy hosts, SSL files, and TorrServer's nested `TMDBSettings` object for `APIKey`, `APIURL`, `ImageURL`, and `ImageURLRu`.
+Runtime settings that live in TorrServer's settings database are applied through `POST /settings` with `action=set`, preserving the existing settings object and changing only TorrWind-owned fields from the official `YouROK/TorrServer` `BTSets` model. The field-based settings UI covers cache sizing, RAM/disk cache mode, cache removal on drop, disconnect timeout, connection limit, peer listen port, retrackers mode, transfer limits, DLNA name, Rutor/Torznab search toggles, BT protocol toggles, LPD/LPD IPv6, responsive reader, playback timecode tracking, JSON storage flags, P2P proxy hosts, SSL files, and TorrServer's nested `TMDBSettings` object for `APIKey`, `APIURL`, `ImageURL`, and `ImageURLRu`.
 
 ## Service Management
 

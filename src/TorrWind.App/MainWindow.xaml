@@ -817,8 +817,6 @@
                       <TextBox Width="90" Text="{Binding LocalServer.TorrentDisconnectTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldTorrentConnections]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                       <TextBox Width="90" Text="{Binding LocalServer.ConnectionsLimit, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBlock Text="{Binding L[FieldDhtConnections]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="90" Text="{Binding LocalServer.DhtConnectionsLimit, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldPeersListenPort]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                       <TextBox Width="90" Text="{Binding LocalServer.PeersListenPort, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldRetrackersMode]}" VerticalAlignment="Center" Margin="14,0,8,0" />
@@ -879,7 +877,6 @@
                     <WrapPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,10">
                       <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding LocalServer.ReadOnlyDatabase}" />
                       <CheckBox Content="{Binding L[FieldRemoveCacheOnDrop]}" IsChecked="{Binding LocalServer.RemoveCacheOnDrop}" />
-                      <CheckBox Content="{Binding L[FieldPadTailPartial]}" IsChecked="{Binding LocalServer.PadTailPartial}" />
                       <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding LocalServer.ForceEncrypt}" />
                       <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding LocalServer.EnableDebug}" />
                       <TextBlock Text="{Binding L[FieldMaxStreamSize]}" VerticalAlignment="Center" Margin="12,0,8,0" />
@@ -901,19 +898,18 @@
                       <CheckBox Content="{Binding L[FieldDisableDht]}" IsChecked="{Binding LocalServer.DisableDht}" />
                       <CheckBox Content="{Binding L[FieldDisablePex]}" IsChecked="{Binding LocalServer.DisablePex}" />
                       <CheckBox Content="{Binding L[FieldDisableUpload]}" IsChecked="{Binding LocalServer.DisableUpload}" />
-                      <CheckBox Content="{Binding L[FieldDisableEndGame]}" IsChecked="{Binding LocalServer.DisableEndGame}" />
                       <CheckBox Content="{Binding L[FieldEnableLpd]}" IsChecked="{Binding LocalServer.EnableLpd}" />
+                      <CheckBox Content="{Binding L[FieldLpdIPv6]}" IsChecked="{Binding LocalServer.LpdIPv6}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <WrapPanel Grid.Row="11" Grid.Column="1" Margin="0,0,0,10">
+                      <CheckBox Content="{Binding L[FieldResponsiveMode]}" IsChecked="{Binding LocalServer.ResponsiveMode}" />
                       <CheckBox Content="{Binding L[FieldShowFsActiveTorrents]}" IsChecked="{Binding LocalServer.ShowFsActiveTorrents}" />
                       <CheckBox Content="{Binding L[FieldStoreSettingsInJson]}" IsChecked="{Binding LocalServer.StoreSettingsInJson}" />
                       <CheckBox Content="{Binding L[FieldStoreViewedInJson]}" IsChecked="{Binding LocalServer.StoreViewedInJson}" />
+                      <CheckBox Content="{Binding L[FieldTrackTimecode]}" IsChecked="{Binding LocalServer.TrackTimecode}" />
                     </WrapPanel>
-
-                    <TextBlock Grid.Row="12" Grid.Column="0" Text="{Binding L[FieldTrustedProxies]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding LocalServer.TrustedProxies, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" />
 
                     <TextBlock Grid.Row="13" Grid.Column="0" Text="{Binding L[FieldP2pProxy]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <WrapPanel Grid.Row="13" Grid.Column="1" Margin="0,0,0,10">

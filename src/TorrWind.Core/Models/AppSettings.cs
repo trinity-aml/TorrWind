@@ -45,8 +45,8 @@ public sealed class AppSettings
                 ReaderReadAheadPercent = 95,
                 TorrentDisconnectTimeoutSeconds = 30,
                 ConnectionsLimit = 25,
-                DhtConnectionsLimit = 500,
                 RetrackersMode = 1,
+                ResponsiveMode = true,
                 ShowFsActiveTorrents = true,
                 StoreSettingsInJson = true,
                 EnableLpd = true,
@@ -233,15 +233,11 @@ public sealed class LocalServerSettings
 
     public int ConnectionsLimit { get; set; } = 25;
 
-    public int DhtConnectionsLimit { get; set; } = 500;
-
     public int PeersListenPort { get; set; }
 
     public int RetrackersMode { get; set; } = 1;
 
     public bool RemoveCacheOnDrop { get; set; }
-
-    public bool PadTailPartial { get; set; }
 
     public bool ForceEncrypt { get; set; }
 
@@ -265,17 +261,19 @@ public sealed class LocalServerSettings
 
     public bool DisableUpload { get; set; }
 
-    public bool DisableEndGame { get; set; }
-
     public bool EnableLpd { get; set; } = true;
 
-    public string TrustedProxies { get; set; } = string.Empty;
+    public bool LpdIPv6 { get; set; }
+
+    public bool ResponsiveMode { get; set; } = true;
 
     public bool ShowFsActiveTorrents { get; set; } = true;
 
     public bool StoreSettingsInJson { get; set; } = true;
 
     public bool StoreViewedInJson { get; set; }
+
+    public bool TrackTimecode { get; set; }
 
     public bool EnableProxy { get; set; }
 
