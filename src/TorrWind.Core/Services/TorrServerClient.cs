@@ -248,6 +248,17 @@ public sealed class TorrServerClient : IDisposable
         return JsonSerializer.Serialize(node, IndentedSerializerOptions);
     }
 
+    public async Task<LocalServerSettings> GetLocalServerSettingsAsync(
+        LocalServerSettings fallback,
+        CancellationToken cancellationToken = default)
+    {
+        using var document = await GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+        var settings = CloneLocalServerSettings(fallback);
+        ApplyEndpointSettings(settings);
+        ApplyRuntimeSettings(settings, document.RootElement);
+        return settings;
+    }
+
     public async Task ApplySettingsJsonAsync(string settingsJson, CancellationToken cancellationToken = default)
     {
         var settings = JsonNode.Parse(settingsJson) as JsonObject
@@ -362,6 +373,225 @@ public sealed class TorrServerClient : IDisposable
     private static string FirstNotEmpty(string? value, string fallback)
     {
         return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    private void ApplyEndpointSettings(LocalServerSettings settings)
+    {
+        var endpoint = _server.BaseUri;
+        settings.UseSsl = string.Equals(endpoint.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+        settings.ListenAddress = endpoint.Host;
+
+        if (settings.UseSsl)
+        {
+            settings.SslPort = endpoint.Port > 0 ? endpoint.Port : 443;
+        }
+        else
+        {
+            settings.Port = endpoint.Port > 0 ? endpoint.Port : 80;
+        }
+    }
+
+    private static LocalServerSettings CloneLocalServerSettings(LocalServerSettings source)
+    {
+        return new LocalServerSettings
+        {
+            Enabled = source.Enabled,
+            RunAsWindowsService = source.RunAsWindowsService,
+            ExecutablePath = source.ExecutablePath,
+            InstalledVersion = source.InstalledVersion,
+            PreviousExecutablePath = source.PreviousExecutablePath,
+            PreviousVersion = source.PreviousVersion,
+            DataDirectory = source.DataDirectory,
+            TemporaryDataPath = source.TemporaryDataPath,
+            ListenAddress = source.ListenAddress,
+            Port = source.Port,
+            UseHttpAuth = source.UseHttpAuth,
+            Username = source.Username,
+            Password = source.Password,
+            UseSsl = source.UseSsl,
+            SslPort = source.SslPort,
+            ForceHttps = source.ForceHttps,
+            CertificatePath = source.CertificatePath,
+            CertificateKeyPath = source.CertificateKeyPath,
+            ReadOnlyDatabase = source.ReadOnlyDatabase,
+            AllowSearchWithoutAuth = source.AllowSearchWithoutAuth,
+            WhiteList = source.WhiteList,
+            BlackList = source.BlackList,
+            EnableDlna = source.EnableDlna,
+            FriendlyName = source.FriendlyName,
+            EnableWebDav = source.EnableWebDav,
+            CacheMode = source.CacheMode,
+            CacheSizeMb = source.CacheSizeMb,
+            PreloadCachePercent = source.PreloadCachePercent,
+            ReaderReadAheadPercent = source.ReaderReadAheadPercent,
+            TorrentDisconnectTimeoutSeconds = source.TorrentDisconnectTimeoutSeconds,
+            ConnectionsLimit = source.ConnectionsLimit,
+            PeersListenPort = source.PeersListenPort,
+            RetrackersMode = source.RetrackersMode,
+            RemoveCacheOnDrop = source.RemoveCacheOnDrop,
+            ForceEncrypt = source.ForceEncrypt,
+            EnableDebug = source.EnableDebug,
+            EnableIPv6 = source.EnableIPv6,
+            DisableTcp = source.DisableTcp,
+            DisableUtp = source.DisableUtp,
+            DisableUpnp = source.DisableUpnp,
+            DisableDht = source.DisableDht,
+            DisablePex = source.DisablePex,
+            DisableUpload = source.DisableUpload,
+            EnableLpd = source.EnableLpd,
+            LpdIPv6 = source.LpdIPv6,
+            ResponsiveMode = source.ResponsiveMode,
+            ShowFsActiveTorrents = source.ShowFsActiveTorrents,
+            StoreSettingsInJson = source.StoreSettingsInJson,
+            StoreViewedInJson = source.StoreViewedInJson,
+            TrackTimecode = source.TrackTimecode,
+            DownloadSpeedLimitKb = source.DownloadSpeedLimitKb,
+            UploadSpeedLimitKb = source.UploadSpeedLimitKb,
+            AllowLanAccess = source.AllowLanAccess,
+            TmdbApiKey = source.TmdbApiKey,
+            TmdbApiUrl = source.TmdbApiUrl,
+            TmdbImageUrl = source.TmdbImageUrl,
+            TmdbImageUrlRu = source.TmdbImageUrlRu
+        };
+    }
+
+    private static void ApplyRuntimeSettings(LocalServerSettings settings, JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        settings.CacheSizeMb = BytesToMegabytes(ReadLong(root, settings.CacheSizeMb * 1024L * 1024L, "CacheSize"));
+        settings.PreloadCachePercent = ReadInt(root, settings.PreloadCachePercent, "PreloadCache");
+        settings.ReaderReadAheadPercent = ReadInt(root, settings.ReaderReadAheadPercent, "ReaderReadAHead", "ReaderReadAhead");
+        settings.TorrentDisconnectTimeoutSeconds = ReadInt(root, settings.TorrentDisconnectTimeoutSeconds, "TorrentDisconnectTimeout");
+        settings.ConnectionsLimit = ReadInt(root, settings.ConnectionsLimit, "ConnectionsLimit");
+        settings.PeersListenPort = ReadInt(root, settings.PeersListenPort, "PeersListenPort");
+        settings.RetrackersMode = Math.Clamp(ReadInt(root, settings.RetrackersMode, "RetrackersMode"), 0, 3);
+        settings.RemoveCacheOnDrop = ReadBool(root, settings.RemoveCacheOnDrop, "RemoveCacheOnDrop");
+        settings.ForceEncrypt = ReadBool(root, settings.ForceEncrypt, "ForceEncrypt");
+        settings.EnableDebug = ReadBool(root, settings.EnableDebug, "EnableDebug");
+        settings.DownloadSpeedLimitKb = ReadInt(root, settings.DownloadSpeedLimitKb, "DownloadRateLimit");
+        settings.UploadSpeedLimitKb = ReadInt(root, settings.UploadSpeedLimitKb, "UploadRateLimit");
+        settings.EnableDlna = ReadBool(root, settings.EnableDlna, "EnableDLNA", "EnableDlna");
+        settings.FriendlyName = ReadString(root, settings.FriendlyName, "FriendlyName");
+        settings.EnableWebDav = ReadBool(root, settings.EnableWebDav, "EnableWebDAV", "EnableWebDav");
+        settings.EnableIPv6 = ReadBool(root, settings.EnableIPv6, "EnableIPv6");
+        settings.DisableTcp = ReadBool(root, settings.DisableTcp, "DisableTCP", "DisableTcp");
+        settings.DisableUtp = ReadBool(root, settings.DisableUtp, "DisableUTP", "DisableUtp");
+        settings.DisableUpnp = ReadBool(root, settings.DisableUpnp, "DisableUPNP", "DisableUpnp");
+        settings.DisableDht = ReadBool(root, settings.DisableDht, "DisableDHT", "DisableDht");
+        settings.DisablePex = ReadBool(root, settings.DisablePex, "DisablePEX", "DisablePex");
+        settings.DisableUpload = ReadBool(root, settings.DisableUpload, "DisableUpload");
+        settings.EnableLpd = ReadBool(root, settings.EnableLpd, "EnableLPD", "EnableLpd");
+        settings.LpdIPv6 = ReadBool(root, settings.LpdIPv6, "LPDIPv6", "LpdIPv6");
+        settings.ResponsiveMode = ReadBool(root, settings.ResponsiveMode, "ResponsiveMode");
+        settings.ShowFsActiveTorrents = ReadBool(root, settings.ShowFsActiveTorrents, "ShowFSActiveTorr", "ShowFsActiveTorrents");
+        settings.StoreSettingsInJson = ReadBool(root, settings.StoreSettingsInJson, "StoreSettingsInJson");
+        settings.StoreViewedInJson = ReadBool(root, settings.StoreViewedInJson, "StoreViewedInJson");
+        settings.TrackTimecode = ReadBool(root, settings.TrackTimecode, "TrackTimecode");
+        settings.SslPort = ReadInt(root, settings.SslPort, "SslPort", "SSLPort");
+        settings.ForceHttps = ReadBool(root, settings.ForceHttps, "ForceHTTPS", "ForceHttps");
+        settings.CertificatePath = ReadString(root, settings.CertificatePath, "SslCert", "SSLCert");
+        settings.CertificateKeyPath = ReadString(root, settings.CertificateKeyPath, "SslKey", "SSLKey");
+        settings.ReadOnlyDatabase = ReadBool(root, settings.ReadOnlyDatabase, "ReadOnlyDB", "ReadOnlyDatabase");
+        settings.AllowSearchWithoutAuth = ReadBool(root, settings.AllowSearchWithoutAuth, "AllowSearchWithoutAuth");
+
+        var useDisk = ReadBool(root, settings.CacheMode == CacheMode.Disk, "UseDisk");
+        settings.CacheMode = useDisk ? CacheMode.Disk : CacheMode.Memory;
+        settings.TemporaryDataPath = ReadString(root, settings.TemporaryDataPath, "TorrentsSavePath");
+
+        if (root.TryGetProperty("TMDBSettings", out var tmdbSettings) && tmdbSettings.ValueKind == JsonValueKind.Object)
+        {
+            settings.TmdbApiKey = ReadString(tmdbSettings, settings.TmdbApiKey, "APIKey");
+            settings.TmdbApiUrl = ReadString(tmdbSettings, settings.TmdbApiUrl, "APIURL", "ApiUrl");
+            settings.TmdbImageUrl = ReadString(tmdbSettings, settings.TmdbImageUrl, "ImageURL", "ImageUrl");
+            settings.TmdbImageUrlRu = ReadString(tmdbSettings, settings.TmdbImageUrlRu, "ImageURLRu", "ImageUrlRu");
+        }
+    }
+
+    private static int BytesToMegabytes(long bytes)
+    {
+        return (int)Math.Max(1, bytes / 1024L / 1024L);
+    }
+
+    private static bool ReadBool(JsonElement root, bool fallback, params string[] names)
+    {
+        if (!TryGetProperty(root, out var value, names))
+        {
+            return fallback;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Number when value.TryGetInt32(out var number) => number != 0,
+            JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            JsonValueKind.String when int.TryParse(value.GetString(), out var number) => number != 0,
+            _ => fallback
+        };
+    }
+
+    private static int ReadInt(JsonElement root, int fallback, params string[] names)
+    {
+        if (!TryGetProperty(root, out var value, names))
+        {
+            return fallback;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number when value.TryGetInt32(out var number) => number,
+            JsonValueKind.Number when value.TryGetInt64(out var number) => number > int.MaxValue ? int.MaxValue : (int)number,
+            JsonValueKind.String when int.TryParse(value.GetString(), out var number) => number,
+            _ => fallback
+        };
+    }
+
+    private static long ReadLong(JsonElement root, long fallback, params string[] names)
+    {
+        if (!TryGetProperty(root, out var value, names))
+        {
+            return fallback;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number when value.TryGetInt64(out var number) => number,
+            JsonValueKind.String when long.TryParse(value.GetString(), out var number) => number,
+            _ => fallback
+        };
+    }
+
+    private static string ReadString(JsonElement root, string fallback, params string[] names)
+    {
+        if (!TryGetProperty(root, out var value, names))
+        {
+            return fallback;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? string.Empty,
+            JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => value.ToString(),
+            _ => fallback
+        };
+    }
+
+    private static bool TryGetProperty(JsonElement root, out JsonElement value, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out value))
+            {
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private async Task<IReadOnlyList<SearchResult>> SearchServerJsonAsync(

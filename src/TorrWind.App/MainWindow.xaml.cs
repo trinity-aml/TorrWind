@@ -58,6 +58,17 @@ public partial class MainWindow : Window
         await _viewModel.RefreshAsync().ConfigureAwait(true);
     }
 
+    private async void OnSettingsTabsSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, SettingsTabs) ||
+            !ReferenceEquals(SettingsTabs.SelectedItem, TorrServerSettingsTab))
+        {
+            return;
+        }
+
+        await _viewModel.LoadActiveTorrServerSettingsAsync().ConfigureAwait(true);
+    }
+
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (AllowClose)
@@ -95,9 +106,13 @@ public partial class MainWindow : Window
         RootTabs.SelectedItem = DiagnosticsTab;
     }
 
-    private void OnNavigateSettings(object sender, RoutedEventArgs e)
+    private async void OnNavigateSettings(object sender, RoutedEventArgs e)
     {
         RootTabs.SelectedItem = SettingsTab;
+        if (ReferenceEquals(SettingsTabs.SelectedItem, TorrServerSettingsTab))
+        {
+            await _viewModel.LoadActiveTorrServerSettingsAsync().ConfigureAwait(true);
+        }
     }
 
     private void OnExitApplication(object sender, RoutedEventArgs e)
@@ -472,10 +487,10 @@ public partial class MainWindow : Window
 
     private void OnBrowseCacheDirectory(object sender, RoutedEventArgs e)
     {
-        var path = BrowseFolder(_viewModel.LocalServer.TemporaryDataPath, "Select TorrServer cache folder");
+        var path = BrowseFolder(_viewModel.TorrServerRuntimeSettings.TemporaryDataPath, "Select TorrServer cache folder");
         if (path is not null)
         {
-            _viewModel.SetLocalServerTemporaryDataPath(path);
+            _viewModel.SetTorrServerRuntimeTemporaryDataPath(path);
         }
     }
 
@@ -483,11 +498,11 @@ public partial class MainWindow : Window
     {
         var path = BrowseFile(
             "Certificate files (*.crt;*.cer;*.pem)|*.crt;*.cer;*.pem|All files (*.*)|*.*",
-            _viewModel.LocalServer.CertificatePath);
+            _viewModel.TorrServerRuntimeSettings.CertificatePath);
 
         if (path is not null)
         {
-            _viewModel.SetLocalServerCertificatePath(path);
+            _viewModel.SetTorrServerRuntimeCertificatePath(path);
         }
     }
 
@@ -495,11 +510,11 @@ public partial class MainWindow : Window
     {
         var path = BrowseFile(
             "Key files (*.key;*.pem)|*.key;*.pem|All files (*.*)|*.*",
-            _viewModel.LocalServer.CertificateKeyPath);
+            _viewModel.TorrServerRuntimeSettings.CertificateKeyPath);
 
         if (path is not null)
         {
-            _viewModel.SetLocalServerCertificateKeyPath(path);
+            _viewModel.SetTorrServerRuntimeCertificateKeyPath(path);
         }
     }
 

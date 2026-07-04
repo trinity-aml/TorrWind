@@ -191,7 +191,14 @@
                       <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="{Binding L[ColumnFile]}" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <DockPanel Margin="0,0,0,10">
+                      <TextBlock Text="{Binding L[ColumnFile]}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      <Button Content="{Binding L[ActionClearFileSelection]}"
+                              Command="{Binding ClearSelectedTorrentFileCommand}"
+                              DockPanel.Dock="Right"
+                              HorizontalAlignment="Right"
+                              Margin="10,0,0,0" />
+                    </DockPanel>
                     <ListView Grid.Row="1" ItemsSource="{Binding SelectedTorrentFiles}" SelectedItem="{Binding SelectedTorrentFile}">
                       <ListView.View>
                         <GridView>
@@ -609,7 +616,7 @@
         </TabItem>
 
         <TabItem x:Name="SettingsTab" Header="{Binding L[NavSettings]}">
-          <TabControl Margin="0,14,0,0">
+          <TabControl x:Name="SettingsTabs" Margin="0,14,0,0" SelectionChanged="OnSettingsTabsSelectionChanged">
             <TabItem Header="{Binding L[NavIndexers]}">
               <Grid Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>
@@ -760,10 +767,21 @@
               </Grid>
             </TabItem>
 
-            <TabItem Header="{Binding L[NavTorrServerSettings]}">
+            <TabItem x:Name="TorrServerSettingsTab" Header="{Binding L[NavTorrServerSettings]}">
               <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto">
                 <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18">
-                  <Grid>
+                  <StackPanel>
+                    <DockPanel Margin="0,0,0,14">
+                      <Button Content="{Binding L[ActionRefresh]}"
+                              Command="{Binding LoadTorrServerSettingsCommand}"
+                              DockPanel.Dock="Right"
+                              Margin="10,0,0,0" />
+                      <TextBlock Text="{Binding TorrServerSettingsStatusMessage}"
+                                 Foreground="{DynamicResource MutedBrush}"
+                                 TextWrapping="Wrap"
+                                 VerticalAlignment="Center" />
+                    </DockPanel>
+                    <Grid IsEnabled="{Binding CanEditTorrServerSettings}">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="220" />
                       <ColumnDefinition Width="*" />
@@ -795,13 +813,13 @@
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition Width="Auto" />
                       </Grid.ColumnDefinitions>
-                      <ComboBox Grid.Column="0" ItemsSource="{Binding CacheModes}" SelectedItem="{Binding LocalServer.CacheMode}" />
-                      <TextBox Grid.Column="1" Text="{Binding LocalServer.CacheSizeMb, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                      <ComboBox Grid.Column="0" ItemsSource="{Binding CacheModes}" SelectedItem="{Binding TorrServerRuntimeSettings.CacheMode}" />
+                      <TextBox Grid.Column="1" Text="{Binding TorrServerRuntimeSettings.CacheSizeMb, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
                       <TextBlock Grid.Column="2" Text="{Binding L[FieldPreloadBuffer]}" VerticalAlignment="Center" Margin="12,0,8,0" />
-                      <TextBox Grid.Column="3" Text="{Binding LocalServer.PreloadCachePercent, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Grid.Column="3" Text="{Binding TorrServerRuntimeSettings.PreloadCachePercent, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Grid.Column="4" Text="{Binding L[FieldReadAheadCache]}" VerticalAlignment="Center" Margin="12,0,8,0" />
-                      <TextBox Grid.Column="5" Text="{Binding LocalServer.ReaderReadAheadPercent, UpdateSourceTrigger=PropertyChanged}" />
-                      <CheckBox Grid.Column="6" Content="{Binding L[FieldRemoveCacheOnDrop]}" IsChecked="{Binding LocalServer.RemoveCacheOnDrop}" Margin="14,0,0,0" />
+                      <TextBox Grid.Column="5" Text="{Binding TorrServerRuntimeSettings.ReaderReadAheadPercent, UpdateSourceTrigger=PropertyChanged}" />
+                      <CheckBox Grid.Column="6" Content="{Binding L[FieldRemoveCacheOnDrop]}" IsChecked="{Binding TorrServerRuntimeSettings.RemoveCacheOnDrop}" Margin="14,0,0,0" />
                     </Grid>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldCachePath]}" VerticalAlignment="Center" Margin="0,0,12,10" />
@@ -811,7 +829,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                       </Grid.ColumnDefinitions>
-                      <TextBox Grid.Column="0" Text="{Binding LocalServer.TemporaryDataPath, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Grid.Column="0" Text="{Binding TorrServerRuntimeSettings.TemporaryDataPath, UpdateSourceTrigger=PropertyChanged}" />
                       <Button Grid.Column="1" Content="{Binding L[ActionBrowse]}" Click="OnBrowseCacheDirectory" Margin="10,0,0,0" />
                       <Button Grid.Column="2" Content="{Binding L[ActionOpenFolder]}" Command="{Binding OpenLocalServerCacheFolderCommand}" Margin="10,0,0,0" />
                     </Grid>
@@ -819,51 +837,51 @@
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldTorrentRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldTorrentDisconnectTimeout]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <TextBox Width="90" Text="{Binding LocalServer.TorrentDisconnectTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="90" Text="{Binding TorrServerRuntimeSettings.TorrentDisconnectTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldTorrentConnections]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="90" Text="{Binding LocalServer.ConnectionsLimit, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="90" Text="{Binding TorrServerRuntimeSettings.ConnectionsLimit, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldPeersListenPort]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="90" Text="{Binding LocalServer.PeersListenPort, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="90" Text="{Binding TorrServerRuntimeSettings.PeersListenPort, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldRetrackersMode]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                       <ComboBox Width="180"
                                 ItemsSource="{Binding RetrackersModeOptions}"
                                 DisplayMemberPath="Name"
                                 SelectedValuePath="Value"
-                                SelectedValue="{Binding LocalServer.RetrackersMode}" />
+                                SelectedValue="{Binding TorrServerRuntimeSettings.RetrackersMode}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
-                      <TextBox Width="150" Text="{Binding LocalServer.ListenAddress, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBox Width="90" Text="{Binding LocalServer.Port, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
-                      <CheckBox Content="{Binding L[FieldLan]}" IsChecked="{Binding LocalServer.AllowLanAccess}" Margin="14,0,0,0" />
+                      <TextBox Width="150" Text="{Binding TorrServerRuntimeSettings.ListenAddress, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="90" Text="{Binding TorrServerRuntimeSettings.Port, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                      <CheckBox Content="{Binding L[FieldLan]}" IsChecked="{Binding TorrServerRuntimeSettings.AllowLanAccess}" Margin="14,0,0,0" />
                     </StackPanel>
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldLimits]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldDownloadLimitKb]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <TextBox Width="110" Text="{Binding LocalServer.DownloadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="110" Text="{Binding TorrServerRuntimeSettings.DownloadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldUploadLimitKb]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="110" Text="{Binding LocalServer.UploadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="110" Text="{Binding TorrServerRuntimeSettings.UploadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
 
                     <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <WrapPanel Grid.Row="5" Grid.Column="1" Margin="0,8,0,10">
-                      <CheckBox Content="{Binding L[FieldAuth]}" IsChecked="{Binding LocalServer.UseHttpAuth}" />
-                      <CheckBox Content="{Binding L[FieldSsl]}" IsChecked="{Binding LocalServer.UseSsl}" />
-                      <CheckBox Content="{Binding L[FieldDlna]}" IsChecked="{Binding LocalServer.EnableDlna}" />
-                      <CheckBox Content="{Binding L[FieldWebDav]}" IsChecked="{Binding LocalServer.EnableWebDav}" />
+                      <CheckBox Content="{Binding L[FieldAuth]}" IsChecked="{Binding TorrServerRuntimeSettings.UseHttpAuth}" />
+                      <CheckBox Content="{Binding L[FieldSsl]}" IsChecked="{Binding TorrServerRuntimeSettings.UseSsl}" />
+                      <CheckBox Content="{Binding L[FieldDlna]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableDlna}" />
+                      <CheckBox Content="{Binding L[FieldWebDav]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableWebDav}" />
                       <TextBlock Text="{Binding L[FieldFriendlyName]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="220" Text="{Binding LocalServer.FriendlyName, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="220" Text="{Binding TorrServerRuntimeSettings.FriendlyName, UpdateSourceTrigger=PropertyChanged}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <WrapPanel Grid.Row="6" Grid.Column="1" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldUsername]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <TextBox Width="180" Text="{Binding LocalServer.Username, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Width="180" Text="{Binding TorrServerRuntimeSettings.Username, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldPassword]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="220" Text="{Binding LocalServer.Password, UpdateSourceTrigger=PropertyChanged}" />
-                      <CheckBox Content="{Binding L[FieldSearchWithoutAuth]}" IsChecked="{Binding LocalServer.AllowSearchWithoutAuth}" Margin="14,0,0,0" />
+                      <TextBox Width="220" Text="{Binding TorrServerRuntimeSettings.Password, UpdateSourceTrigger=PropertyChanged}" />
+                      <CheckBox Content="{Binding L[FieldSearchWithoutAuth]}" IsChecked="{Binding TorrServerRuntimeSettings.AllowSearchWithoutAuth}" Margin="14,0,0,0" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Top" Margin="0,16,12,10" />
@@ -874,8 +892,8 @@
                       </Grid.RowDefinitions>
                       <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="{Binding L[FieldSslPort]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Width="80" Text="{Binding LocalServer.SslPort, UpdateSourceTrigger=PropertyChanged}" />
-                        <CheckBox Content="{Binding L[FieldForceHttps]}" IsChecked="{Binding LocalServer.ForceHttps}" Margin="14,0,0,0" />
+                        <TextBox Width="80" Text="{Binding TorrServerRuntimeSettings.SslPort, UpdateSourceTrigger=PropertyChanged}" />
+                        <CheckBox Content="{Binding L[FieldForceHttps]}" IsChecked="{Binding TorrServerRuntimeSettings.ForceHttps}" Margin="14,0,0,0" />
                       </StackPanel>
 
                       <Grid Grid.Row="1">
@@ -890,41 +908,41 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0" Text="{Binding L[FieldSslCert]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Grid.Column="1" Text="{Binding LocalServer.CertificatePath, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Column="1" Text="{Binding TorrServerRuntimeSettings.CertificatePath, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Grid.Column="2" Content="{Binding L[ActionBrowse]}" Click="OnBrowseSslCertificate" Margin="10,0,14,0" />
                         <TextBlock Grid.Column="3" Text="{Binding L[FieldSslKey]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Grid.Column="4" Text="{Binding LocalServer.CertificateKeyPath, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Column="4" Text="{Binding TorrServerRuntimeSettings.CertificateKeyPath, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Grid.Column="5" Content="{Binding L[ActionBrowse]}" Click="OnBrowseSslKey" Margin="10,0,0,0" />
                       </Grid>
                     </Grid>
 
                     <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <WrapPanel Grid.Row="8" Grid.Column="1" Margin="0,8,0,10">
-                      <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding LocalServer.ReadOnlyDatabase}" />
-                      <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding LocalServer.ForceEncrypt}" />
-                      <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding LocalServer.EnableDebug}" />
+                      <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding TorrServerRuntimeSettings.ReadOnlyDatabase}" />
+                      <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding TorrServerRuntimeSettings.ForceEncrypt}" />
+                      <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableDebug}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <WrapPanel Grid.Row="9" Grid.Column="1" Margin="0,8,0,10">
-                      <CheckBox Content="{Binding L[FieldEnableIPv6]}" IsChecked="{Binding LocalServer.EnableIPv6}" />
-                      <CheckBox Content="{Binding L[FieldDisableTcp]}" IsChecked="{Binding LocalServer.DisableTcp}" />
-                      <CheckBox Content="{Binding L[FieldDisableUtp]}" IsChecked="{Binding LocalServer.DisableUtp}" />
-                      <CheckBox Content="{Binding L[FieldDisableUpnp]}" IsChecked="{Binding LocalServer.DisableUpnp}" />
-                      <CheckBox Content="{Binding L[FieldDisableDht]}" IsChecked="{Binding LocalServer.DisableDht}" />
-                      <CheckBox Content="{Binding L[FieldDisablePex]}" IsChecked="{Binding LocalServer.DisablePex}" />
-                      <CheckBox Content="{Binding L[FieldDisableUpload]}" IsChecked="{Binding LocalServer.DisableUpload}" />
-                      <CheckBox Content="{Binding L[FieldEnableLpd]}" IsChecked="{Binding LocalServer.EnableLpd}" />
-                      <CheckBox Content="{Binding L[FieldLpdIPv6]}" IsChecked="{Binding LocalServer.LpdIPv6}" />
+                      <CheckBox Content="{Binding L[FieldEnableIPv6]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableIPv6}" />
+                      <CheckBox Content="{Binding L[FieldDisableTcp]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableTcp}" />
+                      <CheckBox Content="{Binding L[FieldDisableUtp]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableUtp}" />
+                      <CheckBox Content="{Binding L[FieldDisableUpnp]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableUpnp}" />
+                      <CheckBox Content="{Binding L[FieldDisableDht]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableDht}" />
+                      <CheckBox Content="{Binding L[FieldDisablePex]}" IsChecked="{Binding TorrServerRuntimeSettings.DisablePex}" />
+                      <CheckBox Content="{Binding L[FieldDisableUpload]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableUpload}" />
+                      <CheckBox Content="{Binding L[FieldEnableLpd]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableLpd}" />
+                      <CheckBox Content="{Binding L[FieldLpdIPv6]}" IsChecked="{Binding TorrServerRuntimeSettings.LpdIPv6}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
                     <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,8,0,10">
-                      <CheckBox Content="{Binding L[FieldResponsiveMode]}" IsChecked="{Binding LocalServer.ResponsiveMode}" />
-                      <CheckBox Content="{Binding L[FieldShowFsActiveTorrents]}" IsChecked="{Binding LocalServer.ShowFsActiveTorrents}" />
-                      <CheckBox Content="{Binding L[FieldStoreSettingsInJson]}" IsChecked="{Binding LocalServer.StoreSettingsInJson}" />
-                      <CheckBox Content="{Binding L[FieldStoreViewedInJson]}" IsChecked="{Binding LocalServer.StoreViewedInJson}" />
-                      <CheckBox Content="{Binding L[FieldTrackTimecode]}" IsChecked="{Binding LocalServer.TrackTimecode}" />
+                      <CheckBox Content="{Binding L[FieldResponsiveMode]}" IsChecked="{Binding TorrServerRuntimeSettings.ResponsiveMode}" />
+                      <CheckBox Content="{Binding L[FieldShowFsActiveTorrents]}" IsChecked="{Binding TorrServerRuntimeSettings.ShowFsActiveTorrents}" />
+                      <CheckBox Content="{Binding L[FieldStoreSettingsInJson]}" IsChecked="{Binding TorrServerRuntimeSettings.StoreSettingsInJson}" />
+                      <CheckBox Content="{Binding L[FieldStoreViewedInJson]}" IsChecked="{Binding TorrServerRuntimeSettings.StoreViewedInJson}" />
+                      <CheckBox Content="{Binding L[FieldTrackTimecode]}" IsChecked="{Binding TorrServerRuntimeSettings.TrackTimecode}" />
                     </WrapPanel>
 
                     <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,8,12,10" />
@@ -940,20 +958,21 @@
                         <RowDefinition Height="Auto" />
                       </Grid.RowDefinitions>
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTmdbApiKey]}" VerticalAlignment="Center" Margin="0,0,8,8" />
-                      <TextBox Grid.Row="0" Grid.Column="1" MinWidth="180" Text="{Binding LocalServer.TmdbApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,8" />
+                      <TextBox Grid.Row="0" Grid.Column="1" MinWidth="180" Text="{Binding TorrServerRuntimeSettings.TmdbApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,8" />
                       <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding L[FieldTmdbApiUrl]}" VerticalAlignment="Center" Margin="0,0,8,8" />
-                      <TextBox Grid.Row="0" Grid.Column="3" MinWidth="180" Text="{Binding LocalServer.TmdbApiUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                      <TextBox Grid.Row="0" Grid.Column="3" MinWidth="180" Text="{Binding TorrServerRuntimeSettings.TmdbApiUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
                       <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldTmdbImageUrl]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <TextBox Grid.Row="1" Grid.Column="1" MinWidth="180" Text="{Binding LocalServer.TmdbImageUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
+                      <TextBox Grid.Row="1" Grid.Column="1" MinWidth="180" Text="{Binding TorrServerRuntimeSettings.TmdbImageUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
                       <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding L[FieldTmdbImageUrlRu]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <TextBox Grid.Row="1" Grid.Column="3" MinWidth="180" Text="{Binding LocalServer.TmdbImageUrlRu, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox Grid.Row="1" Grid.Column="3" MinWidth="180" Text="{Binding TorrServerRuntimeSettings.TmdbImageUrlRu, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
 
                     <StackPanel Grid.Row="12" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
-                      <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" />
+                      <Button Content="{Binding L[ActionSave]}" Command="{Binding ApplyLocalServerSettingsCommand}" Style="{StaticResource PrimaryButton}" />
                       <Button Content="{Binding L[ActionApplyRuntimeSettings]}" Command="{Binding ApplyLocalServerSettingsCommand}" />
                     </StackPanel>
-                  </Grid>
+                    </Grid>
+                  </StackPanel>
                 </Border>
               </ScrollViewer>
             </TabItem>

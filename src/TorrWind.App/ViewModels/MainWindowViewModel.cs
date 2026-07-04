@@ -37,6 +37,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _deleteSelectedInstalledTorrServerCommand;
     private readonly RelayCommand _openSelectedInstalledTorrServerFolderCommand;
     private readonly RelayCommand _openDownloadedTorrWindUpdateCommand;
+    private readonly AsyncRelayCommand _applyLocalServerSettingsCommand;
+    private readonly RelayCommand _clearSelectedTorrentFileCommand;
     private AppSettings _settings = AppSettings.CreateDefault();
     private TorrServerRelease? _latestTorrServerRelease;
     private TorrWindRelease? _latestTorrWindRelease;
@@ -67,10 +69,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _statusMessage = string.Empty;
     private string _logLocationText = string.Empty;
     private string _runtimeSettingsJson = string.Empty;
+    private string _torrServerSettingsStatusMessage = string.Empty;
     private string _serviceStatusText = string.Empty;
     private string _torrServerReleaseText = string.Empty;
     private string _torrWindUpdateText = string.Empty;
     private string _downloadedTorrWindUpdatePath = string.Empty;
+    private LocalServerSettings _torrServerRuntimeSettings = new();
+    private bool _canEditTorrServerSettings;
     private bool _isRefreshingLibrary;
     private bool _isRefreshingSelectedTorrentLive;
     private bool _isApplyingLanguage;
@@ -105,6 +110,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OpenSelectedCommand = CreateAsyncCommand(OpenSelectedAsync);
         OpenContinuePlaylistCommand = CreateAsyncCommand(OpenContinuePlaylistAsync);
         OpenPlaylistFromSelectedCommand = CreateAsyncCommand(OpenPlaylistFromSelectedAsync);
+        _clearSelectedTorrentFileCommand = CreateCommand(ClearSelectedTorrentFile, () => SelectedTorrentFile is not null);
+        ClearSelectedTorrentFileCommand = _clearSelectedTorrentFileCommand;
         CopyPlaybackUrlCommand = CreateCommand(CopyPlaybackUrl);
         CopyTorrentSourceCommand = CreateCommand(CopyTorrentSource);
         CopyTorrentHashCommand = CreateCommand(CopyTorrentHash);
@@ -115,6 +122,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         ApplyRuntimeSettingsJsonCommand = CreateAsyncCommand(ApplyRuntimeSettingsJsonAsync);
         FormatRuntimeSettingsJsonCommand = CreateCommand(FormatRuntimeSettingsJson);
         CopyRuntimeSettingsJsonCommand = CreateCommand(CopyRuntimeSettingsJson);
+        LoadTorrServerSettingsCommand = CreateAsyncCommand(() => LoadActiveTorrServerSettingsAsync());
         RefreshLogsCommand = CreateAsyncCommand(RefreshLogsAsync);
         ClearUserLogCommand = CreateCommand(ClearUserLog);
         CopyLogPathsCommand = CreateCommand(CopyLogPaths);
@@ -143,7 +151,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         OpenTorrWindUpdatesFolderCommand = CreateCommand(OpenTorrWindUpdatesFolder);
         _openDownloadedTorrWindUpdateCommand = CreateCommand(OpenDownloadedTorrWindUpdate, () => File.Exists(_downloadedTorrWindUpdatePath));
         OpenDownloadedTorrWindUpdateCommand = _openDownloadedTorrWindUpdateCommand;
-        ApplyLocalServerSettingsCommand = CreateAsyncCommand(ApplyLocalServerSettingsAsync);
+        _applyLocalServerSettingsCommand = CreateAsyncCommand(ApplyLocalServerSettingsAsync, CanApplyTorrServerRuntimeSettings);
+        ApplyLocalServerSettingsCommand = _applyLocalServerSettingsCommand;
         InstallServiceCommand = CreateAsyncCommand(InstallServiceAsync);
         UninstallServiceCommand = CreateAsyncCommand(UninstallServiceAsync);
         StartServiceCommand = CreateAsyncCommand(StartServiceAsync);
@@ -252,6 +261,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     public ICommand OpenPlaylistFromSelectedCommand { get; }
 
+    public ICommand ClearSelectedTorrentFileCommand { get; }
+
     public ICommand CopyPlaybackUrlCommand { get; }
 
     public ICommand CopyTorrentSourceCommand { get; }
@@ -271,6 +282,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand FormatRuntimeSettingsJsonCommand { get; }
 
     public ICommand CopyRuntimeSettingsJsonCommand { get; }
+
+    public ICommand LoadTorrServerSettingsCommand { get; }
 
     public ICommand RefreshLogsCommand { get; }
 
@@ -398,6 +411,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
                 _settings.ActiveServerId = value?.Id;
                 OnPropertyChanged(nameof(ActiveServerLabel));
+                ResetTorrServerRuntimeSettingsState();
             }
         }
     }
@@ -408,6 +422,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             string.Equals(e.PropertyName, nameof(ServerProfile.Name), StringComparison.Ordinal))
         {
             OnPropertyChanged(nameof(ActiveServerLabel));
+        }
+
+        if (string.IsNullOrWhiteSpace(e.PropertyName) ||
+            string.Equals(e.PropertyName, nameof(ServerProfile.ReadOnly), StringComparison.Ordinal))
+        {
+            _applyLocalServerSettingsCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -431,7 +451,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public TorrentFile? SelectedTorrentFile
     {
         get => _selectedTorrentFile;
-        set => SetProperty(ref _selectedTorrentFile, value);
+        set
+        {
+            if (SetProperty(ref _selectedTorrentFile, value))
+            {
+                _clearSelectedTorrentFileCommand.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     public SearchResult? SelectedSearchResult
@@ -620,6 +646,30 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         get => _runtimeSettingsJson;
         set => SetProperty(ref _runtimeSettingsJson, value);
+    }
+
+    public LocalServerSettings TorrServerRuntimeSettings
+    {
+        get => _torrServerRuntimeSettings;
+        set => SetProperty(ref _torrServerRuntimeSettings, value);
+    }
+
+    public bool CanEditTorrServerSettings
+    {
+        get => _canEditTorrServerSettings;
+        private set
+        {
+            if (SetProperty(ref _canEditTorrServerSettings, value))
+            {
+                _applyLocalServerSettingsCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string TorrServerSettingsStatusMessage
+    {
+        get => _torrServerSettingsStatusMessage;
+        private set => SetProperty(ref _torrServerSettingsStatusMessage, value);
     }
 
     public string ServiceStatusText
@@ -929,6 +979,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SetLocalServerPath(path, value => LocalServer.CertificateKeyPath = value);
     }
 
+    public void SetTorrServerRuntimeTemporaryDataPath(string path)
+    {
+        SetTorrServerRuntimePath(path, value => TorrServerRuntimeSettings.TemporaryDataPath = value);
+    }
+
+    public void SetTorrServerRuntimeCertificatePath(string path)
+    {
+        SetTorrServerRuntimePath(path, value => TorrServerRuntimeSettings.CertificatePath = value);
+    }
+
+    public void SetTorrServerRuntimeCertificateKeyPath(string path)
+    {
+        SetTorrServerRuntimePath(path, value => TorrServerRuntimeSettings.CertificateKeyPath = value);
+    }
+
     public void SetCustomPlayerPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -1007,6 +1072,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         SelectedTorrentFile = null;
         SelectedSearchResult = null;
         RuntimeSettingsJson = string.Empty;
+        TorrServerRuntimeSettings = CopyLocalServerSettings(LocalServer);
+        CanEditTorrServerSettings = false;
+        TorrServerSettingsStatusMessage = L["StatusTorrServerSettingsNotLoaded"];
         LogLocationText = string.Format(L["LogLocations"], AppPaths.UserLogFile, AppPaths.ServiceLogFile);
         UpdateTorrServerReleaseText();
         RefreshInstalledTorrServers(updateStatusMessage: false);
@@ -1100,6 +1168,95 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         apply(path);
         OnPropertyChanged(nameof(LocalServer));
         StatusMessage = L["StatusPathSelected"];
+    }
+
+    private void SetTorrServerRuntimePath(string path, Action<string> apply)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        apply(path);
+        OnPropertyChanged(nameof(TorrServerRuntimeSettings));
+        StatusMessage = L["StatusPathSelected"];
+    }
+
+    private void ResetTorrServerRuntimeSettingsState()
+    {
+        CanEditTorrServerSettings = false;
+        TorrServerSettingsStatusMessage = L["StatusTorrServerSettingsNotLoaded"];
+    }
+
+    private static LocalServerSettings CopyLocalServerSettings(LocalServerSettings source)
+    {
+        var target = new LocalServerSettings
+        {
+            Enabled = source.Enabled,
+            RunAsWindowsService = source.RunAsWindowsService,
+            ExecutablePath = source.ExecutablePath,
+            InstalledVersion = source.InstalledVersion,
+            PreviousExecutablePath = source.PreviousExecutablePath,
+            PreviousVersion = source.PreviousVersion,
+            DataDirectory = source.DataDirectory,
+            WhiteList = source.WhiteList,
+            BlackList = source.BlackList
+        };
+
+        CopyRuntimeSettingsToLocalServer(source, target);
+        return target;
+    }
+
+    private static void CopyRuntimeSettingsToLocalServer(LocalServerSettings source, LocalServerSettings target)
+    {
+        target.TemporaryDataPath = source.TemporaryDataPath;
+        target.ListenAddress = source.ListenAddress;
+        target.Port = source.Port;
+        target.UseHttpAuth = source.UseHttpAuth;
+        target.Username = source.Username;
+        target.Password = source.Password;
+        target.UseSsl = source.UseSsl;
+        target.SslPort = source.SslPort;
+        target.ForceHttps = source.ForceHttps;
+        target.CertificatePath = source.CertificatePath;
+        target.CertificateKeyPath = source.CertificateKeyPath;
+        target.ReadOnlyDatabase = source.ReadOnlyDatabase;
+        target.AllowSearchWithoutAuth = source.AllowSearchWithoutAuth;
+        target.EnableDlna = source.EnableDlna;
+        target.FriendlyName = source.FriendlyName;
+        target.EnableWebDav = source.EnableWebDav;
+        target.CacheMode = source.CacheMode;
+        target.CacheSizeMb = source.CacheSizeMb;
+        target.PreloadCachePercent = source.PreloadCachePercent;
+        target.ReaderReadAheadPercent = source.ReaderReadAheadPercent;
+        target.TorrentDisconnectTimeoutSeconds = source.TorrentDisconnectTimeoutSeconds;
+        target.ConnectionsLimit = source.ConnectionsLimit;
+        target.PeersListenPort = source.PeersListenPort;
+        target.RetrackersMode = source.RetrackersMode;
+        target.RemoveCacheOnDrop = source.RemoveCacheOnDrop;
+        target.ForceEncrypt = source.ForceEncrypt;
+        target.EnableDebug = source.EnableDebug;
+        target.EnableIPv6 = source.EnableIPv6;
+        target.DisableTcp = source.DisableTcp;
+        target.DisableUtp = source.DisableUtp;
+        target.DisableUpnp = source.DisableUpnp;
+        target.DisableDht = source.DisableDht;
+        target.DisablePex = source.DisablePex;
+        target.DisableUpload = source.DisableUpload;
+        target.EnableLpd = source.EnableLpd;
+        target.LpdIPv6 = source.LpdIPv6;
+        target.ResponsiveMode = source.ResponsiveMode;
+        target.ShowFsActiveTorrents = source.ShowFsActiveTorrents;
+        target.StoreSettingsInJson = source.StoreSettingsInJson;
+        target.StoreViewedInJson = source.StoreViewedInJson;
+        target.TrackTimecode = source.TrackTimecode;
+        target.DownloadSpeedLimitKb = source.DownloadSpeedLimitKb;
+        target.UploadSpeedLimitKb = source.UploadSpeedLimitKb;
+        target.AllowLanAccess = source.AllowLanAccess;
+        target.TmdbApiKey = source.TmdbApiKey;
+        target.TmdbApiUrl = source.TmdbApiUrl;
+        target.TmdbImageUrl = source.TmdbImageUrl;
+        target.TmdbImageUrlRu = source.TmdbImageUrlRu;
     }
 
     public async Task RefreshAsync()
@@ -1700,6 +1857,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         OpenPlayerUri(mediaUri, "Opened playlist from selected file in player.");
+    }
+
+    private void ClearSelectedTorrentFile()
+    {
+        SelectedTorrentFile = null;
+        StatusMessage = L["StatusTorrentFileSelectionCleared"];
     }
 
     private void OpenPlayerUri(Uri mediaUri, string logMessage)
@@ -2317,6 +2480,43 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    public async Task LoadActiveTorrServerSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        if (SelectedServer is null)
+        {
+            CanEditTorrServerSettings = false;
+            TorrServerSettingsStatusMessage = L["NoServerSelected"];
+            StatusMessage = L["NoServerSelected"];
+            return;
+        }
+
+        CanEditTorrServerSettings = false;
+        TorrServerSettingsStatusMessage = string.Format(L["StatusTorrServerSettingsLoading"], SelectedServer.Name);
+
+        try
+        {
+            using var client = new TorrServerClient(SelectedServer);
+            TorrServerRuntimeSettings = await client
+                .GetLocalServerSettingsAsync(LocalServer, cancellationToken)
+                .ConfigureAwait(true);
+
+            CanEditTorrServerSettings = !SelectedServer.ReadOnly;
+            TorrServerSettingsStatusMessage = SelectedServer.ReadOnly
+                ? L["StatusTorrServerSettingsReadOnly"]
+                : string.Format(L["StatusTorrServerSettingsLoaded"], SelectedServer.Name);
+            StatusMessage = L["StatusRuntimeSettingsLoaded"];
+            LogInfo("TorrServer", "TorrServer settings loaded into form.", SelectedServer.Name);
+        }
+        catch (Exception exception)
+        {
+            TorrServerRuntimeSettings = CopyLocalServerSettings(LocalServer);
+            CanEditTorrServerSettings = false;
+            TorrServerSettingsStatusMessage = string.Format(L["StatusTorrServerSettingsUnavailable"], exception.Message);
+            StatusMessage = TorrServerSettingsStatusMessage;
+            LogError("TorrServer", "Failed to load TorrServer settings into form.", exception, SelectedServer.Name);
+        }
+    }
+
     private async Task ApplyRuntimeSettingsJsonAsync()
     {
         if (SelectedServer is null)
@@ -2460,7 +2660,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private void OpenLocalServerCacheFolder()
     {
-        OpenDirectory(ResolveLocalServerCacheDirectory(), createDirectory: true);
+        OpenDirectory(ResolveTorrServerRuntimeCacheDirectory(), createDirectory: true);
     }
 
     private void OpenTorrServerVersionsFolder()
@@ -2601,6 +2801,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         return Path.Combine(LocalTorrServerConfigurationWriter.GetDataDirectory(LocalServer), "cache");
+    }
+
+    private string ResolveTorrServerRuntimeCacheDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(TorrServerRuntimeSettings.TemporaryDataPath))
+        {
+            return TorrServerRuntimeSettings.TemporaryDataPath;
+        }
+
+        return ResolveLocalServerCacheDirectory();
     }
 
     private static async Task<IReadOnlyList<AppLogEntry>> ReadLogSafeAsync(FileEventLog log)
@@ -3858,10 +4068,30 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!CanEditTorrServerSettings)
+        {
+            StatusMessage = string.IsNullOrWhiteSpace(TorrServerSettingsStatusMessage)
+                ? L["StatusTorrServerSettingsNotLoaded"]
+                : TorrServerSettingsStatusMessage;
+            return;
+        }
+
+        if (SelectedServer.ReadOnly)
+        {
+            StatusMessage = L["StatusReadOnly"];
+            return;
+        }
+
         try
         {
             using var client = new TorrServerClient(SelectedServer);
-            await client.ApplyLocalServerSettingsAsync(LocalServer).ConfigureAwait(true);
+            await client.ApplyLocalServerSettingsAsync(TorrServerRuntimeSettings).ConfigureAwait(true);
+            if (SelectedServer.IsLocal)
+            {
+                CopyRuntimeSettingsToLocalServer(TorrServerRuntimeSettings, LocalServer);
+                OnPropertyChanged(nameof(LocalServer));
+            }
+
             StatusMessage = L["StatusRuntimeSettingsApplied"];
             LogInfo("TorrServer", "Runtime settings applied.", SelectedServer.Name);
         }
@@ -3870,6 +4100,13 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             StatusMessage = exception.Message;
             LogError("TorrServer", "Failed to apply runtime settings.", exception, SelectedServer?.Name ?? string.Empty);
         }
+    }
+
+    private bool CanApplyTorrServerRuntimeSettings()
+    {
+        return SelectedServer is not null &&
+            !SelectedServer.ReadOnly &&
+            CanEditTorrServerSettings;
     }
 
     private static string SanitizePathSegment(string value)
