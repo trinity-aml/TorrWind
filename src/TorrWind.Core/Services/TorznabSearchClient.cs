@@ -7,6 +7,18 @@ namespace TorrWind.Core.Services;
 
 public sealed class TorznabSearchClient
 {
+    private readonly Func<SearchProviderSettings, HttpMessageHandler> _handlerFactory;
+
+    public TorznabSearchClient()
+        : this(CreateHandler)
+    {
+    }
+
+    public TorznabSearchClient(Func<SearchProviderSettings, HttpMessageHandler> handlerFactory)
+    {
+        _handlerFactory = handlerFactory;
+    }
+
     public async Task<IReadOnlyList<SearchResult>> SearchAsync(
         SearchProviderSettings provider,
         string query,
@@ -19,7 +31,7 @@ public sealed class TorznabSearchClient
             return [];
         }
 
-        using var httpClient = new HttpClient(CreateHandler(provider))
+        using var httpClient = new HttpClient(_handlerFactory(provider))
         {
             Timeout = TimeSpan.FromSeconds(Math.Clamp(provider.TimeoutSeconds, 5, 180))
         };
@@ -49,7 +61,7 @@ public sealed class TorznabSearchClient
             {
                 ProviderName = providerName,
                 Title = ElementValue(item, "title"),
-                Link = FirstNotEmpty(ElementValue(item, "link"), EnclosureValue(item, "url"), ElementValue(item, "guid")),
+                Link = FirstNotEmpty(ElementValue(item, "link"), NonMagnetEnclosureValue(item), ElementValue(item, "guid")),
                 Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetEnclosureValue(item)),
                 SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
                 Seeders = ParseInt(AttributeValue(item, "seeders")),
@@ -202,6 +214,12 @@ public sealed class TorznabSearchClient
     {
         var value = EnclosureValue(item, "url");
         return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? value : string.Empty;
+    }
+
+    private static string NonMagnetEnclosureValue(XElement item)
+    {
+        var value = EnclosureValue(item, "url");
+        return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? string.Empty : value;
     }
 
     private static string FirstNotEmpty(params string[] values)
