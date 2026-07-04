@@ -154,6 +154,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _removeSearchProviderCommand = CreateCommand(RemoveSelectedSearchProvider, () => SelectedSearchProvider is not null);
         RemoveSearchProviderCommand = _removeSearchProviderCommand;
         RefreshSettingsBackupsCommand = CreateCommand(RefreshSettingsBackups);
+        CreateSettingsBackupCommand = CreateAsyncCommand(CreateSettingsBackupAsync);
         OpenSettingsBackupsFolderCommand = CreateCommand(OpenSettingsBackupsFolder);
         _restoreSelectedSettingsBackupCommand = CreateAsyncCommand(RestoreSelectedSettingsBackupAsync, () => SelectedSettingsBackup is not null);
         RestoreSelectedSettingsBackupCommand = _restoreSelectedSettingsBackupCommand;
@@ -336,6 +337,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ICommand RemoveSearchProviderCommand { get; }
 
     public ICommand RefreshSettingsBackupsCommand { get; }
+
+    public ICommand CreateSettingsBackupCommand { get; }
 
     public ICommand OpenSettingsBackupsFolderCommand { get; }
 
@@ -781,6 +784,25 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task CreateSettingsBackupAsync()
+    {
+        try
+        {
+            var backupPath = await CreateSettingsBackupFileAsync("settings-manual", CancellationToken.None).ConfigureAwait(true);
+            RefreshSettingsBackups();
+            SelectedSettingsBackup = SettingsBackups.FirstOrDefault(backup =>
+                string.Equals(backup.FilePath, backupPath, StringComparison.OrdinalIgnoreCase)) ??
+                SelectedSettingsBackup;
+            StatusMessage = string.Format(L["StatusSettingsBackupCreated"], backupPath);
+            LogInfo("Settings", "Settings backup created manually.", backupPath);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(L["StatusSettingsBackupCreateFailed"], exception.Message);
+            LogError("Settings", "Settings backup create failed.", exception);
+        }
+    }
+
     private async Task RestoreSelectedSettingsBackupAsync()
     {
         if (SelectedSettingsBackup is null)
@@ -967,16 +989,37 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task<string> BackupSettingsBeforeImportAsync(CancellationToken cancellationToken)
     {
-        SyncSettingsFromView();
-        AppPaths.EnsureUserDirectories();
-
-        var fileName = $"settings-before-import-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.json";
-        var backupPath = Path.Combine(AppPaths.UserSettingsBackupsDirectory, fileName);
-        await new AppSettingsStore(backupPath).SaveAsync(_settings, cancellationToken).ConfigureAwait(true);
-        PruneSettingsBackups();
+        var backupPath = await CreateSettingsBackupFileAsync("settings-before-import", cancellationToken).ConfigureAwait(true);
         RefreshSettingsBackups();
         LogInfo("Settings", "Settings backup created before import.", backupPath);
         return backupPath;
+    }
+
+    private async Task<string> CreateSettingsBackupFileAsync(string fileNamePrefix, CancellationToken cancellationToken)
+    {
+        SyncSettingsFromView();
+        AppPaths.EnsureUserDirectories();
+        Directory.CreateDirectory(AppPaths.UserSettingsBackupsDirectory);
+
+        var backupPath = CreateUniqueSettingsBackupPath(fileNamePrefix);
+        await new AppSettingsStore(backupPath).SaveAsync(_settings, cancellationToken).ConfigureAwait(true);
+        PruneSettingsBackups();
+        return backupPath;
+    }
+
+    private static string CreateUniqueSettingsBackupPath(string fileNamePrefix)
+    {
+        var safePrefix = string.IsNullOrWhiteSpace(fileNamePrefix) ? "settings" : fileNamePrefix.Trim();
+        var baseName = $"{safePrefix}-{DateTimeOffset.Now:yyyyMMdd-HHmmss}";
+        var path = Path.Combine(AppPaths.UserSettingsBackupsDirectory, baseName + ".json");
+        var suffix = 1;
+        while (File.Exists(path))
+        {
+            path = Path.Combine(AppPaths.UserSettingsBackupsDirectory, $"{baseName}-{suffix}.json");
+            suffix++;
+        }
+
+        return path;
     }
 
     private void PruneSettingsBackups()

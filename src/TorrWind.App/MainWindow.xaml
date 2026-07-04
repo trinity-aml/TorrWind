@@ -1069,8 +1069,9 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="150" />
                       </Grid.RowDefinitions>
-                      <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                      <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="{Binding L[ActionRefreshSettingsBackups]}" Command="{Binding RefreshSettingsBackupsCommand}" />
+                        <Button Content="{Binding L[ActionCreateSettingsBackup]}" Command="{Binding CreateSettingsBackupCommand}" />
                         <Button Content="{Binding L[ActionOpenFolder]}" Command="{Binding OpenSettingsBackupsFolderCommand}" />
                         <Button Content="{Binding L[ActionRestoreSelectedBackup]}" Command="{Binding RestoreSelectedSettingsBackupCommand}" Style="{StaticResource PrimaryButton}" />
                         <Button Content="{Binding L[ActionDeleteSettingsBackup]}" Command="{Binding DeleteSelectedSettingsBackupCommand}" />
@@ -1078,7 +1079,7 @@
                         <TextBlock Text="{Binding L[FieldBackupRetentionCount]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                         <TextBox Width="70" Text="{Binding SettingsBackupRetentionCount, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Text="{Binding L[FieldBackupRetentionHint]}" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
-                      </StackPanel>
+                      </WrapPanel>
                       <ListView Grid.Row="1" ItemsSource="{Binding SettingsBackups}" SelectedItem="{Binding SelectedSettingsBackup}">
                         <ListView.View>
                           <GridView>
