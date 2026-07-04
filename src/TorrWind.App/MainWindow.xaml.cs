@@ -14,11 +14,12 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private readonly DispatcherTimer _liveRefreshTimer;
     private bool _webViewEventsAttached;
+    private bool _isWindowLoaded;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
-        InitializeComponent();
         _viewModel = viewModel;
+        InitializeComponent();
         DataContext = viewModel;
         _viewModel.BuiltInPlayerRequested += OnBuiltInPlayerRequested;
 
@@ -49,13 +50,17 @@ public partial class MainWindow : Window
             RootTabs.SelectedItem = LibraryTab;
         }
 
+        _isWindowLoaded = true;
         await _viewModel.RefreshAsync().ConfigureAwait(true);
         _liveRefreshTimer.Start();
     }
 
     private async void OnRootTabsSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        if (!ReferenceEquals(e.OriginalSource, RootTabs) || !ReferenceEquals(RootTabs.SelectedItem, LibraryTab))
+        if (!_isWindowLoaded ||
+            sender is not System.Windows.Controls.TabControl rootTabs ||
+            !ReferenceEquals(e.OriginalSource, rootTabs) ||
+            !ReferenceEquals(rootTabs.SelectedItem, LibraryTab))
         {
             return;
         }
@@ -65,8 +70,10 @@ public partial class MainWindow : Window
 
     private async void OnSettingsTabsSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        if (!ReferenceEquals(e.OriginalSource, SettingsTabs) ||
-            !ReferenceEquals(SettingsTabs.SelectedItem, TorrServerSettingsTab))
+        if (!_isWindowLoaded ||
+            sender is not System.Windows.Controls.TabControl settingsTabs ||
+            !ReferenceEquals(e.OriginalSource, settingsTabs) ||
+            !ReferenceEquals(settingsTabs.SelectedItem, TorrServerSettingsTab))
         {
             return;
         }

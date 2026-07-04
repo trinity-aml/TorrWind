@@ -12,20 +12,6 @@
         Loaded="OnLoaded">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-    <Style x:Key="SidebarOnlyTabControl" TargetType="{x:Type TabControl}">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="{x:Type TabControl}">
-            <ContentPresenter x:Name="PART_SelectedContentHost"
-                              ContentSource="SelectedContent"
-                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
   </Window.Resources>
 
   <Grid Background="{DynamicResource AppBackgroundBrush}">
@@ -100,8 +86,22 @@
       <TabControl x:Name="RootTabs"
                   Grid.Row="1"
                   SelectedIndex="0"
-                  SelectionChanged="OnRootTabsSelectionChanged"
-                  Style="{StaticResource SidebarOnlyTabControl}">
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Padding="0"
+                  TabStripPlacement="Left"
+                  SelectionChanged="OnRootTabsSelectionChanged">
+        <TabControl.ItemContainerStyle>
+          <Style TargetType="{x:Type TabItem}">
+            <Setter Property="Width" Value="0" />
+            <Setter Property="Height" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+          </Style>
+        </TabControl.ItemContainerStyle>
         <TabItem x:Name="LibraryTab" Header="{Binding L[NavLibrary]}">
           <Grid Margin="0,14,0,0">
             <Grid.RowDefinitions>
