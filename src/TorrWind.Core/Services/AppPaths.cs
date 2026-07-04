@@ -34,6 +34,9 @@ public static class AppPaths
     public static string PlaylistsDirectory =>
         Path.Combine(DataDirectory, "playlists");
 
+    public static string WebView2DataDirectory =>
+        Path.Combine(DataDirectory, "WebView2");
+
     public static string UserLogFile =>
         Path.Combine(UserLogsDirectory, "gui.jsonl");
 
@@ -70,5 +73,6 @@ public static class AppPaths
         Directory.CreateDirectory(UserSettingsBackupsDirectory);
         Directory.CreateDirectory(UpdatesDirectory);
         Directory.CreateDirectory(PlaylistsDirectory);
+        Directory.CreateDirectory(WebView2DataDirectory);
     }
 }

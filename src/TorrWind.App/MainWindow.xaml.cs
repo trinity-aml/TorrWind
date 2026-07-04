@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using TorrWind.App.ViewModels;
+using TorrWind.Core;
 
 namespace TorrWind.App;
 
@@ -13,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
     private readonly DispatcherTimer _liveRefreshTimer;
+    private CoreWebView2Environment? _webViewEnvironment;
     private bool _webViewEventsAttached;
     private bool _isWindowLoaded;
 
@@ -558,7 +560,12 @@ public partial class MainWindow : Window
         RootTabs.SelectedItem = WebUiTab;
         try
         {
-            await ServerWebView.EnsureCoreWebView2Async().ConfigureAwait(true);
+            if (ServerWebView.CoreWebView2 is null)
+            {
+                var environment = await GetWebViewEnvironmentAsync().ConfigureAwait(true);
+                await ServerWebView.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
+            }
+
             AttachWebViewEvents();
             ServerWebView.Source = uri;
         }
@@ -574,6 +581,20 @@ public partial class MainWindow : Window
                 _viewModel.StatusMessage = fallbackException.Message;
             }
         }
+    }
+
+    private async Task<CoreWebView2Environment> GetWebViewEnvironmentAsync()
+    {
+        if (_webViewEnvironment is not null)
+        {
+            return _webViewEnvironment;
+        }
+
+        Directory.CreateDirectory(AppPaths.WebView2DataDirectory);
+        _webViewEnvironment = await CoreWebView2Environment.CreateAsync(
+            userDataFolder: AppPaths.WebView2DataDirectory).ConfigureAwait(true);
+
+        return _webViewEnvironment;
     }
 
     private void AttachWebViewEvents()
