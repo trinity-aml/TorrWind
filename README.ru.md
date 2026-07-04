@@ -82,6 +82,12 @@ Publish-скрипт скачивает последний Windows x64 mpv runti
 .\scripts\release-win-x64.ps1 -Version 1.0.0
 ```
 
+Запустить unit tests:
+
+```powershell
+dotnet test TorrWind.sln
+```
+
 Результаты сохраняются в:
 
 - `artifacts/publish/TorrWind`
@@ -130,6 +136,14 @@ pwsh ./scripts/build-installer.ps1 \
 ```bash
 pwsh ./scripts/release-win-x64.ps1 -Version 1.0.0
 ```
+
+Запустить unit tests:
+
+```bash
+dotnet test TorrWind.sln
+```
+
+Если на Linux установлен только более новый .NET runtime, используйте `DOTNET_ROLL_FORWARD=Major dotnet test TorrWind.sln` или установите runtime .NET 8.
 
 ## Release workflow
 

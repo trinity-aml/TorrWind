@@ -72,6 +72,14 @@ Build all release artifacts and SHA256 checksums:
 .\scripts\release-win-x64.ps1 -Version 1.0.0
 ```
 
+Run unit tests:
+
+```powershell
+dotnet test TorrWind.sln
+```
+
+On Linux build machines with only a newer .NET runtime installed, use `DOTNET_ROLL_FORWARD=Major dotnet test TorrWind.sln` or install the .NET 8 runtime.
+
 ## Service Commands
 
 From the published directory:

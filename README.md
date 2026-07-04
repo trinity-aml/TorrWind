@@ -82,6 +82,12 @@ Build all release artifacts and checksums:
 .\scripts\release-win-x64.ps1 -Version 1.0.0
 ```
 
+Run unit tests:
+
+```powershell
+dotnet test TorrWind.sln
+```
+
 Outputs are written to:
 
 - `artifacts/publish/TorrWind`
@@ -130,6 +136,14 @@ Build all release artifacts:
 ```bash
 pwsh ./scripts/release-win-x64.ps1 -Version 1.0.0
 ```
+
+Run unit tests:
+
+```bash
+dotnet test TorrWind.sln
+```
+
+If the Linux machine has only a newer .NET runtime installed, use `DOTNET_ROLL_FORWARD=Major dotnet test TorrWind.sln` or install the .NET 8 runtime.
 
 ## Release Workflow
 

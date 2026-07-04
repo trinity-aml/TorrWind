@@ -221,14 +221,14 @@ public partial class PlayerWindow : Window
     {
         _playlist.Clear();
 
-        if (LooksLikeM3u(_mediaUri))
+        if (M3uPlaylistParser.LooksLikePlaylist(_mediaUri))
         {
             try
             {
                 var playlistText = await ReadPlaylistTextAsync(_mediaUri).ConfigureAwait(true);
-                foreach (var item in ParseM3u(playlistText, _mediaUri))
+                foreach (var item in M3uPlaylistParser.Parse(playlistText, _mediaUri))
                 {
-                    _playlist.Add(item);
+                    _playlist.Add(new PlayerPlaylistItem(item.Number, item.Title, item.Uri));
                 }
             }
             catch (Exception exception)
@@ -246,68 +246,11 @@ public partial class PlayerWindow : Window
         UpdatePlaylistButtons();
     }
 
-    private static bool LooksLikeM3u(Uri uri)
-    {
-        var path = uri.AbsolutePath;
-        return path.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) ||
-            uri.Query.Contains("m3u", StringComparison.OrdinalIgnoreCase);
-    }
-
     private Task<string> ReadPlaylistTextAsync(Uri uri)
     {
         return uri.IsFile
             ? File.ReadAllTextAsync(uri.LocalPath)
             : GetHttpClient().GetStringAsync(uri);
-    }
-
-    private static IEnumerable<PlayerPlaylistItem> ParseM3u(string playlistText, Uri playlistUri)
-    {
-        var pendingTitle = string.Empty;
-        var number = 1;
-        using var reader = new StringReader(playlistText);
-        while (reader.ReadLine() is { } rawLine)
-        {
-            var line = rawLine.Trim();
-            if (line.Length == 0)
-            {
-                continue;
-            }
-
-            if (line.StartsWith("#EXTINF", StringComparison.OrdinalIgnoreCase))
-            {
-                var comma = line.IndexOf(',');
-                pendingTitle = comma >= 0 && comma < line.Length - 1
-                    ? line[(comma + 1)..].Trim()
-                    : string.Empty;
-                continue;
-            }
-
-            if (line.StartsWith('#'))
-            {
-                continue;
-            }
-
-            if (!Uri.TryCreate(line, UriKind.Absolute, out var itemUri) &&
-                !Uri.TryCreate(playlistUri, line, out itemUri))
-            {
-                continue;
-            }
-
-            var title = string.IsNullOrWhiteSpace(pendingTitle)
-                ? ResolveTitleFromUri(itemUri, number)
-                : pendingTitle;
-            yield return new PlayerPlaylistItem(number++, title, itemUri);
-            pendingTitle = string.Empty;
-        }
-    }
-
-    private static string ResolveTitleFromUri(Uri uri, int number)
-    {
-        var fileName = WebUtility.UrlDecode(Path.GetFileName(uri.LocalPath));
-        return string.IsNullOrWhiteSpace(fileName)
-            ? "Episode " + number
-            : fileName;
     }
 
     private void RenumberPlaylist()
