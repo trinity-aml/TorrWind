@@ -216,6 +216,11 @@
               <Setter TargetName="CalendarButtonChrome" Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
               <Setter TargetName="CalendarButtonChrome" Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             </Trigger>
+            <Trigger Property="HasSelectedDays" Value="True">
+              <Setter TargetName="CalendarButtonChrome" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+              <Setter TargetName="CalendarButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            </Trigger>
             <Trigger Property="IsInactive" Value="True">
               <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             </Trigger>
@@ -343,6 +348,16 @@
                     Grid.ColumnSpan="3"
                     Margin="0,8,0,0"
                     TextElement.Foreground="{DynamicResource TextBrush}">
+                <Grid.Style>
+                  <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Hidden" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Month">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Grid.Style>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="32" />
                   <ColumnDefinition Width="32" />
@@ -367,8 +382,20 @@
                     Grid.Row="1"
                     Grid.ColumnSpan="3"
                     Margin="0,8,0,0"
-                    Visibility="Hidden"
                     TextElement.Foreground="{DynamicResource TextBrush}">
+                <Grid.Style>
+                  <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Hidden" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Year">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding DisplayMode, RelativeSource={RelativeSource AncestorType=Calendar}}" Value="Decade">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Grid.Style>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="56" />
                   <ColumnDefinition Width="56" />
