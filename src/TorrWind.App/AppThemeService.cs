@@ -3,6 +3,7 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using MediaColor = System.Windows.Media.Color;
 using WpfApplication = System.Windows.Application;
+using WpfSystemColors = System.Windows.SystemColors;
 
 namespace TorrWind.App;
 
@@ -90,6 +91,14 @@ public static class AppThemeService
             SetBrush("PrimaryButtonPressedBrush", MediaColor.FromRgb(18, 94, 74));
             SetBrush("PrimaryButtonBorderBrush", MediaColor.FromRgb(24, 116, 93));
             SetBrush("PrimaryButtonForegroundBrush", Colors.White);
+            SetBrush(WpfSystemColors.HighlightBrushKey, MediaColor.FromRgb(19, 56, 47));
+            SetBrush(WpfSystemColors.HighlightTextBrushKey, MediaColor.FromRgb(233, 238, 245));
+            SetBrush(WpfSystemColors.InactiveSelectionHighlightBrushKey, MediaColor.FromRgb(19, 56, 47));
+            SetBrush(WpfSystemColors.InactiveSelectionHighlightTextBrushKey, MediaColor.FromRgb(233, 238, 245));
+            SetBrush(WpfSystemColors.ControlBrushKey, MediaColor.FromRgb(43, 55, 68));
+            SetBrush(WpfSystemColors.ControlTextBrushKey, MediaColor.FromRgb(233, 238, 245));
+            SetBrush(WpfSystemColors.WindowBrushKey, MediaColor.FromRgb(23, 30, 38));
+            SetBrush(WpfSystemColors.WindowTextBrushKey, MediaColor.FromRgb(233, 238, 245));
             return;
         }
 
@@ -118,9 +127,17 @@ public static class AppThemeService
         SetBrush("PrimaryButtonPressedBrush", MediaColor.FromRgb(18, 89, 65));
         SetBrush("PrimaryButtonBorderBrush", MediaColor.FromRgb(30, 122, 95));
         SetBrush("PrimaryButtonForegroundBrush", Colors.White);
+        SetBrush(WpfSystemColors.HighlightBrushKey, MediaColor.FromRgb(232, 243, 239));
+        SetBrush(WpfSystemColors.HighlightTextBrushKey, MediaColor.FromRgb(23, 32, 42));
+        SetBrush(WpfSystemColors.InactiveSelectionHighlightBrushKey, MediaColor.FromRgb(232, 243, 239));
+        SetBrush(WpfSystemColors.InactiveSelectionHighlightTextBrushKey, MediaColor.FromRgb(23, 32, 42));
+        SetBrush(WpfSystemColors.ControlBrushKey, MediaColor.FromRgb(240, 244, 247));
+        SetBrush(WpfSystemColors.ControlTextBrushKey, MediaColor.FromRgb(23, 32, 42));
+        SetBrush(WpfSystemColors.WindowBrushKey, Colors.White);
+        SetBrush(WpfSystemColors.WindowTextBrushKey, MediaColor.FromRgb(23, 32, 42));
     }
 
-    private static void SetBrush(string key, MediaColor color)
+    private static void SetBrush(object key, MediaColor color)
     {
         if (WpfApplication.Current.TryFindResource(key) is SolidColorBrush brush && !brush.IsFrozen)
         {
