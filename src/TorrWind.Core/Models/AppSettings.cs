@@ -13,6 +13,8 @@ public sealed class AppSettings
 
     public string Language { get; set; } = "system";
 
+    public string Theme { get; set; } = "system";
+
     public Guid? ActiveServerId { get; set; }
 
     public List<ServerProfile> Servers { get; set; } = [];

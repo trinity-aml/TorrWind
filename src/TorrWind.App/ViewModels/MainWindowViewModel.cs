@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
+using TorrWind.App;
 using TorrWind.Core;
 using TorrWind.Core.Localization;
 using TorrWind.Core.Models;
@@ -50,6 +51,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private InstalledTorrServerItem? _selectedInstalledTorrServer;
     private string? _selectedSearchHistoryItem;
     private string _selectedLanguage = "system";
+    private string _selectedTheme = AppThemeService.SystemTheme;
     private string _newMagnet = string.Empty;
     private string _selectedTorrentTitle = string.Empty;
     private string _selectedTorrentCategory = string.Empty;
@@ -72,7 +74,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isRefreshingLibrary;
     private bool _isRefreshingSelectedTorrentLive;
     private bool _isApplyingLanguage;
+    private bool _isApplyingTheme;
     private bool _suppressLanguageApply;
+    private bool _suppressThemeApply;
     private bool _suppressSelectedTorrentDetailsRefresh;
     private int _selectedTorrentDetailsRequestVersion;
     private const int ClipboardCannotOpen = unchecked((int)0x800401D0);
@@ -211,6 +215,8 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     public ObservableCollection<InstalledTorrServerItem> InstalledTorrServers { get; } = [];
 
     public ObservableCollection<string> AvailableLanguages { get; } = [];
+
+    public ObservableCollection<ThemeOption> ThemeOptions { get; } = [];
 
     public ObservableCollection<PlayerKindOption> PlayerKindOptions { get; } = [];
 
@@ -511,6 +517,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _selectedLanguage, value))
             {
                 _ = ApplySelectedLanguageAsync();
+            }
+        }
+    }
+
+    public string SelectedTheme
+    {
+        get => _selectedTheme;
+        set
+        {
+            var normalized = AppThemeService.NormalizeTheme(value);
+            if (SetProperty(ref _selectedTheme, normalized))
+            {
+                _ = ApplySelectedThemeAsync();
             }
         }
     }
@@ -931,6 +950,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             AvailableLanguages.Add(language);
         }
 
+        _settings.Theme = AppThemeService.NormalizeTheme(_settings.Theme);
+        RebuildThemeOptions();
+
         _suppressLanguageApply = true;
         try
         {
@@ -942,6 +964,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await _localization.LoadAsync(_settings.Language, cancellationToken).ConfigureAwait(true);
+        _suppressThemeApply = true;
+        try
+        {
+            RebuildThemeOptions();
+            SelectedTheme = _settings.Theme;
+        }
+        finally
+        {
+            _suppressThemeApply = false;
+        }
+
+        AppThemeService.Apply(SelectedTheme);
         RebuildPlayerKindOptions();
         RebuildRetrackersModeOptions();
 
@@ -2171,6 +2205,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _settings.SearchHistory = SearchHistory.ToList();
         _settings.ActiveServerId = SelectedServer?.Id;
         _settings.Language = SelectedLanguage;
+        _settings.Theme = SelectedTheme;
         OnPropertyChanged(nameof(Player));
     }
 
@@ -2705,6 +2740,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var sanitized = new
         {
             _settings.Language,
+            _settings.Theme,
             _settings.ActiveServerId,
             _settings.SettingsBackupRetentionCount,
             Servers = _settings.Servers.Select(server => new
@@ -2950,12 +2986,29 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         _settings.Language = SelectedLanguage;
         await _localization.LoadAsync(SelectedLanguage).ConfigureAwait(true);
+        _suppressThemeApply = true;
+        try
+        {
+            RebuildThemeOptions();
+        }
+        finally
+        {
+            _suppressThemeApply = false;
+        }
+
         RebuildPlayerKindOptions();
         RebuildRetrackersModeOptions();
         RebuildSearchProviderOptions();
         UpdateTorrServerReleaseText();
         await SaveSettingsAsync().ConfigureAwait(true);
         OnPropertyChanged(nameof(ActiveServerLabel));
+    }
+
+    private async Task ApplyThemeAsync()
+    {
+        _settings.Theme = SelectedTheme;
+        AppThemeService.Apply(SelectedTheme);
+        await SaveSettingsAsync().ConfigureAwait(true);
     }
 
     private async Task ApplySelectedLanguageAsync()
@@ -2977,6 +3030,28 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             _isApplyingLanguage = false;
+        }
+    }
+
+    private async Task ApplySelectedThemeAsync()
+    {
+        if (_suppressThemeApply || _isApplyingTheme || string.IsNullOrWhiteSpace(SelectedTheme))
+        {
+            return;
+        }
+
+        try
+        {
+            _isApplyingTheme = true;
+            await ApplyThemeAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            HandleCommandException(exception);
+        }
+        finally
+        {
+            _isApplyingTheme = false;
         }
     }
 
@@ -3312,6 +3387,18 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         PlayerKindOptions.Add(new PlayerKindOption(ExternalPlayerKind.Custom, L["PlayerCustom"]));
         Player.PreferredPlayer = selected;
         OnPropertyChanged(nameof(Player));
+    }
+
+    private void RebuildThemeOptions()
+    {
+        var selected = AppThemeService.NormalizeTheme(SelectedTheme);
+        ThemeOptions.Clear();
+        ThemeOptions.Add(new ThemeOption(AppThemeService.SystemTheme, L["ThemeSystem"]));
+        ThemeOptions.Add(new ThemeOption(AppThemeService.LightTheme, L["ThemeLight"]));
+        ThemeOptions.Add(new ThemeOption(AppThemeService.DarkTheme, L["ThemeDark"]));
+        SelectedTheme = ThemeOptions.Any(option => string.Equals(option.Value, selected, StringComparison.OrdinalIgnoreCase))
+            ? selected
+            : AppThemeService.SystemTheme;
     }
 
     private void RebuildRetrackersModeOptions()
@@ -4186,6 +4273,19 @@ public sealed class DiagnosticItem
     public string Name { get; }
 
     public string Value { get; }
+}
+
+public sealed class ThemeOption
+{
+    public ThemeOption(string value, string displayName)
+    {
+        Value = value;
+        DisplayName = displayName;
+    }
+
+    public string Value { get; }
+
+    public string DisplayName { get; }
 }
 
 public sealed class PlayerKindOption
