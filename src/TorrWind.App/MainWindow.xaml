@@ -816,8 +816,8 @@
                       <Button Grid.Column="2" Content="{Binding L[ActionOpenFolder]}" Command="{Binding OpenLocalServerCacheFolderCommand}" Margin="10,0,0,0" />
                     </Grid>
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldTorrentRuntime]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldTorrentRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldTorrentDisconnectTimeout]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="90" Text="{Binding LocalServer.TorrentDisconnectTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldTorrentConnections]}" VerticalAlignment="Center" Margin="14,0,8,0" />
@@ -832,21 +832,23 @@
                                 SelectedValue="{Binding LocalServer.RetrackersMode}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
                       <TextBox Width="150" Text="{Binding LocalServer.ListenAddress, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBox Width="90" Text="{Binding LocalServer.Port, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
                       <CheckBox Content="{Binding L[FieldLan]}" IsChecked="{Binding LocalServer.AllowLanAccess}" Margin="14,0,0,0" />
                     </StackPanel>
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldLimits]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldLimits]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
+                      <TextBlock Text="{Binding L[FieldDownloadLimitKb]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="110" Text="{Binding LocalServer.DownloadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBox Width="110" Text="{Binding LocalServer.UploadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
+                      <TextBlock Text="{Binding L[FieldUploadLimitKb]}" VerticalAlignment="Center" Margin="14,0,8,0" />
+                      <TextBox Width="110" Text="{Binding LocalServer.UploadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
 
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="5" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="5" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldAuth]}" IsChecked="{Binding LocalServer.UseHttpAuth}" />
                       <CheckBox Content="{Binding L[FieldSsl]}" IsChecked="{Binding LocalServer.UseSsl}" />
                       <CheckBox Content="{Binding L[FieldDlna]}" IsChecked="{Binding LocalServer.EnableDlna}" />
@@ -855,8 +857,8 @@
                       <TextBox Width="220" Text="{Binding LocalServer.FriendlyName, UpdateSourceTrigger=PropertyChanged}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="6" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="6" Grid.Column="1" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldUsername]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="180" Text="{Binding LocalServer.Username, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldPassword]}" VerticalAlignment="Center" Margin="14,0,8,0" />
@@ -864,8 +866,8 @@
                       <CheckBox Content="{Binding L[FieldSearchWithoutAuth]}" IsChecked="{Binding LocalServer.AllowSearchWithoutAuth}" Margin="14,0,0,0" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Top" Margin="0,8,12,10" />
-                    <Grid Grid.Row="7" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Top" Margin="0,16,12,10" />
+                    <Grid Grid.Row="7" Grid.Column="1" Margin="0,16,0,10">
                       <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -896,15 +898,15 @@
                       </Grid>
                     </Grid>
 
-                    <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="8" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding LocalServer.ReadOnlyDatabase}" />
                       <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding LocalServer.ForceEncrypt}" />
                       <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding LocalServer.EnableDebug}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="9" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldEnableIPv6]}" IsChecked="{Binding LocalServer.EnableIPv6}" />
                       <CheckBox Content="{Binding L[FieldDisableTcp]}" IsChecked="{Binding LocalServer.DisableTcp}" />
                       <CheckBox Content="{Binding L[FieldDisableUtp]}" IsChecked="{Binding LocalServer.DisableUtp}" />
@@ -916,8 +918,8 @@
                       <CheckBox Content="{Binding L[FieldLpdIPv6]}" IsChecked="{Binding LocalServer.LpdIPv6}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldResponsiveMode]}" IsChecked="{Binding LocalServer.ResponsiveMode}" />
                       <CheckBox Content="{Binding L[FieldShowFsActiveTorrents]}" IsChecked="{Binding LocalServer.ShowFsActiveTorrents}" />
                       <CheckBox Content="{Binding L[FieldStoreSettingsInJson]}" IsChecked="{Binding LocalServer.StoreSettingsInJson}" />
@@ -925,8 +927,8 @@
                       <CheckBox Content="{Binding L[FieldTrackTimecode]}" IsChecked="{Binding LocalServer.TrackTimecode}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <Grid Grid.Row="11" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <Grid Grid.Row="11" Grid.Column="1" Margin="0,8,0,10">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />

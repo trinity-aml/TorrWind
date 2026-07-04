@@ -156,6 +156,8 @@
   "FieldPeersListenPort": "Порт пиров",
   "FieldRetrackersMode": "Retrackers",
   "FieldLimits": "Лимиты KB/s",
+  "FieldDownloadLimitKb": "Загрузка",
+  "FieldUploadLimitKb": "Отдача",
   "FieldFeatures": "Функции",
   "FieldAuth": "HTTP auth",
   "FieldAuthCredentials": "Логин и пароль",

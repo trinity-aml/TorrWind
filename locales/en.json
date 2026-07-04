@@ -156,6 +156,8 @@
   "FieldPeersListenPort": "Peer port",
   "FieldRetrackersMode": "Retrackers",
   "FieldLimits": "Speed limits KB/s",
+  "FieldDownloadLimitKb": "Download",
+  "FieldUploadLimitKb": "Upload",
   "FieldFeatures": "Features",
   "FieldAuth": "HTTP auth",
   "FieldAuthCredentials": "Auth credentials",
