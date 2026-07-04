@@ -175,6 +175,19 @@
                   <ColumnDefinition Width="*" />
                   <ColumnDefinition Width="28" />
                 </Grid.ColumnDefinitions>
+                <ToggleButton x:Name="DropDownToggle"
+                              Grid.ColumnSpan="2"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              ClickMode="Press"
+                              Focusable="False"
+                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                  <ToggleButton.Template>
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                      <Border Background="{TemplateBinding Background}" />
+                    </ControlTemplate>
+                  </ToggleButton.Template>
+                </ToggleButton>
                 <ContentPresenter x:Name="ContentSite"
                                   Grid.Column="0"
                                   IsHitTestVisible="False"
@@ -199,6 +212,7 @@
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"
                       Fill="{DynamicResource ButtonForegroundBrush}"
+                      IsHitTestVisible="False"
                       Data="M 0 0 L 4 5 L 8 0 Z" />
               </Grid>
             </Border>
