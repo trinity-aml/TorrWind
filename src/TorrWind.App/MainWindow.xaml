@@ -776,9 +776,6 @@
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldCache]}" VerticalAlignment="Center" Margin="0,0,12,10" />
@@ -879,20 +876,10 @@
                       <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding LocalServer.ReadOnlyDatabase}" />
                       <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding LocalServer.ForceEncrypt}" />
                       <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding LocalServer.EnableDebug}" />
-                      <TextBlock Text="{Binding L[FieldMaxStreamSize]}" VerticalAlignment="Center" Margin="12,0,8,0" />
-                      <TextBox Width="110" Text="{Binding LocalServer.MaxStreamSizeMb, UpdateSourceTrigger=PropertyChanged}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldProxy]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <WrapPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,10">
-                      <TextBlock Text="{Binding L[FieldProxyUrl]}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <TextBox Width="360" Text="{Binding LocalServer.ProxyUrl, UpdateSourceTrigger=PropertyChanged}" />
-                      <TextBlock Text="{Binding L[FieldProxyMode]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="140" Text="{Binding LocalServer.ProxyMode, UpdateSourceTrigger=PropertyChanged}" />
-                    </WrapPanel>
-
-                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,10">
                       <CheckBox Content="{Binding L[FieldEnableIPv6]}" IsChecked="{Binding LocalServer.EnableIPv6}" />
                       <CheckBox Content="{Binding L[FieldDisableTcp]}" IsChecked="{Binding LocalServer.DisableTcp}" />
                       <CheckBox Content="{Binding L[FieldDisableUtp]}" IsChecked="{Binding LocalServer.DisableUtp}" />
@@ -904,8 +891,8 @@
                       <CheckBox Content="{Binding L[FieldLpdIPv6]}" IsChecked="{Binding LocalServer.LpdIPv6}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="11" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                    <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,10">
                       <CheckBox Content="{Binding L[FieldResponsiveMode]}" IsChecked="{Binding LocalServer.ResponsiveMode}" />
                       <CheckBox Content="{Binding L[FieldShowFsActiveTorrents]}" IsChecked="{Binding LocalServer.ShowFsActiveTorrents}" />
                       <CheckBox Content="{Binding L[FieldStoreSettingsInJson]}" IsChecked="{Binding LocalServer.StoreSettingsInJson}" />
@@ -913,15 +900,8 @@
                       <CheckBox Content="{Binding L[FieldTrackTimecode]}" IsChecked="{Binding LocalServer.TrackTimecode}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="13" Grid.Column="0" Text="{Binding L[FieldP2pProxy]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <WrapPanel Grid.Row="13" Grid.Column="1" Margin="0,0,0,10">
-                      <CheckBox Content="{Binding L[FieldEnableProxy]}" IsChecked="{Binding LocalServer.EnableProxy}" />
-                      <TextBlock Text="{Binding L[FieldProxyHosts]}" VerticalAlignment="Center" Margin="14,0,8,0" />
-                      <TextBox Width="520" Text="{Binding LocalServer.ProxyHosts, UpdateSourceTrigger=PropertyChanged}" />
-                    </WrapPanel>
-
-                    <TextBlock Grid.Row="14" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <Grid Grid.Row="14" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                    <Grid Grid.Row="11" Grid.Column="1" Margin="0,0,0,10">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -942,7 +922,7 @@
                       <TextBox Grid.Row="1" Grid.Column="3" MinWidth="180" Text="{Binding LocalServer.TmdbImageUrlRu, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
 
-                    <StackPanel Grid.Row="15" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
+                    <StackPanel Grid.Row="12" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
                       <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" />
                       <Button Content="{Binding L[ActionApplyRuntimeSettings]}" Command="{Binding ApplyLocalServerSettingsCommand}" />
                     </StackPanel>

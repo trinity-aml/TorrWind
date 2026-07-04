@@ -60,24 +60,6 @@ public static class TorrServerArgumentBuilder
             args.Add("--searchwa");
         }
 
-        if (settings.MaxStreamSizeMb > 0)
-        {
-            args.Add("--maxsize");
-            args.Add(((long)settings.MaxStreamSizeMb * 1024L * 1024L).ToString());
-        }
-
-        if (!string.IsNullOrWhiteSpace(settings.ProxyUrl))
-        {
-            args.Add("--proxyurl");
-            args.Add(settings.ProxyUrl.Trim());
-        }
-
-        if (!string.IsNullOrWhiteSpace(settings.ProxyMode))
-        {
-            args.Add("--proxymode");
-            args.Add(settings.ProxyMode.Trim());
-        }
-
         if (settings.EnableWebDav)
         {
             args.Add("--webdav");

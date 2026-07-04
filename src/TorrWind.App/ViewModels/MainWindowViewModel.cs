@@ -2699,8 +2699,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 LocalServer.AllowSearchWithoutAuth,
                 WhiteListEntries = CountNonEmptyLines(LocalServer.WhiteList),
                 BlackListEntries = CountNonEmptyLines(LocalServer.BlackList),
-                ProxyUrl = RedactUrl(LocalServer.ProxyUrl),
-                LocalServer.ProxyMode,
                 LocalServer.EnableDlna,
                 LocalServer.EnableWebDav,
                 LocalServer.CacheMode,

@@ -209,12 +209,6 @@ public sealed class LocalServerSettings
 
     public string BlackList { get; set; } = string.Empty;
 
-    public int MaxStreamSizeMb { get; set; }
-
-    public string ProxyUrl { get; set; } = string.Empty;
-
-    public string ProxyMode { get; set; } = string.Empty;
-
     public bool EnableDlna { get; set; }
 
     public string FriendlyName { get; set; } = string.Empty;
@@ -270,10 +264,6 @@ public sealed class LocalServerSettings
     public bool StoreViewedInJson { get; set; }
 
     public bool TrackTimecode { get; set; }
-
-    public bool EnableProxy { get; set; }
-
-    public string ProxyHosts { get; set; } = string.Empty;
 
     public int DownloadSpeedLimitKb { get; set; }
 

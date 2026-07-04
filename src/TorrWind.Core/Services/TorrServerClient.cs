@@ -302,8 +302,6 @@ public sealed class TorrServerClient : IDisposable
         sets["StoreSettingsInJson"] = settings.StoreSettingsInJson;
         sets["StoreViewedInJson"] = settings.StoreViewedInJson;
         sets["TrackTimecode"] = settings.TrackTimecode;
-        sets["EnableProxy"] = settings.EnableProxy;
-        sets["ProxyHosts"] = SplitListToJsonArray(settings.ProxyHosts);
         sets["SslPort"] = settings.SslPort;
         sets["SslCert"] = settings.CertificatePath;
         sets["SslKey"] = settings.CertificateKeyPath;
@@ -359,26 +357,6 @@ public sealed class TorrServerClient : IDisposable
         }
 
         return Path.Combine(LocalTorrServerConfigurationWriter.GetDataDirectory(settings), "cache");
-    }
-
-    private static JsonArray SplitListToJsonArray(string? value)
-    {
-        var array = new JsonArray();
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return array;
-        }
-
-        var items = value
-            .Split([',', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(item => !string.IsNullOrWhiteSpace(item))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in items)
-        {
-            array.Add(item);
-        }
-
-        return array;
     }
 
     private static string FirstNotEmpty(string? value, string fallback)
