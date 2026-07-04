@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:behaviors="clr-namespace:TorrWind.App.Behaviors"
                     xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
                     xmlns:system="clr-namespace:System.Windows;assembly=PresentationFramework">
   <Color x:Key="ColorBackground">#F6F7F9</Color>
@@ -297,6 +298,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     <Setter Property="CalendarButtonStyle" Value="{StaticResource ThemedCalendarButtonStyle}" />
     <Setter Property="CalendarDayButtonStyle" Value="{StaticResource ThemedCalendarDayButtonStyle}" />
+    <Setter Property="behaviors:CalendarHeaderModeBehavior.EnableHeaderModeCycling" Value="True" />
   </Style>
 
   <Style TargetType="Calendar" BasedOn="{StaticResource ThemedCalendarStyle}" />
