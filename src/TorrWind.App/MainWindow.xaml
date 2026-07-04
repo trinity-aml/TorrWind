@@ -12,6 +12,20 @@
         Loaded="OnLoaded">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <Style x:Key="SidebarOnlyTabControl" TargetType="{x:Type TabControl}">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabControl}">
+            <ContentPresenter x:Name="PART_SelectedContentHost"
+                              ContentSource="SelectedContent"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
 
   <Grid Background="{DynamicResource AppBackgroundBrush}">
@@ -83,7 +97,7 @@
         </Border>
       </DockPanel>
 
-      <TabControl x:Name="RootTabs" Grid.Row="1" SelectionChanged="OnRootTabsSelectionChanged">
+      <TabControl x:Name="RootTabs" Grid.Row="1" SelectionChanged="OnRootTabsSelectionChanged" Style="{StaticResource SidebarOnlyTabControl}">
         <TabItem x:Name="LibraryTab" Header="{Binding L[NavLibrary]}">
           <Grid Margin="0,14,0,0">
             <Grid.RowDefinitions>
@@ -131,9 +145,9 @@
 
               <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
-                  <RowDefinition Height="2*" MinHeight="220" />
+                  <RowDefinition Height="*" MinHeight="190" />
                   <RowDefinition Height="12" />
-                  <RowDefinition Height="*" MinHeight="170" />
+                  <RowDefinition Height="*" MinHeight="190" />
                 </Grid.RowDefinitions>
 
                 <ListView Grid.Row="0" ItemsSource="{Binding Torrents}" SelectedItem="{Binding SelectedTorrent}">
@@ -144,40 +158,20 @@
                   </ListView.ItemContainerStyle>
                   <ListView.ItemTemplate>
                     <DataTemplate>
-                      <Border Padding="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                      <Border Padding="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
                         <Grid>
                           <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                           </Grid.RowDefinitions>
 
                           <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
 
-                          <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                          <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
                             <TextBlock Text="{Binding SizeText}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" />
                             <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" />
                             <TextBlock Text="{Binding Status}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
                           </StackPanel>
-
-                          <UniformGrid Grid.Row="2" Columns="4" Margin="0,6,0,0">
-                            <StackPanel Margin="0,0,6,0">
-                              <TextBlock Text="{Binding DataContext.L[ColumnSeeds], RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource MutedBrush}" />
-                              <TextBlock Text="{Binding Seeders}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,6,0">
-                              <TextBlock Text="{Binding DataContext.L[ColumnPeers], RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource MutedBrush}" />
-                              <TextBlock Text="{Binding Peers}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,6,0">
-                              <TextBlock Text="{Binding DataContext.L[ColumnDownloadSpeed], RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource MutedBrush}" />
-                              <TextBlock Text="{Binding DownloadSpeedText}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel>
-                              <TextBlock Text="{Binding DataContext.L[ColumnUploadSpeed], RelativeSource={RelativeSource AncestorType=Window}}" Foreground="{DynamicResource MutedBrush}" />
-                              <TextBlock Text="{Binding UploadSpeedText}" FontWeight="SemiBold" />
-                            </StackPanel>
-                          </UniformGrid>
                         </Grid>
                       </Border>
                     </DataTemplate>
