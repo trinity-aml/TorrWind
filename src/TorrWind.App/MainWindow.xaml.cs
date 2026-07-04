@@ -44,6 +44,11 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (!ReferenceEquals(RootTabs.SelectedItem, LibraryTab))
+        {
+            RootTabs.SelectedItem = LibraryTab;
+        }
+
         await _viewModel.RefreshAsync().ConfigureAwait(true);
         _liveRefreshTimer.Start();
     }

@@ -97,7 +97,11 @@
         </Border>
       </DockPanel>
 
-      <TabControl x:Name="RootTabs" Grid.Row="1" SelectionChanged="OnRootTabsSelectionChanged" Style="{StaticResource SidebarOnlyTabControl}">
+      <TabControl x:Name="RootTabs"
+                  Grid.Row="1"
+                  SelectedIndex="0"
+                  SelectionChanged="OnRootTabsSelectionChanged"
+                  Style="{StaticResource SidebarOnlyTabControl}">
         <TabItem x:Name="LibraryTab" Header="{Binding L[NavLibrary]}">
           <Grid Margin="0,14,0,0">
             <Grid.RowDefinitions>
