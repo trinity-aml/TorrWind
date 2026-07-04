@@ -316,7 +316,7 @@ public sealed class TorrentFile
         var normalized = path.Replace('\\', '/');
         var fileName = normalized[(normalized.LastIndexOf('/') + 1)..];
         var extension = System.IO.Path.GetExtension(fileName);
-        return string.IsNullOrWhiteSpace(extension)
+        return string.IsNullOrWhiteSpace(extension) || !VideoExtensions.Contains(extension)
             ? fileName
             : fileName[..^extension.Length];
     }
@@ -354,6 +354,7 @@ public sealed class TorrentFile
             "FHD" => "1080p",
             "HD" => "720p",
             "SD" => "480p",
+            var value when value.EndsWith("P", StringComparison.Ordinal) => value[..^1] + "p",
             var value => value
         };
     }

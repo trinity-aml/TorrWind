@@ -19,9 +19,14 @@ public sealed class TorrServerClient : IDisposable
     private readonly ServerProfile _server;
 
     public TorrServerClient(ServerProfile server)
+        : this(server, CreateHandler)
+    {
+    }
+
+    public TorrServerClient(ServerProfile server, Func<ServerProfile, HttpMessageHandler> handlerFactory)
     {
         _server = server;
-        _httpClient = new HttpClient(CreateHandler(server))
+        _httpClient = new HttpClient(handlerFactory(server))
         {
             BaseAddress = server.BaseUri,
             Timeout = TimeSpan.FromSeconds(30)
