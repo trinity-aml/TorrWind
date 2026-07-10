@@ -57,7 +57,15 @@ dotnet publish $AppProject @common -o $PublishDir
 dotnet publish $ServiceProject @common -o $PublishDir
 
 Copy-Item (Join-Path $Root "README.md") $PublishDir -Force
+Copy-Item (Join-Path $Root "README.ru.md") $PublishDir -Force
 Copy-Item (Join-Path $Root "LICENSE") $PublishDir -Force
+
+$DocsSourceDir = Join-Path $Root "docs"
+$DocsDestinationDir = Join-Path $PublishDir "docs"
+if (Test-Path $DocsSourceDir) {
+    New-Item -ItemType Directory -Path $DocsDestinationDir -Force | Out-Null
+    Copy-Item (Join-Path $DocsSourceDir "*.md") $DocsDestinationDir -Force
+}
 
 if (-not $SkipMpvRuntime) {
     $mpvArgs = @{

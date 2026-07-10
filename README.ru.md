@@ -95,6 +95,8 @@ dotnet test TorrWind.sln
 - `artifacts/installer/TorrWind-1.0.3-win-x64.exe`
 - `artifacts/TorrWind-1.0.3-SHA256SUMS.txt`
 
+Папка publish и portable zip включают `README.md`, `README.ru.md`, `LICENSE` и папку `docs`.
+
 ## Сборка на Linux
 
 TorrWind является Windows desktop-приложением, но репозиторий можно собирать и упаковывать из Linux с включенным таргетингом под Windows.

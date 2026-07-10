@@ -27,7 +27,7 @@ dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
 .\scripts\publish-win-x64.ps1
 ```
 
-This publishes `TorrWind.exe` and `TorrWind.Service.exe` into `artifacts\publish\TorrWind`. It also downloads the latest shinchiro Windows x64 mpv runtime, verifies the SHA256 digest from the GitHub release metadata when present, and installs it into `artifacts\publish\TorrWind\Runtime\mpv`.
+This publishes `TorrWind.exe` and `TorrWind.Service.exe` into `artifacts\publish\TorrWind`. It also copies `README.md`, `README.ru.md`, `LICENSE`, and `docs\*.md` into the publish directory. The script downloads the latest shinchiro Windows x64 mpv runtime, verifies the SHA256 digest from the GitHub release metadata when present, and installs it into `artifacts\publish\TorrWind\Runtime\mpv`.
 
 Offline or custom mpv runtime:
 

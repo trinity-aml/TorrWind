@@ -95,6 +95,8 @@ Outputs are written to:
 - `artifacts/installer/TorrWind-1.0.3-win-x64.exe`
 - `artifacts/TorrWind-1.0.3-SHA256SUMS.txt`
 
+The publish directory and portable zip include `README.md`, `README.ru.md`, `LICENSE`, and the `docs` folder.
+
 ## Build On Linux
 
 TorrWind is a Windows desktop app, but the repository can be built and packaged from Linux with Windows targeting enabled.

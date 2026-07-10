@@ -60,12 +60,13 @@ public sealed class TorznabSearchClient
             .Select(item =>
             {
                 var link = ElementValue(item, "link");
+                var guid = ElementValue(item, "guid");
                 return new SearchResult
                 {
                     ProviderName = providerName,
                     Title = ElementValue(item, "title"),
-                    Link = FirstNotEmpty(NonMagnetValue(link), NonMagnetEnclosureValue(item), ElementValue(item, "guid")),
-                    Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetValue(link), MagnetEnclosureValue(item)),
+                    Link = FirstNotEmpty(NonMagnetValue(link), NonMagnetEnclosureValue(item), NonMagnetValue(guid)),
+                    Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetValue(link), MagnetEnclosureValue(item), MagnetValue(guid)),
                     SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
                     Seeders = ParseInt(AttributeValue(item, "seeders")),
                     Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"))),
