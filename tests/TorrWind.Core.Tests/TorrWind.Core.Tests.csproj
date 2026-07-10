@@ -24,4 +24,8 @@
     <ProjectReference Include="..\..\src\TorrWind.Core\TorrWind.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\locales\**\*.json" CopyToOutputDirectory="PreserveNewest" LinkBase="locales" />
+  </ItemGroup>
+
 </Project>
