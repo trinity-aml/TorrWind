@@ -124,7 +124,9 @@ public sealed class ServerProfile : INotifyPropertyChanged
     }
 
     [JsonIgnore]
-    public Uri BaseUri => NormalizeBaseUri(BaseUrl);
+    public Uri BaseUri => TryGetBaseUri(out var uri)
+        ? uri
+        : throw new InvalidOperationException("Server URL must be a valid HTTP or HTTPS address.");
 
     public static ServerProfile CreateLocal()
     {
@@ -153,7 +155,12 @@ public sealed class ServerProfile : INotifyPropertyChanged
         return true;
     }
 
-    private static Uri NormalizeBaseUri(string baseUrl)
+    public bool TryGetBaseUri(out Uri uri)
+    {
+        return TryNormalizeBaseUri(BaseUrl, out uri);
+    }
+
+    private static bool TryNormalizeBaseUri(string baseUrl, out Uri uri)
     {
         var value = string.IsNullOrWhiteSpace(baseUrl) ? "http://127.0.0.1:8090" : baseUrl.Trim();
         if (!value.Contains("://", StringComparison.Ordinal))
@@ -166,7 +173,17 @@ public sealed class ServerProfile : INotifyPropertyChanged
             value += "/";
         }
 
-        return new Uri(value, UriKind.Absolute);
+        if (Uri.TryCreate(value, UriKind.Absolute, out var normalized) &&
+            (string.Equals(normalized.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(normalized.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) &&
+            !string.IsNullOrWhiteSpace(normalized.Host))
+        {
+            uri = normalized;
+            return true;
+        }
+
+        uri = new Uri("http://127.0.0.1:8090/");
+        return false;
     }
 }
 

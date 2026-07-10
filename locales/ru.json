@@ -418,6 +418,7 @@
   "StatusSearchProviderRemoved": "Провайдер поиска удален",
   "StatusServerOnline": "Сервер доступен: {0}",
   "StatusServerOffline": "Сервер недоступен: {0}",
+  "StatusInvalidServerUrl": "Некорректный URL сервера: {0}",
   "StatusDiagnosticsComplete": "Диагностика завершена",
   "StatusDiagnosticsCopied": "Диагностический отчет скопирован",
   "StatusDiagnosticsSaved": "Диагностический отчет сохранен: {0}",

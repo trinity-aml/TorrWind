@@ -418,6 +418,7 @@
   "StatusSearchProviderRemoved": "Search provider removed",
   "StatusServerOnline": "Server online: {0}",
   "StatusServerOffline": "Server unavailable: {0}",
+  "StatusInvalidServerUrl": "Server URL is invalid: {0}",
   "StatusDiagnosticsComplete": "Diagnostics complete",
   "StatusDiagnosticsCopied": "Diagnostics report copied",
   "StatusDiagnosticsSaved": "Diagnostics report saved: {0}",

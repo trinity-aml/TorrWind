@@ -551,9 +551,15 @@ public partial class MainWindow : Window
 
     public async void OpenSelectedServerWebUi()
     {
-        var uri = _viewModel.SelectedServer?.BaseUri;
-        if (uri is null)
+        var server = _viewModel.SelectedServer;
+        if (server is null)
         {
+            return;
+        }
+
+        if (!server.TryGetBaseUri(out var uri))
+        {
+            _viewModel.StatusMessage = string.Format(_viewModel.L["StatusInvalidServerUrl"], server.BaseUrl);
             return;
         }
 

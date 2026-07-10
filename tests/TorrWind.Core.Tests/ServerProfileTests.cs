@@ -18,6 +18,23 @@ public sealed class ServerProfileTests
         var profile = new ServerProfile { BaseUrl = baseUrl };
 
         Assert.Equal(expected, profile.BaseUri.AbsoluteUri);
+        Assert.True(profile.TryGetBaseUri(out var uri));
+        Assert.Equal(expected, uri.AbsoluteUri);
+    }
+
+    [Theory]
+    [InlineData("http://")]
+    [InlineData("https://")]
+    [InlineData("ftp://media.local:8090")]
+    [InlineData("file:///C:/TorrServer")]
+    [InlineData("not a host ???")]
+    public void BaseUri_RejectsInvalidOrUnsupportedAddresses(string baseUrl)
+    {
+        var profile = new ServerProfile { BaseUrl = baseUrl };
+
+        Assert.False(profile.TryGetBaseUri(out _));
+        var exception = Assert.Throws<InvalidOperationException>(() => profile.BaseUri);
+        Assert.Contains("HTTP or HTTPS", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
