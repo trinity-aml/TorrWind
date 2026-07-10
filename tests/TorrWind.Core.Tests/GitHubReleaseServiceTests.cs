@@ -186,6 +186,96 @@ public sealed class GitHubReleaseServiceTests
         Assert.Equal(expected, actual);
     }
 
+    [Theory]
+    [InlineData("*TorrServer-windows-amd64.exe")]
+    [InlineData("artifacts/TorrServer-windows-amd64.exe")]
+    [InlineData("downloads\\TorrServer-windows-amd64.exe")]
+    [InlineData("(TorrServer-windows-amd64.exe)")]
+    public async Task GetExpectedSha256Async_MatchesChecksumAssetFileNameTokens(string fileNameToken)
+    {
+        var expected = new string('1', 64);
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => Text($"""
+            {new string('2', 64)}  TorrServer-windows-amd64.exe.sig
+            {expected}  {fileNameToken}
+            """)));
+        var release = new TorrServerRelease(
+            "MatriX.142",
+            "TorrServer-windows-amd64.exe",
+            new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
+            100,
+            default,
+            false,
+            ChecksumDownloadUrl: new Uri("https://example.invalid/SHA256SUMS.txt"));
+
+        var actual = await new GitHubReleaseService(httpClient).GetExpectedSha256Async(release);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task GetExpectedSha256Async_DoesNotMatchChecksumForLongerSimilarFileName()
+    {
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => Text($"""
+            {new string('2', 64)}  TorrServer-windows-amd64.exe.sig
+            {new string('3', 64)}  backup-TorrServer-windows-amd64.exe
+            """)));
+        var release = new TorrServerRelease(
+            "MatriX.142",
+            "TorrServer-windows-amd64.exe",
+            new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
+            100,
+            default,
+            false,
+            ChecksumDownloadUrl: new Uri("https://example.invalid/SHA256SUMS.txt"));
+
+        var actual = await new GitHubReleaseService(httpClient).GetExpectedSha256Async(release);
+
+        Assert.Null(actual);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_WritesFileReportsProgressAndRemovesTemporaryFile()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var destination = Path.Combine(directory.Path, "TorrServer-windows-amd64.exe");
+        var payload = Encoding.UTF8.GetBytes("torrserver-bytes");
+        var progressReports = new List<long>();
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            Assert.Equal("https://example.invalid/TorrServer-windows-amd64.exe", request.RequestUri?.AbsoluteUri);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload)
+            };
+        }));
+
+        await new GitHubReleaseService(httpClient).DownloadAsync(
+            new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
+            destination,
+            new Progress<long>(bytes => progressReports.Add(bytes)));
+
+        Assert.Equal(payload, await File.ReadAllBytesAsync(destination));
+        Assert.False(File.Exists(destination + ".download"));
+        Assert.Contains(payload.Length, progressReports);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_RemovesTemporaryFileWhenRequestFails()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var destination = Path.Combine(directory.Path, "TorrServer-windows-amd64.exe");
+        await File.WriteAllTextAsync(destination + ".download", "stale");
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            new GitHubReleaseService(httpClient).DownloadAsync(
+                new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
+                destination));
+
+        Assert.False(File.Exists(destination));
+        Assert.False(File.Exists(destination + ".download"));
+    }
+
     private static object Asset(string name, long size, string digest)
     {
         return new
@@ -226,6 +316,37 @@ public sealed class GitHubReleaseServiceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             return Task.FromResult(responder(request));
+        }
+    }
+
+    private sealed class TemporaryDirectory : IDisposable
+    {
+        private TemporaryDirectory(string path)
+        {
+            Path = path;
+        }
+
+        public string Path { get; }
+
+        public static TemporaryDirectory Create()
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "torrwind-tests-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            return new TemporaryDirectory(path);
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Path))
+                {
+                    Directory.Delete(Path, recursive: true);
+                }
+            }
+            catch
+            {
+            }
         }
     }
 }

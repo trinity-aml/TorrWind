@@ -27,10 +27,6 @@ public sealed class TorrWindReleaseService
     private static readonly Regex AssetHrefRegex = new(
         "<a\\s+href=\"(?<href>/trinity-aml/TorrWind/releases/download/[^\"]+)\"",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex Sha256Regex = new(
-        "(?:sha256:)?(?<hash>[a-f0-9]{64})",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     private readonly HttpClient _httpClient;
 
     public TorrWindReleaseService(HttpClient? httpClient = null)
@@ -110,7 +106,7 @@ public sealed class TorrWindReleaseService
         TorrWindRelease release,
         CancellationToken cancellationToken = default)
     {
-        var digest = NormalizeSha256(release.Sha256);
+        var digest = ReleaseChecksumParser.NormalizeSha256(release.Sha256);
         if (!string.IsNullOrWhiteSpace(digest))
         {
             return digest;
@@ -127,7 +123,7 @@ public sealed class TorrWindReleaseService
         response.EnsureSuccessStatusCode();
 
         var checksumText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return FindSha256ForAsset(checksumText, release.PackageName);
+        return ReleaseChecksumParser.FindSha256ForAsset(checksumText, release.PackageName);
     }
 
     private async Task<T> GetGitHubApiJsonAsync<T>(string url, CancellationToken cancellationToken)
@@ -189,7 +185,7 @@ public sealed class TorrWindReleaseService
             publishedAt,
             false,
             package.Kind,
-            NormalizeSha256(package.Asset.Digest),
+            ReleaseChecksumParser.NormalizeSha256(package.Asset.Digest),
             checksumAsset?.DownloadUrl);
     }
 
@@ -284,7 +280,7 @@ public sealed class TorrWindReleaseService
                 release.PublishedAt,
                 release.Prerelease,
                 package.Kind,
-                NormalizeSha256(package.Asset.Digest),
+                ReleaseChecksumParser.NormalizeSha256(package.Asset.Digest),
                 checksumAsset?.DownloadUrl);
     }
 
@@ -395,37 +391,6 @@ public sealed class TorrWindReleaseService
     private static string DecodeUrlSegment(string value)
     {
         return Uri.UnescapeDataString(WebUtility.HtmlDecode(value));
-    }
-
-    private static string NormalizeSha256(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var match = Sha256Regex.Match(value);
-        return match.Success ? match.Groups["hash"].Value.ToLowerInvariant() : string.Empty;
-    }
-
-    private static string? FindSha256ForAsset(string checksumText, string assetName)
-    {
-        foreach (var line in checksumText.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (line.Contains(assetName, StringComparison.OrdinalIgnoreCase))
-            {
-                var lineHash = NormalizeSha256(line);
-                if (!string.IsNullOrWhiteSpace(lineHash))
-                {
-                    return lineHash;
-                }
-            }
-        }
-
-        var matches = Sha256Regex.Matches(checksumText);
-        return matches.Count == 1
-            ? matches[0].Groups["hash"].Value.ToLowerInvariant()
-            : null;
     }
 
     private static bool IsGitHubRateLimited(HttpResponseMessage response)

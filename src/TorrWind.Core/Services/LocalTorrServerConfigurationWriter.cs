@@ -14,7 +14,7 @@ public static class LocalTorrServerConfigurationWriter
     {
         return string.IsNullOrWhiteSpace(settings.DataDirectory)
             ? AppPaths.DefaultLocalServerDirectory
-            : settings.DataDirectory;
+            : settings.DataDirectory.Trim();
     }
 
     public static async Task WriteAsync(LocalServerSettings settings, CancellationToken cancellationToken = default)

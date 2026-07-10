@@ -203,6 +203,55 @@ public sealed class TorrWindReleaseServiceTests
         Assert.Equal(expected, actual);
     }
 
+    [Theory]
+    [InlineData("*TorrWind-1.0.4-win-x64.exe")]
+    [InlineData("artifacts/installer/TorrWind-1.0.4-win-x64.exe")]
+    [InlineData("artifacts\\installer\\TorrWind-1.0.4-win-x64.exe")]
+    [InlineData("(TorrWind-1.0.4-win-x64.exe)")]
+    public async Task GetExpectedSha256Async_MatchesChecksumPackageFileNameTokens(string fileNameToken)
+    {
+        var expected = new string('1', 64);
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => Text($"""
+            {new string('2', 64)}  TorrWind-1.0.4-win-x64.exe.sig
+            {expected}  {fileNameToken}
+            """)));
+        var release = new TorrWindRelease(
+            "v1.0.4",
+            "TorrWind-1.0.4-win-x64.exe",
+            new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
+            100,
+            default,
+            false,
+            "Installer",
+            ChecksumDownloadUrl: new Uri("https://example.invalid/SHA256SUMS.txt"));
+
+        var actual = await new TorrWindReleaseService(httpClient).GetExpectedSha256Async(release);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task GetExpectedSha256Async_DoesNotMatchChecksumForLongerSimilarPackageName()
+    {
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => Text($"""
+            {new string('2', 64)}  TorrWind-1.0.4-win-x64.exe.sig
+            {new string('3', 64)}  backup-TorrWind-1.0.4-win-x64.exe
+            """)));
+        var release = new TorrWindRelease(
+            "v1.0.4",
+            "TorrWind-1.0.4-win-x64.exe",
+            new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
+            100,
+            default,
+            false,
+            "Installer",
+            ChecksumDownloadUrl: new Uri("https://example.invalid/SHA256SUMS.txt"));
+
+        var actual = await new TorrWindReleaseService(httpClient).GetExpectedSha256Async(release);
+
+        Assert.Null(actual);
+    }
+
     [Fact]
     public async Task DownloadAsync_WritesFileAndReportsProgress()
     {
@@ -227,6 +276,23 @@ public sealed class TorrWindReleaseServiceTests
         Assert.Equal(payload, await File.ReadAllBytesAsync(destination));
         Assert.False(File.Exists(destination + ".download"));
         Assert.Contains(payload.Length, progressReports);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_RemovesTemporaryFileWhenRequestFails()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var destination = Path.Combine(directory.Path, "TorrWind-1.0.4-win-x64.exe");
+        await File.WriteAllTextAsync(destination + ".download", "stale");
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            new TorrWindReleaseService(httpClient).DownloadAsync(
+                new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
+                destination));
+
+        Assert.False(File.Exists(destination));
+        Assert.False(File.Exists(destination + ".download"));
     }
 
     private static object Asset(string name, long size, string digest)

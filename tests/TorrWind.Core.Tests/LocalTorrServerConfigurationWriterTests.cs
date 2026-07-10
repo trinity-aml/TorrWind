@@ -25,7 +25,7 @@ public sealed class LocalTorrServerConfigurationWriterTests
     {
         var settings = new LocalServerSettings
         {
-            DataDirectory = @"D:\TorrWind\Data\TorrServer"
+            DataDirectory = @" D:\TorrWind\Data\TorrServer "
         };
 
         var dataDirectory = LocalTorrServerConfigurationWriter.GetDataDirectory(settings);

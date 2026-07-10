@@ -43,6 +43,22 @@ public sealed class TorrServerArgumentBuilderTests
         Assert.Equal("0.0.0.0", args[3]);
     }
 
+    [Theory]
+    [InlineData("", "127.0.0.1")]
+    [InlineData("   ", "127.0.0.1")]
+    [InlineData(" 192.168.1.10 ", "192.168.1.10")]
+    public void Build_NormalizesListenAddress(string listenAddress, string expected)
+    {
+        var settings = new LocalServerSettings
+        {
+            ListenAddress = listenAddress
+        };
+
+        var args = TorrServerArgumentBuilder.Build(settings);
+
+        AssertOption(args, "--ip", expected);
+    }
+
     [Fact]
     public void Build_AddsSslArgumentsOnlyWhenSslIsEnabled()
     {

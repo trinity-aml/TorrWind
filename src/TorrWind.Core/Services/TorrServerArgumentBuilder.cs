@@ -12,7 +12,7 @@ public static class TorrServerArgumentBuilder
             "--port",
             settings.Port.ToString(),
             "--ip",
-            settings.AllowLanAccess ? "0.0.0.0" : settings.ListenAddress,
+            settings.AllowLanAccess ? "0.0.0.0" : NormalizeListenAddress(settings.ListenAddress),
             "--path",
             LocalTorrServerConfigurationWriter.GetDataDirectory(settings)
         };
@@ -66,5 +66,12 @@ public static class TorrServerArgumentBuilder
         }
 
         return args;
+    }
+
+    private static string NormalizeListenAddress(string listenAddress)
+    {
+        return string.IsNullOrWhiteSpace(listenAddress)
+            ? "127.0.0.1"
+            : listenAddress.Trim();
     }
 }

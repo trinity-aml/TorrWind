@@ -32,10 +32,6 @@ public sealed class GitHubReleaseService
     private static readonly Regex AssetHrefRegex = new(
         "<a\\s+href=\"(?<href>/YouROK/TorrServer/releases/download/[^\"]+)\"",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex Sha256Regex = new(
-        "(?:sha256:)?(?<hash>[a-f0-9]{64})",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     private readonly HttpClient _httpClient;
 
     public GitHubReleaseService(HttpClient? httpClient = null)
@@ -138,7 +134,7 @@ public sealed class GitHubReleaseService
         TorrServerRelease release,
         CancellationToken cancellationToken = default)
     {
-        var digest = NormalizeSha256(release.Sha256);
+        var digest = ReleaseChecksumParser.NormalizeSha256(release.Sha256);
         if (!string.IsNullOrWhiteSpace(digest))
         {
             return digest;
@@ -155,7 +151,7 @@ public sealed class GitHubReleaseService
         response.EnsureSuccessStatusCode();
 
         var checksumText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return FindSha256ForAsset(checksumText, release.AssetName);
+        return ReleaseChecksumParser.FindSha256ForAsset(checksumText, release.AssetName);
     }
 
     private async Task<T> GetGitHubApiJsonAsync<T>(string url, CancellationToken cancellationToken)
@@ -258,7 +254,7 @@ public sealed class GitHubReleaseService
             exactSize,
             publishedAt,
             false,
-            NormalizeSha256(asset.Digest),
+            ReleaseChecksumParser.NormalizeSha256(asset.Digest),
             checksumAsset?.DownloadUrl);
     }
 
@@ -496,7 +492,7 @@ public sealed class GitHubReleaseService
                 asset.SizeBytes,
                 release.PublishedAt,
                 release.Prerelease,
-                NormalizeSha256(asset.Digest),
+                ReleaseChecksumParser.NormalizeSha256(asset.Digest),
                 checksumAsset?.DownloadUrl);
     }
 
@@ -555,37 +551,6 @@ public sealed class GitHubReleaseService
         }
 
         return name.Contains("checksum", StringComparison.OrdinalIgnoreCase) ? 1 : 2;
-    }
-
-    private static string NormalizeSha256(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var match = Sha256Regex.Match(value);
-        return match.Success ? match.Groups["hash"].Value.ToLowerInvariant() : string.Empty;
-    }
-
-    private static string? FindSha256ForAsset(string checksumText, string assetName)
-    {
-        foreach (var line in checksumText.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (line.Contains(assetName, StringComparison.OrdinalIgnoreCase))
-            {
-                var lineHash = NormalizeSha256(line);
-                if (!string.IsNullOrWhiteSpace(lineHash))
-                {
-                    return lineHash;
-                }
-            }
-        }
-
-        var matches = Sha256Regex.Matches(checksumText);
-        return matches.Count == 1
-            ? matches[0].Groups["hash"].Value.ToLowerInvariant()
-            : null;
     }
 
     private sealed record ReleaseAsset(string Name, Uri DownloadUrl, long SizeBytes, string Digest = "");
