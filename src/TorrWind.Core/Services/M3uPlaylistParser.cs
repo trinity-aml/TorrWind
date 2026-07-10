@@ -9,7 +9,7 @@ public static class M3uPlaylistParser
         var path = uri.AbsolutePath;
         return path.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) ||
             path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) ||
-            uri.Query.Contains("m3u", StringComparison.OrdinalIgnoreCase);
+            QueryHasPlaylistMarker(uri.Query);
     }
 
     public static IReadOnlyList<M3uPlaylistEntry> Parse(string playlistText, Uri playlistUri)
@@ -43,6 +43,7 @@ public static class M3uPlaylistParser
             if (!Uri.TryCreate(line, UriKind.Absolute, out var itemUri) &&
                 !Uri.TryCreate(playlistUri, line, out itemUri))
             {
+                pendingTitle = string.Empty;
                 continue;
             }
 
@@ -84,6 +85,40 @@ public static class M3uPlaylistParser
         return string.IsNullOrWhiteSpace(fileName)
             ? "Episode " + number
             : fileName;
+    }
+
+    private static bool QueryHasPlaylistMarker(string query)
+    {
+        var trimmed = query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return false;
+        }
+
+        foreach (var part in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = part.IndexOf('=', StringComparison.Ordinal);
+            var key = DecodeQueryPart(separator >= 0 ? part[..separator] : part);
+            var value = separator >= 0 ? DecodeQueryPart(part[(separator + 1)..]) : string.Empty;
+
+            if (IsPlaylistMarker(key) || IsPlaylistMarker(value))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPlaylistMarker(string value)
+    {
+        return string.Equals(value, "m3u", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "m3u8", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string DecodeQueryPart(string value)
+    {
+        return WebUtility.UrlDecode(value.Replace('+', ' ')) ?? string.Empty;
     }
 }
 

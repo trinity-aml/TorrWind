@@ -10,7 +10,11 @@ public sealed class M3uPlaylistParserTests
         Assert.True(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/show.m3u")));
         Assert.True(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/show.m3u8")));
         Assert.True(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/movie.mkv?link=hash&m3u")));
+        Assert.True(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/movie.mkv?format=m3u")));
+        Assert.True(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/movie.mkv?format=m3u8")));
         Assert.False(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/movie.mkv?link=hash&play")));
+        Assert.False(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/movie.mkv?name=movie.m3u.backup")));
+        Assert.False(M3uPlaylistParser.LooksLikePlaylist(new Uri("http://127.0.0.1:8090/stream/movie.mkv?notm3u=1")));
     }
 
     [Fact]
@@ -67,6 +71,24 @@ public sealed class M3uPlaylistParserTests
 
         Assert.Equal("Episode, With Comma", entry.Title);
         Assert.Equal("http://127.0.0.1:8090/playlists/episode1.mkv", entry.Uri.AbsoluteUri);
+    }
+
+    [Fact]
+    public void Parse_DoesNotCarryExtinfTitlePastInvalidUri()
+    {
+        const string playlist = """
+            #EXTM3U
+            #EXTINF:0,Broken Episode
+            http://
+            episode2.mkv
+            """;
+
+        var entry = Assert.Single(M3uPlaylistParser.Parse(
+            playlist,
+            new Uri("http://127.0.0.1:8090/playlists/show.m3u")));
+
+        Assert.Equal("episode2.mkv", entry.Title);
+        Assert.Equal("http://127.0.0.1:8090/playlists/episode2.mkv", entry.Uri.AbsoluteUri);
     }
 
     [Fact]
