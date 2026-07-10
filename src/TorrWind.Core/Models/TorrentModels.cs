@@ -425,13 +425,34 @@ public sealed class SearchResult
         }
 
         var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 0 ||
-            !double.TryParse(parts[0].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var numericValue))
+        var numericText = parts.Length > 0 ? parts[0] : string.Empty;
+        var unitText = parts.Length > 1 ? parts[1] : "B";
+
+        if (parts.Length == 1)
+        {
+            var unitStart = 0;
+            while (unitStart < trimmed.Length &&
+                (char.IsDigit(trimmed[unitStart]) ||
+                 trimmed[unitStart] == '.' ||
+                 trimmed[unitStart] == ','))
+            {
+                unitStart++;
+            }
+
+            if (unitStart > 0 && unitStart < trimmed.Length)
+            {
+                numericText = trimmed[..unitStart];
+                unitText = trimmed[unitStart..];
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(numericText) ||
+            !double.TryParse(numericText.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var numericValue))
         {
             return 0;
         }
 
-        var unit = parts.Length > 1 ? parts[1].Trim().ToUpperInvariant() : "B";
+        var unit = unitText.Trim().ToUpperInvariant();
         var baseValue = unit.Contains('I', StringComparison.Ordinal) || unit.Contains('C', StringComparison.Ordinal)
             ? 1024D
             : 1000D;
@@ -439,10 +460,10 @@ public sealed class SearchResult
             ? 0
             : unit[0] switch
             {
-                'K' => 1,
-                'M' => 2,
-                'G' => 3,
-                'T' => 4,
+                'K' or '\u041A' => 1,
+                'M' or '\u041C' => 2,
+                'G' or '\u0413' => 3,
+                'T' or '\u0422' => 4,
                 _ => 0
             };
 

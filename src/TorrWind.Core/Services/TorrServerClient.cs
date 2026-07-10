@@ -319,6 +319,7 @@ public sealed class TorrServerClient : IDisposable
         sets["StoreViewedInJson"] = settings.StoreViewedInJson;
         sets["TrackTimecode"] = settings.TrackTimecode;
         sets["SslPort"] = settings.SslPort;
+        sets["ForceHTTPS"] = settings.ForceHttps;
         sets["SslCert"] = settings.CertificatePath;
         sets["SslKey"] = settings.CertificateKeyPath;
 
@@ -609,18 +610,40 @@ public sealed class TorrServerClient : IDisposable
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var root = document.RootElement;
-        if (root.ValueKind != JsonValueKind.Array)
+        if (!TryGetSearchResultArray(document.RootElement, out var results))
         {
             return [];
         }
 
-        return root
+        return results
             .EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.Object)
             .Select(item => SearchResult.FromTorrServerJson(item, providerName))
             .Where(result => !string.IsNullOrWhiteSpace(result.Title))
             .ToArray();
+    }
+
+    private static bool TryGetSearchResultArray(JsonElement root, out JsonElement results)
+    {
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            results = root;
+            return true;
+        }
+
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var name in new[] { "results", "Results", "items", "Items", "data", "Data", "torrents", "Torrents" })
+            {
+                if (root.TryGetProperty(name, out results) && results.ValueKind == JsonValueKind.Array)
+                {
+                    return true;
+                }
+            }
+        }
+
+        results = default;
+        return false;
     }
 
     private static HttpMessageHandler CreateHandler(ServerProfile server)
