@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = "Release",
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.3",
     [string]$Runtime = "win-x64",
     [bool]$SelfContained = $true,
     [string]$MpvRuntimeArchivePath = "",

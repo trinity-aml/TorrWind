@@ -1,4 +1,4 @@
-# TorrWind 1.0.0
+# TorrWind 1.0.3
 
 Languages: English | [Русский](README.ru.md)
 
@@ -59,7 +59,7 @@ dotnet build TorrWind.sln
 Publish self-contained Windows x64 files:
 
 ```powershell
-.\scripts\publish-win-x64.ps1 -Version 1.0.0
+.\scripts\publish-win-x64.ps1 -Version 1.0.3
 ```
 
 The publish script downloads the latest shinchiro Windows x64 mpv runtime, verifies the GitHub release SHA256 digest when present, and installs it into `artifacts/publish/TorrWind/Runtime/mpv`. Install 7-Zip before release packaging. For offline builds, pass `-MpvRuntimeArchivePath <mpv-x86_64-...7z>`; to publish without bundled mpv, pass `-SkipMpvRuntime`.
@@ -67,19 +67,19 @@ The publish script downloads the latest shinchiro Windows x64 mpv runtime, verif
 Create a portable zip:
 
 ```powershell
-.\scripts\package-win-x64.ps1 -Version 1.0.0
+.\scripts\package-win-x64.ps1 -Version 1.0.3
 ```
 
 Build the Inno Setup installer:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 1.0.0
+.\scripts\build-installer.ps1 -Version 1.0.3
 ```
 
 Build all release artifacts and checksums:
 
 ```powershell
-.\scripts\release-win-x64.ps1 -Version 1.0.0
+.\scripts\release-win-x64.ps1 -Version 1.0.3
 ```
 
 Run unit tests:
@@ -91,9 +91,9 @@ dotnet test TorrWind.sln
 Outputs are written to:
 
 - `artifacts/publish/TorrWind`
-- `artifacts/portable/TorrWind-1.0.0-win-x64-portable.zip`
-- `artifacts/installer/TorrWind-1.0.0-win-x64.exe`
-- `artifacts/TorrWind-1.0.0-SHA256SUMS.txt`
+- `artifacts/portable/TorrWind-1.0.3-win-x64-portable.zip`
+- `artifacts/installer/TorrWind-1.0.3-win-x64.exe`
+- `artifacts/TorrWind-1.0.3-SHA256SUMS.txt`
 
 ## Build On Linux
 
@@ -111,7 +111,7 @@ dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
 Create a portable Windows x64 zip:
 
 ```bash
-pwsh ./scripts/package-win-x64.ps1 -Version 1.0.0
+pwsh ./scripts/package-win-x64.ps1 -Version 1.0.3
 ```
 
 The packaging scripts also bundle mpv through `scripts/install-mpv-runtime.ps1`. Install `p7zip`/`7z` in Linux build environments, or pass `-MpvRuntimeArchivePath <mpv-x86_64-...7z>` for offline builds.
@@ -119,14 +119,14 @@ The packaging scripts also bundle mpv through `scripts/install-mpv-runtime.ps1`.
 Build the installer through Wine + Inno Setup:
 
 ```bash
-pwsh ./scripts/build-installer.ps1 -Version 1.0.0
+pwsh ./scripts/build-installer.ps1 -Version 1.0.3
 ```
 
 The installer script searches `~/.wine-inno` and `~/.wine` by default. You can override detection:
 
 ```bash
 pwsh ./scripts/build-installer.ps1 \
-  -Version 1.0.0 \
+  -Version 1.0.3 \
   -WinePrefix "$HOME/.wine-inno" \
   -InnoCompilerPath "$HOME/.wine-inno/drive_c/InnoSetup6/ISCC.exe"
 ```
@@ -134,7 +134,7 @@ pwsh ./scripts/build-installer.ps1 \
 Build all release artifacts:
 
 ```bash
-pwsh ./scripts/release-win-x64.ps1 -Version 1.0.0
+pwsh ./scripts/release-win-x64.ps1 -Version 1.0.3
 ```
 
 Run unit tests:
@@ -152,8 +152,8 @@ GitHub Actions workflow: `.github/workflows/release.yml`.
 It runs automatically when a tag is pushed:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.3
+git push origin v1.0.3
 ```
 
 It can also be started manually from GitHub Actions with a version input. The workflow:

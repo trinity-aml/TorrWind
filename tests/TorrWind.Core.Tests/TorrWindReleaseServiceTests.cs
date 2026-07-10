@@ -82,6 +82,74 @@ public sealed class TorrWindReleaseServiceTests
     }
 
     [Fact]
+    public async Task GetLatestReleaseAsync_FallsBackToGitHubHtmlWhenApiIsForbidden()
+    {
+        var requestKeys = new List<string>();
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            requestKeys.Add(request.Method + " " + request.RequestUri?.AbsoluteUri);
+            if (request.RequestUri?.AbsoluteUri == "https://api.github.com/repos/trinity-aml/TorrWind/releases/latest")
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            if (request.Method == HttpMethod.Head &&
+                request.RequestUri?.AbsoluteUri == "https://github.com/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64.exe")
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK);
+                response.Content = new ByteArrayContent([]);
+                response.Content.Headers.ContentLength = 54321;
+                return response;
+            }
+
+            return Html("""
+                <html>
+                  <body>
+                    <a href="/trinity-aml/TorrWind/releases/tag/v1.0.4">v1.0.4</a>
+                    <relative-time datetime="2026-07-10T10:15:00Z"></relative-time>
+                    <ul>
+                      <li><a href="/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64-portable.zip">portable</a></li>
+                      <li><a href="/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64.exe">installer</a></li>
+                    </ul>
+                  </body>
+                </html>
+                """);
+        }));
+
+        var release = await new TorrWindReleaseService(httpClient).GetLatestReleaseAsync();
+
+        Assert.Contains("GET https://github.com/trinity-aml/TorrWind/releases/latest", requestKeys);
+        Assert.Contains("HEAD https://github.com/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64.exe", requestKeys);
+        Assert.Equal("v1.0.4", release.Version);
+        Assert.Equal("TorrWind-1.0.4-win-x64.exe", release.PackageName);
+        Assert.Equal("Installer", release.PackageKind);
+        Assert.Equal(54321, release.SizeBytes);
+        Assert.Equal(2026, release.PublishedAt.Year);
+        Assert.False(release.IsPrerelease);
+    }
+
+    [Fact]
+    public async Task GetLatestReleaseAsync_SendsCurrentTorrWindUserAgent()
+    {
+        string? userAgent = null;
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            userAgent = request.Headers.UserAgent.ToString();
+            return Json(new
+            {
+                tag_name = "v1.0.4",
+                published_at = "2026-07-10T10:15:00Z",
+                prerelease = false,
+                assets = new object[] { Asset("TorrWind-1.0.4-win-x64.exe", 100, "") }
+            });
+        }));
+
+        await new TorrWindReleaseService(httpClient).GetLatestReleaseAsync();
+
+        Assert.Equal("TorrWind/1.0.3", userAgent);
+    }
+
+    [Fact]
     public async Task GetExpectedSha256Async_UsesInlineDigestBeforeChecksumAsset()
     {
         var requestCount = 0;
@@ -185,6 +253,14 @@ public sealed class TorrWindReleaseServiceTests
         return new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(value, Encoding.UTF8, "text/plain")
+        };
+    }
+
+    private static HttpResponseMessage Html(string value)
+    {
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(value, Encoding.UTF8, "text/html")
         };
     }
 

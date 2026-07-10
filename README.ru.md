@@ -1,4 +1,4 @@
-# TorrWind 1.0.0
+# TorrWind 1.0.3
 
 Языки: [English](README.md) | Русский
 
@@ -59,7 +59,7 @@ dotnet build TorrWind.sln
 Опубликовать self-contained Windows x64 файлы:
 
 ```powershell
-.\scripts\publish-win-x64.ps1 -Version 1.0.0
+.\scripts\publish-win-x64.ps1 -Version 1.0.3
 ```
 
 Publish-скрипт скачивает последний Windows x64 mpv runtime от shinchiro, проверяет SHA256 digest из GitHub release, если он указан, и устанавливает runtime в `artifacts/publish/TorrWind/Runtime/mpv`. Перед release-упаковкой установите 7-Zip. Для офлайн-сборки передайте `-MpvRuntimeArchivePath <mpv-x86_64-...7z>`; чтобы собрать без встроенного mpv, используйте `-SkipMpvRuntime`.
@@ -67,19 +67,19 @@ Publish-скрипт скачивает последний Windows x64 mpv runti
 Создать portable zip:
 
 ```powershell
-.\scripts\package-win-x64.ps1 -Version 1.0.0
+.\scripts\package-win-x64.ps1 -Version 1.0.3
 ```
 
 Собрать Inno Setup инсталлятор:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 1.0.0
+.\scripts\build-installer.ps1 -Version 1.0.3
 ```
 
 Собрать все release-артефакты и контрольные суммы:
 
 ```powershell
-.\scripts\release-win-x64.ps1 -Version 1.0.0
+.\scripts\release-win-x64.ps1 -Version 1.0.3
 ```
 
 Запустить unit tests:
@@ -91,9 +91,9 @@ dotnet test TorrWind.sln
 Результаты сохраняются в:
 
 - `artifacts/publish/TorrWind`
-- `artifacts/portable/TorrWind-1.0.0-win-x64-portable.zip`
-- `artifacts/installer/TorrWind-1.0.0-win-x64.exe`
-- `artifacts/TorrWind-1.0.0-SHA256SUMS.txt`
+- `artifacts/portable/TorrWind-1.0.3-win-x64-portable.zip`
+- `artifacts/installer/TorrWind-1.0.3-win-x64.exe`
+- `artifacts/TorrWind-1.0.3-SHA256SUMS.txt`
 
 ## Сборка на Linux
 
@@ -111,7 +111,7 @@ dotnet build TorrWind.sln -m:1 -p:UseSharedCompilation=false -p:NuGetAudit=false
 Создать portable Windows x64 zip:
 
 ```bash
-pwsh ./scripts/package-win-x64.ps1 -Version 1.0.0
+pwsh ./scripts/package-win-x64.ps1 -Version 1.0.3
 ```
 
 Скрипты упаковки также добавляют mpv через `scripts/install-mpv-runtime.ps1`. В Linux-среде сборки установите `p7zip`/`7z` или передайте `-MpvRuntimeArchivePath <mpv-x86_64-...7z>` для офлайн-сборки.
@@ -119,14 +119,14 @@ pwsh ./scripts/package-win-x64.ps1 -Version 1.0.0
 Собрать инсталлятор через Wine + Inno Setup:
 
 ```bash
-pwsh ./scripts/build-installer.ps1 -Version 1.0.0
+pwsh ./scripts/build-installer.ps1 -Version 1.0.3
 ```
 
 По умолчанию скрипт инсталлятора ищет Inno Setup в `~/.wine-inno` и `~/.wine`. Автоопределение можно переопределить:
 
 ```bash
 pwsh ./scripts/build-installer.ps1 \
-  -Version 1.0.0 \
+  -Version 1.0.3 \
   -WinePrefix "$HOME/.wine-inno" \
   -InnoCompilerPath "$HOME/.wine-inno/drive_c/InnoSetup6/ISCC.exe"
 ```
@@ -134,7 +134,7 @@ pwsh ./scripts/build-installer.ps1 \
 Собрать все release-артефакты:
 
 ```bash
-pwsh ./scripts/release-win-x64.ps1 -Version 1.0.0
+pwsh ./scripts/release-win-x64.ps1 -Version 1.0.3
 ```
 
 Запустить unit tests:
@@ -152,8 +152,8 @@ GitHub Actions workflow: `.github/workflows/release.yml`.
 Он запускается автоматически при публикации тега:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.3
+git push origin v1.0.3
 ```
 
 Также workflow можно запустить вручную из GitHub Actions, указав версию. Workflow:

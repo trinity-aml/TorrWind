@@ -44,7 +44,7 @@ Skip bundling mpv for a local publish:
 Create a portable zip:
 
 ```powershell
-.\scripts\package-win-x64.ps1 -Version 1.0.0
+.\scripts\package-win-x64.ps1 -Version 1.0.3
 ```
 
 ## Installer
@@ -52,7 +52,7 @@ Create a portable zip:
 Install Inno Setup 6 and run:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 1.0.0
+.\scripts\build-installer.ps1 -Version 1.0.3
 ```
 
 The installer output is written to `artifacts\installer`.
@@ -69,7 +69,7 @@ The installer also grants normal users modify access to `{app}\Data`, so the GUI
 Build all release artifacts and SHA256 checksums:
 
 ```powershell
-.\scripts\release-win-x64.ps1 -Version 1.0.0
+.\scripts\release-win-x64.ps1 -Version 1.0.3
 ```
 
 Run unit tests:

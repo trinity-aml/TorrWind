@@ -12,7 +12,7 @@ public sealed class TorrWindReleaseService
     private const string LatestReleaseUrl = "https://api.github.com/repos/trinity-aml/TorrWind/releases/latest";
     private const string LatestReleasePageUrl = "https://github.com/trinity-aml/TorrWind/releases/latest";
     private const string ExpandedAssetsPageUrl = "https://github.com/trinity-aml/TorrWind/releases/expanded_assets/";
-    private const string UserAgent = "TorrWind/1.0";
+    private const string UserAgent = "TorrWind/1.0.3";
 
     private static readonly JsonSerializerOptions JsonSerializerOptions = new(JsonSerializerDefaults.Web);
     private static readonly Regex ReleaseTagRegex = new(

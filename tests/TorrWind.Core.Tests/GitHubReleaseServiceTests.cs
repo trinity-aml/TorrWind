@@ -68,6 +68,73 @@ public sealed class GitHubReleaseServiceTests
     }
 
     [Fact]
+    public async Task GetLatestTorrServerReleaseAsync_FallsBackToGitHubHtmlWhenApiIsForbidden()
+    {
+        var requestKeys = new List<string>();
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            requestKeys.Add(request.Method + " " + request.RequestUri?.AbsoluteUri);
+            if (request.RequestUri?.AbsoluteUri == "https://api.github.com/repos/YouROK/TorrServer/releases/latest")
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            if (request.Method == HttpMethod.Head &&
+                request.RequestUri?.AbsoluteUri == "https://github.com/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-windows-amd64.exe")
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK);
+                response.Content = new ByteArrayContent([]);
+                response.Content.Headers.ContentLength = 12345;
+                return response;
+            }
+
+            return Html("""
+                <html>
+                  <body>
+                    <a href="/YouROK/TorrServer/releases/tag/MatriX.142">MatriX.142</a>
+                    <relative-time datetime="2026-07-03T19:25:30Z"></relative-time>
+                    <ul>
+                      <li><a href="/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-gst-windows-amd64.exe">gst</a></li>
+                      <li><a href="/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-windows-amd64.exe">plain</a></li>
+                    </ul>
+                  </body>
+                </html>
+                """);
+        }));
+
+        var release = await new GitHubReleaseService(httpClient).GetLatestTorrServerReleaseAsync();
+
+        Assert.Contains("GET https://github.com/YouROK/TorrServer/releases/latest", requestKeys);
+        Assert.Contains("HEAD https://github.com/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-windows-amd64.exe", requestKeys);
+        Assert.Equal("MatriX.142", release.Version);
+        Assert.Equal("TorrServer-windows-amd64.exe", release.AssetName);
+        Assert.Equal(12345, release.SizeBytes);
+        Assert.Equal(2026, release.PublishedAt.Year);
+        Assert.False(release.IsPrerelease);
+    }
+
+    [Fact]
+    public async Task GetLatestTorrServerReleaseAsync_SendsCurrentTorrWindUserAgent()
+    {
+        string? userAgent = null;
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            userAgent = request.Headers.UserAgent.ToString();
+            return Json(new
+            {
+                tag_name = "MatriX.142",
+                published_at = "2026-07-03T19:25:30Z",
+                prerelease = false,
+                assets = new object[] { Asset("TorrServer-windows-amd64.exe", 100, "") }
+            });
+        }));
+
+        await new GitHubReleaseService(httpClient).GetLatestTorrServerReleaseAsync();
+
+        Assert.Equal("TorrWind/1.0.3", userAgent);
+    }
+
+    [Fact]
     public async Task GetExpectedSha256Async_UsesInlineDigestBeforeChecksumAsset()
     {
         var requestCount = 0;
@@ -143,6 +210,14 @@ public sealed class GitHubReleaseServiceTests
         return new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(value, Encoding.UTF8, "text/plain")
+        };
+    }
+
+    private static HttpResponseMessage Html(string value)
+    {
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(value, Encoding.UTF8, "text/html")
         };
     }
 

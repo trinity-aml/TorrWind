@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.3",
     [string]$Configuration = "Release",
     [string]$MpvRuntimeArchivePath = "",
     [switch]$SkipMpvRuntime,

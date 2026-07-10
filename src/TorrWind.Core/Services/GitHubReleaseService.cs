@@ -14,7 +14,7 @@ public sealed class GitHubReleaseService
     private const string ReleasesPageUrl = "https://github.com/YouROK/TorrServer/releases";
     private const string LatestReleasePageUrl = "https://github.com/YouROK/TorrServer/releases/latest";
     private const string ExpandedAssetsPageUrl = "https://github.com/YouROK/TorrServer/releases/expanded_assets/";
-    private const string UserAgent = "TorrWind/0.1";
+    private const string UserAgent = "TorrWind/1.0.3";
 
     private static readonly JsonSerializerOptions JsonSerializerOptions = new(JsonSerializerDefaults.Web);
     private static readonly Regex ReleaseSectionRegex = new(
