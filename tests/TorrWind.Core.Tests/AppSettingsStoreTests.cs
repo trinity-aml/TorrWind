@@ -110,6 +110,134 @@ public sealed class AppSettingsStoreTests
     }
 
     [Fact]
+    public async Task LoadExistingAsync_DropsNullCollectionItemsAndNormalizesImportedValues()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var filePath = Path.Combine(directory.Path, "settings.json");
+        var duplicateServerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var duplicateProviderId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        await File.WriteAllTextAsync(filePath, $$"""
+            {
+              "language": " ru ",
+              "theme": " dark ",
+              "servers": [
+                null,
+                {
+                  "id": "00000000-0000-0000-0000-000000000000",
+                  "name": "  ",
+                  "baseUrl": null,
+                  "username": " user "
+                },
+                {
+                  "id": "{{duplicateServerId}}",
+                  "name": " First ",
+                  "baseUrl": " 192.168.1.2:8090 "
+                },
+                {
+                  "id": "{{duplicateServerId}}",
+                  "name": " Second ",
+                  "baseUrl": " http://192.168.1.3:8090 "
+                }
+              ],
+              "searchProviders": [
+                null,
+                {
+                  "id": "00000000-0000-0000-0000-000000000000",
+                  "name": "  ",
+                  "url": null,
+                  "apiKey": null,
+                  "categories": " 2000 ",
+                  "timeoutSeconds": 0
+                },
+                {
+                  "id": "{{duplicateProviderId}}",
+                  "name": " Jackett ",
+                  "url": " http://indexer.local/api ",
+                  "apiKey": " key ",
+                  "timeoutSeconds": 999
+                },
+                {
+                  "id": "{{duplicateProviderId}}",
+                  "name": " Prowlarr ",
+                  "url": " http://prowlarr.local/api ",
+                  "timeoutSeconds": 2
+                }
+              ],
+              "searchHistory": [null, "  venom  ", "", "VENOM", " dune "],
+              "localServer": {
+                "listenAddress": "  ",
+                "port": 70000,
+                "sslPort": 0,
+                "cacheSizeMb": 0,
+                "preloadCachePercent": 150,
+                "readerReadAheadPercent": 1,
+                "torrentDisconnectTimeoutSeconds": 0,
+                "connectionsLimit": 0,
+                "peersListenPort": 70000,
+                "retrackersMode": 9,
+                "downloadSpeedLimitKb": -1,
+                "uploadSpeedLimitKb": -2,
+                "tmdbApiUrl": "",
+                "tmdbImageUrl": null,
+                "tmdbImageUrlRu": "  "
+              },
+              "player": {
+                "preferredPlayer": 999,
+                "customPlayerPath": null
+              }
+            }
+            """);
+
+        var settings = await new AppSettingsStore(filePath).LoadExistingAsync();
+
+        Assert.Equal("ru", settings.Language);
+        Assert.Equal("dark", settings.Theme);
+        Assert.Equal(3, settings.Servers.Count);
+        Assert.All(settings.Servers, server => Assert.NotEqual(Guid.Empty, server.Id));
+        Assert.Equal(settings.Servers.Count, settings.Servers.Select(server => server.Id).Distinct().Count());
+        Assert.Equal("TorrServer", settings.Servers[0].Name);
+        Assert.Equal("http://127.0.0.1:8090", settings.Servers[0].BaseUrl);
+        Assert.Equal("user", settings.Servers[0].Username);
+        Assert.Equal("First", settings.Servers[1].Name);
+        Assert.Equal("192.168.1.2:8090", settings.Servers[1].BaseUrl);
+        Assert.Equal(settings.Servers[0].Id, settings.ActiveServerId);
+
+        Assert.Equal(3, settings.SearchProviders.Count);
+        Assert.All(settings.SearchProviders, provider => Assert.NotEqual(Guid.Empty, provider.Id));
+        Assert.Equal(settings.SearchProviders.Count, settings.SearchProviders.Select(provider => provider.Id).Distinct().Count());
+        Assert.Equal("Torznab", settings.SearchProviders[0].Name);
+        Assert.Equal(string.Empty, settings.SearchProviders[0].Url);
+        Assert.Equal(string.Empty, settings.SearchProviders[0].ApiKey);
+        Assert.Equal("2000", settings.SearchProviders[0].Categories);
+        Assert.Equal(30, settings.SearchProviders[0].TimeoutSeconds);
+        Assert.Equal("Jackett", settings.SearchProviders[1].Name);
+        Assert.Equal("http://indexer.local/api", settings.SearchProviders[1].Url);
+        Assert.Equal("key", settings.SearchProviders[1].ApiKey);
+        Assert.Equal(180, settings.SearchProviders[1].TimeoutSeconds);
+        Assert.Equal(5, settings.SearchProviders[2].TimeoutSeconds);
+        Assert.Equal(["venom", "dune"], settings.SearchHistory);
+
+        Assert.Equal(ExternalPlayerKind.BuiltInMpv, settings.Player.PreferredPlayer);
+        Assert.Equal(string.Empty, settings.Player.CustomPlayerPath);
+        Assert.Equal("127.0.0.1", settings.LocalServer.ListenAddress);
+        Assert.Equal(65535, settings.LocalServer.Port);
+        Assert.Equal(8091, settings.LocalServer.SslPort);
+        Assert.Equal(1, settings.LocalServer.CacheSizeMb);
+        Assert.Equal(100, settings.LocalServer.PreloadCachePercent);
+        Assert.Equal(5, settings.LocalServer.ReaderReadAheadPercent);
+        Assert.Equal(1, settings.LocalServer.TorrentDisconnectTimeoutSeconds);
+        Assert.Equal(1, settings.LocalServer.ConnectionsLimit);
+        Assert.Equal(65535, settings.LocalServer.PeersListenPort);
+        Assert.Equal(3, settings.LocalServer.RetrackersMode);
+        Assert.Equal(0, settings.LocalServer.DownloadSpeedLimitKb);
+        Assert.Equal(0, settings.LocalServer.UploadSpeedLimitKb);
+        Assert.Equal("https://api.themoviedb.org", settings.LocalServer.TmdbApiUrl);
+        Assert.Equal("https://image.tmdb.org", settings.LocalServer.TmdbImageUrl);
+        Assert.Equal("https://imagetmdb.com", settings.LocalServer.TmdbImageUrlRu);
+    }
+
+    [Fact]
     public async Task LoadExistingAsync_KeepsActiveServerWhenItExists()
     {
         using var directory = TemporaryDirectory.Create();
