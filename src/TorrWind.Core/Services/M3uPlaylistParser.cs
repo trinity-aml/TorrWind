@@ -20,7 +20,7 @@ public static class M3uPlaylistParser
         using var reader = new StringReader(playlistText);
         while (reader.ReadLine() is { } rawLine)
         {
-            var line = rawLine.Trim();
+            var line = rawLine.Trim().TrimStart('\uFEFF');
             if (line.Length == 0)
             {
                 continue;
@@ -28,7 +28,7 @@ public static class M3uPlaylistParser
 
             if (line.StartsWith("#EXTINF", StringComparison.OrdinalIgnoreCase))
             {
-                var comma = line.IndexOf(',');
+                var comma = FindExtInfTitleSeparator(line);
                 pendingTitle = comma >= 0 && comma < line.Length - 1
                     ? line[(comma + 1)..].Trim()
                     : string.Empty;
@@ -55,6 +55,27 @@ public static class M3uPlaylistParser
         }
 
         return entries;
+    }
+
+    private static int FindExtInfTitleSeparator(string line)
+    {
+        var inQuotes = false;
+        for (var index = 0; index < line.Length; index++)
+        {
+            var character = line[index];
+            if (character == '"')
+            {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (character == ',' && !inQuotes)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private static string ResolveTitleFromUri(Uri uri, int number)

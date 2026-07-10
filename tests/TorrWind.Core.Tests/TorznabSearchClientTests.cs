@@ -198,6 +198,26 @@ public sealed class TorznabSearchClientTests
         Assert.Equal(5, result.Leechers);
     }
 
+    [Fact]
+    public void Parse_TreatsMagnetLinkAsMagnetAndUsesGuidAsLinkFallback()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss>
+              <channel>
+                <item>
+                  <title>Movie Magnet</title>
+                  <link>magnet:?xt=urn:btih:abc</link>
+                  <guid>http://indexer.local/details/1</guid>
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
+        Assert.Equal("http://indexer.local/details/1", result.Link);
+        Assert.Equal("magnet:?xt=urn:btih:abc", result.Magnet);
+    }
+
     private static TorznabSearchClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> responder)
     {
         return new TorznabSearchClient(_ => new StaticResponseHandler(responder));

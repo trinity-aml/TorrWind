@@ -57,23 +57,27 @@ public sealed class TorznabSearchClient
         return document
             .Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "item", StringComparison.OrdinalIgnoreCase))
-            .Select(item => new SearchResult
+            .Select(item =>
             {
-                ProviderName = providerName,
-                Title = ElementValue(item, "title"),
-                Link = FirstNotEmpty(ElementValue(item, "link"), NonMagnetEnclosureValue(item), ElementValue(item, "guid")),
-                Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetEnclosureValue(item)),
-                SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
-                Seeders = ParseInt(AttributeValue(item, "seeders")),
-                Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"))),
-                Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValue(item, "category")),
-                PublishedAt = DateTimeOffset.TryParse(
-                    ElementValue(item, "pubDate"),
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal,
-                    out var publishedAt)
-                    ? publishedAt
-                    : null
+                var link = ElementValue(item, "link");
+                return new SearchResult
+                {
+                    ProviderName = providerName,
+                    Title = ElementValue(item, "title"),
+                    Link = FirstNotEmpty(NonMagnetValue(link), NonMagnetEnclosureValue(item), ElementValue(item, "guid")),
+                    Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetValue(link), MagnetEnclosureValue(item)),
+                    SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
+                    Seeders = ParseInt(AttributeValue(item, "seeders")),
+                    Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"))),
+                    Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValue(item, "category")),
+                    PublishedAt = DateTimeOffset.TryParse(
+                        ElementValue(item, "pubDate"),
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal,
+                        out var publishedAt)
+                        ? publishedAt
+                        : null
+                };
             })
             .Where(result => !string.IsNullOrWhiteSpace(result.Title))
             .ToArray();
@@ -213,12 +217,22 @@ public sealed class TorznabSearchClient
     private static string MagnetEnclosureValue(XElement item)
     {
         var value = EnclosureValue(item, "url");
-        return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? value : string.Empty;
+        return MagnetValue(value);
     }
 
     private static string NonMagnetEnclosureValue(XElement item)
     {
         var value = EnclosureValue(item, "url");
+        return NonMagnetValue(value);
+    }
+
+    private static string MagnetValue(string value)
+    {
+        return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? value : string.Empty;
+    }
+
+    private static string NonMagnetValue(string value)
+    {
         return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? string.Empty : value;
     }
 

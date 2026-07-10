@@ -156,6 +156,11 @@ public sealed class ServerProfile : INotifyPropertyChanged
     private static Uri NormalizeBaseUri(string baseUrl)
     {
         var value = string.IsNullOrWhiteSpace(baseUrl) ? "http://127.0.0.1:8090" : baseUrl.Trim();
+        if (!value.Contains("://", StringComparison.Ordinal))
+        {
+            value = "http://" + value;
+        }
+
         if (!value.EndsWith("/", StringComparison.Ordinal))
         {
             value += "/";

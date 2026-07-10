@@ -51,4 +51,33 @@ public sealed class M3uPlaylistParserTests
         var entry = Assert.Single(entries);
         Assert.Equal("Episode 1", entry.Title);
     }
+
+    [Fact]
+    public void Parse_IgnoresCommasInsideExtinfAttributes()
+    {
+        const string playlist = """
+            #EXTM3U
+            #EXTINF:-1 tvg-name="Title, From Attribute" group-title="Shows, HD",Episode, With Comma
+            episode1.mkv
+            """;
+
+        var entry = Assert.Single(M3uPlaylistParser.Parse(
+            playlist,
+            new Uri("http://127.0.0.1:8090/playlists/show.m3u")));
+
+        Assert.Equal("Episode, With Comma", entry.Title);
+        Assert.Equal("http://127.0.0.1:8090/playlists/episode1.mkv", entry.Uri.AbsoluteUri);
+    }
+
+    [Fact]
+    public void Parse_IgnoresUtf8BomAtStartOfPlaylist()
+    {
+        var entries = M3uPlaylistParser.Parse(
+            "\uFEFF#EXTM3U" + Environment.NewLine + "#EXTINF:0,Episode One" + Environment.NewLine + "episode1.mkv",
+            new Uri("http://127.0.0.1:8090/list.m3u"));
+
+        var entry = Assert.Single(entries);
+        Assert.Equal("Episode One", entry.Title);
+        Assert.Equal("http://127.0.0.1:8090/episode1.mkv", entry.Uri.AbsoluteUri);
+    }
 }
