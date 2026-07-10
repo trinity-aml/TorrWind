@@ -121,7 +121,12 @@ public sealed class TorznabSearchClient
             parameters["cat"] = selectedCategories.Trim();
         }
 
-        var builder = new UriBuilder(NormalizeProviderUrl(provider.Url));
+        if (!TryNormalizeProviderUrl(provider.Url, out var providerUri))
+        {
+            throw new InvalidOperationException("Search provider URL must be a valid HTTP or HTTPS address.");
+        }
+
+        var builder = new UriBuilder(providerUri);
         var queryParts = SplitQuery(builder.Query);
         foreach (var (key, value) in parameters)
         {
@@ -134,7 +139,7 @@ public sealed class TorznabSearchClient
         return builder.Uri;
     }
 
-    private static Uri NormalizeProviderUrl(string url)
+    private static bool TryNormalizeProviderUrl(string url, out Uri uri)
     {
         var value = url.Trim();
         if (!value.Contains("://", StringComparison.Ordinal))
@@ -142,21 +147,32 @@ public sealed class TorznabSearchClient
             value = "http://" + value;
         }
 
-        var builder = new UriBuilder(value);
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var parsedUri) ||
+            (parsedUri.Scheme != Uri.UriSchemeHttp && parsedUri.Scheme != Uri.UriSchemeHttps) ||
+            Uri.CheckHostName(parsedUri.Host) == UriHostNameType.Unknown)
+        {
+            uri = new Uri("http://127.0.0.1/api");
+            return false;
+        }
+
+        var builder = new UriBuilder(parsedUri);
         var normalizedPath = builder.Path.TrimEnd('/');
         if (string.IsNullOrWhiteSpace(normalizedPath) || string.Equals(normalizedPath, "/settings", StringComparison.OrdinalIgnoreCase))
         {
             builder.Path = "/api";
-            return builder.Uri;
+            uri = builder.Uri;
+            return true;
         }
 
         if (normalizedPath.EndsWith("/torznab", StringComparison.OrdinalIgnoreCase))
         {
             builder.Path = normalizedPath + "/api";
-            return builder.Uri;
+            uri = builder.Uri;
+            return true;
         }
 
-        return builder.Uri;
+        uri = builder.Uri;
+        return true;
     }
 
     private static Dictionary<string, string> SplitQuery(string query)

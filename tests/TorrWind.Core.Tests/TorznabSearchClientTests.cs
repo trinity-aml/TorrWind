@@ -120,6 +120,21 @@ public sealed class TorznabSearchClientTests
         Assert.Empty(results);
     }
 
+    [Theory]
+    [InlineData("http://")]
+    [InlineData("https://")]
+    [InlineData("ftp://indexer.local/api")]
+    [InlineData("not a host ???")]
+    public async Task SearchAsync_RejectsInvalidOrUnsupportedProviderUrls(string url)
+    {
+        var client = CreateClient(_ => throw new InvalidOperationException("HTTP must not be used."));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            client.SearchAsync(new SearchProviderSettings { Url = url }, "query", ""));
+
+        Assert.Contains("HTTP or HTTPS", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task SearchAsync_AppliesLimitWithMinimumOneResult()
     {

@@ -53,6 +53,11 @@ public static class LocalTorrServerEndpointProbe
             return false;
         }
 
+        if (!TryBuildBaseUri(settings, out var baseUri))
+        {
+            return false;
+        }
+
         using var handler = new HttpClientHandler();
         if (settings.UseSsl)
         {
@@ -61,7 +66,7 @@ public static class LocalTorrServerEndpointProbe
 
         using var client = new HttpClient(handler)
         {
-            BaseAddress = BuildBaseUri(settings),
+            BaseAddress = baseUri,
             Timeout = timeout
         };
 
@@ -89,18 +94,48 @@ public static class LocalTorrServerEndpointProbe
         }
     }
 
-    private static Uri BuildBaseUri(LocalServerSettings settings)
+    private static bool TryBuildBaseUri(LocalServerSettings settings, out Uri uri)
     {
         var useSslEndpoint = settings.UseSsl && settings.SslPort > 0;
         var scheme = useSslEndpoint ? "https" : "http";
         var port = useSslEndpoint ? settings.SslPort : settings.Port;
 
-        return new UriBuilder(scheme, NormalizeProbeHost(settings.ListenAddress), port).Uri;
+        if (port <= 0 || port > 65535)
+        {
+            uri = new Uri("http://127.0.0.1/");
+            return false;
+        }
+
+        var host = NormalizeProbeHost(settings.ListenAddress);
+        var uriBuilderHost = NormalizeUriBuilderHost(host);
+        if (Uri.CheckHostName(uriBuilderHost) == UriHostNameType.Unknown)
+        {
+            uri = new Uri("http://127.0.0.1/");
+            return false;
+        }
+
+        try
+        {
+            uri = new UriBuilder(scheme, uriBuilderHost, port).Uri;
+            return true;
+        }
+        catch (UriFormatException)
+        {
+            uri = new Uri("http://127.0.0.1/");
+            return false;
+        }
     }
 
     private static string NormalizeProbeHost(string listenAddress)
     {
         var host = string.IsNullOrWhiteSpace(listenAddress) ? "127.0.0.1" : listenAddress.Trim();
         return host is "*" or "+" or "0.0.0.0" or "::" or "[::]" ? "127.0.0.1" : host;
+    }
+
+    private static string NormalizeUriBuilderHost(string host)
+    {
+        return host.Length > 2 && host[0] == '[' && host[^1] == ']'
+            ? host[1..^1]
+            : host;
     }
 }
