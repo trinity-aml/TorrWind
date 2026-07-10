@@ -82,6 +82,66 @@ public sealed class AppSettingsStoreTests
     }
 
     [Fact]
+    public async Task LoadExistingAsync_NormalizesNullCollectionsAndCreatesLocalServer()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var filePath = Path.Combine(directory.Path, "settings.json");
+        await File.WriteAllTextAsync(filePath, """
+            {
+              "servers": null,
+              "searchProviders": null,
+              "searchHistory": null,
+              "localServer": null,
+              "player": null
+            }
+            """);
+
+        var settings = await new AppSettingsStore(filePath).LoadExistingAsync();
+
+        Assert.NotNull(settings.SearchProviders);
+        Assert.NotNull(settings.SearchHistory);
+        Assert.NotNull(settings.LocalServer);
+        Assert.NotNull(settings.Player);
+        var server = Assert.Single(settings.Servers);
+        Assert.True(server.IsLocal);
+        Assert.Equal(server.Id, settings.ActiveServerId);
+        Assert.Equal(AppPaths.DefaultLocalServerDirectory, settings.LocalServer.DataDirectory);
+        Assert.Equal(Path.Combine(AppPaths.DefaultLocalServerDirectory, "cache"), settings.LocalServer.TemporaryDataPath);
+    }
+
+    [Fact]
+    public async Task LoadExistingAsync_KeepsActiveServerWhenItExists()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var filePath = Path.Combine(directory.Path, "settings.json");
+        var firstServerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var secondServerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        await File.WriteAllTextAsync(filePath, $$"""
+            {
+              "activeServerId": "{{secondServerId}}",
+              "servers": [
+                {
+                  "id": "{{firstServerId}}",
+                  "name": "First",
+                  "baseUrl": "http://127.0.0.1:8090"
+                },
+                {
+                  "id": "{{secondServerId}}",
+                  "name": "Second",
+                  "baseUrl": "http://192.168.1.2:8090"
+                }
+              ]
+            }
+            """);
+
+        var settings = await new AppSettingsStore(filePath).LoadExistingAsync();
+
+        Assert.Equal(secondServerId, settings.ActiveServerId);
+        Assert.Equal(2, settings.Servers.Count);
+    }
+
+    [Fact]
     public async Task SaveAsync_CreatesBackupOfPreviousSettingsOnOverwrite()
     {
         using var directory = TemporaryDirectory.Create();
