@@ -82,13 +82,14 @@ public sealed class TorrentItem
             Status = element.ReadString("status", "Status", "stat_string", "StatString", "statString", "stat", "Stat")
         };
 
-        if (element.TryGetProperty("files", out var files) || element.TryGetProperty("Files", out files))
+        if (element.TryGetPropertyIgnoreCase("files", out var files))
         {
             item.Files = files.ValueKind == JsonValueKind.Array
                 ? files.EnumerateArray().Select(TorrentFile.FromJson).Where(file => file.IsVideoFile).ToArray()
                 : [];
         }
-        else if (element.TryGetProperty("file_stats", out files) || element.TryGetProperty("FileStats", out files))
+        else if (element.TryGetPropertyIgnoreCase("file_stats", out files) ||
+            element.TryGetPropertyIgnoreCase("fileStats", out files))
         {
             item.Files = files.ValueKind == JsonValueKind.Array
                 ? files.EnumerateArray().Select(TorrentFile.FromJson).Where(file => file.IsVideoFile).ToArray()
@@ -505,7 +506,7 @@ internal static class JsonElementExtensions
     {
         foreach (var name in names)
         {
-            if (element.TryGetProperty(name, out var property))
+            if (element.TryGetPropertyIgnoreCase(name, out var property))
             {
                 return property.ValueKind switch
                 {
@@ -525,7 +526,7 @@ internal static class JsonElementExtensions
     {
         foreach (var name in names)
         {
-            if (!element.TryGetProperty(name, out var property))
+            if (!element.TryGetPropertyIgnoreCase(name, out var property))
             {
                 continue;
             }
@@ -548,7 +549,7 @@ internal static class JsonElementExtensions
     {
         foreach (var name in names)
         {
-            if (!element.TryGetProperty(name, out var property))
+            if (!element.TryGetPropertyIgnoreCase(name, out var property))
             {
                 continue;
             }
@@ -571,7 +572,7 @@ internal static class JsonElementExtensions
     {
         foreach (var name in names)
         {
-            if (!element.TryGetProperty(name, out var property))
+            if (!element.TryGetPropertyIgnoreCase(name, out var property))
             {
                 continue;
             }
@@ -589,5 +590,30 @@ internal static class JsonElementExtensions
         }
 
         return 0;
+    }
+
+    public static bool TryGetPropertyIgnoreCase(this JsonElement element, string name, out JsonElement property)
+    {
+        if (element.TryGetProperty(name, out property))
+        {
+            return true;
+        }
+
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var candidate in element.EnumerateObject())
+        {
+            if (string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                property = candidate.Value;
+                return true;
+            }
+        }
+
+        property = default;
+        return false;
     }
 }

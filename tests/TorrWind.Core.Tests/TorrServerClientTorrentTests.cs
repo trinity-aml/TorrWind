@@ -157,6 +157,26 @@ public sealed class TorrServerClientTorrentTests
     }
 
     [Fact]
+    public async Task GetTorrentsAsync_ParsesWrappedTorrentListCaseInsensitively()
+    {
+        using var client = CreateClient(_ => Json("""
+            {
+              "TORRENTS": [
+                {
+                  "hash": "wrapped-case",
+                  "title": "Wrapped Case"
+                }
+              ]
+            }
+            """));
+
+        var torrent = Assert.Single(await client.GetTorrentsAsync());
+
+        Assert.Equal("wrapped-case", torrent.Hash);
+        Assert.Equal("Wrapped Case", torrent.Title);
+    }
+
+    [Fact]
     public async Task GetTorrentsAsync_ParsesCamelCaseTorrentFields()
     {
         using var client = CreateClient(_ => Json("""
@@ -203,6 +223,43 @@ public sealed class TorrServerClientTorrentTests
         var file = Assert.Single(torrent.Files);
         Assert.Equal(3, file.Id);
         Assert.Equal(1000, file.SizeBytes);
+    }
+
+    [Fact]
+    public async Task GetTorrentsAsync_ParsesFieldsCaseInsensitively()
+    {
+        using var client = CreateClient(_ => Json("""
+            [
+              {
+                "INFO_HASH": "casehash",
+                "TITLE": "Case Movie",
+                "SIZEBYTES": "4096",
+                "LOADEDBYTES": "2048",
+                "SEEDERS": "5",
+                "PEERS": "6",
+                "FILES": [
+                  {
+                    "INDEX": 9,
+                    "PATH": "Case.Movie.1080p.mkv",
+                    "SIZEBYTES": "4096"
+                  }
+                ]
+              }
+            ]
+            """));
+
+        var torrent = Assert.Single(await client.GetTorrentsAsync());
+
+        Assert.Equal("casehash", torrent.Hash);
+        Assert.Equal("Case Movie", torrent.Title);
+        Assert.Equal(4096, torrent.SizeBytes);
+        Assert.Equal(2048, torrent.LoadedBytes);
+        Assert.Equal(50, torrent.Progress);
+        Assert.Equal(5, torrent.Seeders);
+        Assert.Equal(6, torrent.Peers);
+        var file = Assert.Single(torrent.Files);
+        Assert.Equal(9, file.Id);
+        Assert.Equal(4096, file.SizeBytes);
     }
 
     [Theory]

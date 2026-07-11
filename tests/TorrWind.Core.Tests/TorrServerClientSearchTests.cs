@@ -125,6 +125,22 @@ public sealed class TorrServerClientSearchTests
     }
 
     [Fact]
+    public async Task SearchServerTorznabAsync_ParsesWrappedResultArraysCaseInsensitively()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            {
+              "RESULTS": [
+                { "title": "Wrapped Case Result" }
+              ]
+            }
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("wrapped"));
+
+        Assert.Equal("Wrapped Case Result", result.Title);
+    }
+
+    [Fact]
     public async Task SearchServerTorznabAsync_ParsesAlternativeByteSizeFields()
     {
         using var client = CreateClient("Home", _ => Json("""
@@ -184,6 +200,36 @@ public sealed class TorrServerClientSearchTests
 
         Assert.Equal(string.Empty, result.Link);
         Assert.Equal("magnet:?xt=urn:btih:inlink", result.Magnet);
+    }
+
+    [Fact]
+    public async Task SearchServerTorznabAsync_ParsesResultFieldsCaseInsensitively()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              {
+                "TITLE": "Case Search",
+                "DOWNLOADURL": "http://indexer.local/download/case",
+                "MAGNETURL": "magnet:?xt=urn:btih:case",
+                "SIZEBYTES": "12345",
+                "SEEDS": "12",
+                "LEECHES": "3",
+                "CAT": "5000",
+                "PUBLISHEDAT": "2026-07-11T12:30:00Z"
+              }
+            ]
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("case"));
+
+        Assert.Equal("Case Search", result.Title);
+        Assert.Equal("http://indexer.local/download/case", result.Link);
+        Assert.Equal("magnet:?xt=urn:btih:case", result.Magnet);
+        Assert.Equal(12345, result.SizeBytes);
+        Assert.Equal(12, result.Seeders);
+        Assert.Equal(3, result.Leechers);
+        Assert.Equal("5000", result.Category);
+        Assert.Equal(2026, result.PublishedAt?.Year);
     }
 
     [Fact]

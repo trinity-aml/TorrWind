@@ -635,7 +635,7 @@ public sealed class TorrServerClient : IDisposable
         {
             foreach (var name in new[] { "results", "Results", "items", "Items", "data", "Data", "torrents", "Torrents" })
             {
-                if (root.TryGetProperty(name, out results) && results.ValueKind == JsonValueKind.Array)
+                if (root.TryGetPropertyIgnoreCase(name, out results) && results.ValueKind == JsonValueKind.Array)
                 {
                     return true;
                 }
@@ -677,15 +677,11 @@ public sealed class TorrServerClient : IDisposable
 
         if (root.ValueKind == JsonValueKind.Object)
         {
-            if (root.TryGetProperty("torrents", out var torrents))
+            if (root.TryGetPropertyIgnoreCase("torrents", out var torrents))
             {
                 array = torrents;
             }
-            else if (root.TryGetProperty("Torrents", out torrents))
-            {
-                array = torrents;
-            }
-            else if (root.TryGetProperty("data", out torrents))
+            else if (root.TryGetPropertyIgnoreCase("data", out torrents))
             {
                 array = torrents;
             }
