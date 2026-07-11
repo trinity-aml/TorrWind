@@ -125,6 +125,68 @@ public sealed class TorrServerClientSearchTests
     }
 
     [Fact]
+    public async Task SearchServerTorznabAsync_ParsesAlternativeByteSizeFields()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              { "title": "Size Bytes", "sizeBytes": 123456789 },
+              { "title": "Length Bytes", "Length": "987654321" }
+            ]
+            """));
+
+        var results = await client.SearchServerTorznabAsync("sizes");
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal(123456789, results[0].SizeBytes);
+        Assert.Equal(987654321, results[1].SizeBytes);
+    }
+
+    [Fact]
+    public async Task SearchServerTorznabAsync_ParsesAlternativeSearchResultFieldNames()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              {
+                "title": "Alternative Fields",
+                "downloadUrl": "http://indexer.local/download/alt",
+                "magnetUrl": "magnet:?xt=urn:btih:alt",
+                "seeds": "17",
+                "leeches": "4",
+                "cat": "5030",
+                "publishedAt": "2026-07-11T10:15:00Z"
+              }
+            ]
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("alt"));
+
+        Assert.Equal("http://indexer.local/download/alt", result.Link);
+        Assert.Equal("magnet:?xt=urn:btih:alt", result.Magnet);
+        Assert.Equal(17, result.Seeders);
+        Assert.Equal(4, result.Leechers);
+        Assert.Equal("5030", result.Category);
+        Assert.Equal(2026, result.PublishedAt?.Year);
+    }
+
+    [Fact]
+    public async Task SearchServerTorznabAsync_TreatsMagnetLinkAsMagnet()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              {
+                "title": "Magnet In Link",
+                "link": "magnet:?xt=urn:btih:inlink"
+              }
+            ]
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("magnet"));
+
+        Assert.Equal(string.Empty, result.Link);
+        Assert.Equal("magnet:?xt=urn:btih:inlink", result.Magnet);
+    }
+
+    [Fact]
     public async Task SearchServerTorznabAsync_ReturnsEmptyForUnsupportedJsonShape()
     {
         using var client = CreateClient("Home", _ => Json("""

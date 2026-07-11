@@ -65,11 +65,22 @@ public sealed class TorznabSearchClient
                 {
                     ProviderName = providerName,
                     Title = ElementValue(item, "title"),
-                    Link = FirstNotEmpty(NonMagnetValue(link), NonMagnetEnclosureValue(item), NonMagnetValue(guid)),
-                    Magnet = FirstNotEmpty(AttributeValue(item, "magneturl"), MagnetValue(link), MagnetEnclosureValue(item), MagnetValue(guid)),
-                    SizeBytes = ParseLong(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
-                    Seeders = ParseInt(AttributeValue(item, "seeders")),
-                    Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"))),
+                    Link = FirstNotEmpty(
+                        NonMagnetValue(link),
+                        NonMagnetValue(ElementValue(item, "downloadUrl")),
+                        NonMagnetEnclosureValue(item),
+                        NonMagnetValue(guid)),
+                    Magnet = FirstNotEmpty(
+                        AttributeValue(item, "magneturl"),
+                        ElementValue(item, "magnet"),
+                        ElementValue(item, "magnetUrl"),
+                        ElementValue(item, "magneturl"),
+                        MagnetValue(link),
+                        MagnetEnclosureValue(item),
+                        MagnetValue(guid)),
+                    SizeBytes = SearchResult.ParseSizeBytes(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
+                    Seeders = ParseInt(FirstNotEmpty(AttributeValue(item, "seeders"), ElementValue(item, "seeders"), ElementValue(item, "seeds"))),
+                    Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"), ElementValue(item, "leechers"), ElementValue(item, "peers"), ElementValue(item, "leeches"))),
                     Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValue(item, "category")),
                     PublishedAt = DateTimeOffset.TryParse(
                         ElementValue(item, "pubDate"),
@@ -263,8 +274,4 @@ public sealed class TorznabSearchClient
         return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : 0;
     }
 
-    private static long ParseLong(string value)
-    {
-        return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : 0;
-    }
 }

@@ -214,6 +214,51 @@ public sealed class TorznabSearchClientTests
     }
 
     [Fact]
+    public void Parse_ReadsHumanReadableSizeValues()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss>
+              <channel>
+                <item>
+                  <title>Movie Human Size</title>
+                  <link>http://indexer.local/download/1</link>
+                  <size>1.5 GiB</size>
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
+        Assert.Equal(1610612736, result.SizeBytes);
+    }
+
+    [Fact]
+    public void Parse_ReadsCommonSearchElementsWithoutTorznabNamespace()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss>
+              <channel>
+                <item>
+                  <title>Plain RSS Search</title>
+                  <downloadUrl>http://indexer.local/download/plain</downloadUrl>
+                  <magnetUrl>magnet:?xt=urn:btih:plain</magnetUrl>
+                  <seeders>31</seeders>
+                  <leechers>6</leechers>
+                  <category>5030</category>
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
+        Assert.Equal("http://indexer.local/download/plain", result.Link);
+        Assert.Equal("magnet:?xt=urn:btih:plain", result.Magnet);
+        Assert.Equal(31, result.Seeders);
+        Assert.Equal(6, result.Leechers);
+        Assert.Equal("5030", result.Category);
+    }
+
+    [Fact]
     public void Parse_TreatsMagnetLinkAsMagnetAndUsesGuidAsLinkFallback()
     {
         var results = TorznabSearchClient.Parse("""

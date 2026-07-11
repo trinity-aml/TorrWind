@@ -54,8 +54,8 @@ public sealed class TorrentItem
 
     public static TorrentItem FromJson(JsonElement element)
     {
-        var sizeBytes = element.ReadInt64("size", "Size", "length", "Length", "torrent_size", "TorrentSize");
-        var loadedBytes = element.ReadInt64("loaded_size", "LoadedSize", "loaded", "Loaded");
+        var sizeBytes = element.ReadInt64("size", "Size", "sizeBytes", "SizeBytes", "length", "Length", "torrent_size", "TorrentSize", "torrentSize");
+        var loadedBytes = element.ReadInt64("loaded_size", "LoadedSize", "loadedSize", "loaded_bytes", "LoadedBytes", "loadedBytes", "loaded", "Loaded");
         var progress = element.ReadDouble("progress", "Progress");
         if (progress <= 0 && sizeBytes > 0 && loadedBytes > 0)
         {
@@ -64,22 +64,22 @@ public sealed class TorrentItem
 
         var item = new TorrentItem
         {
-            Hash = element.ReadString("hash", "Hash", "info_hash"),
+            Hash = element.ReadString("hash", "Hash", "info_hash", "InfoHash", "infoHash"),
             Title = element.ReadString("title", "Title", "name", "Name"),
-            SourceLink = element.ReadString("link", "Link", "magnet", "Magnet"),
+            SourceLink = element.ReadString("link", "Link", "sourceLink", "SourceLink", "magnet", "Magnet"),
             Category = element.ReadString("category", "Category"),
             Poster = element.ReadString("poster", "Poster"),
             Data = element.ReadString("data", "Data"),
-            TorrsHash = element.ReadString("torrs_hash", "TorrsHash"),
+            TorrsHash = element.ReadString("torrs_hash", "TorrsHash", "torrsHash"),
             SizeBytes = sizeBytes,
             LoadedBytes = loadedBytes,
-            PreloadedBytes = element.ReadInt64("preloaded_bytes", "PreloadedBytes", "preload_size", "PreloadSize"),
-            DownloadSpeed = element.ReadDouble("download_speed", "DownloadSpeed"),
-            UploadSpeed = element.ReadDouble("upload_speed", "UploadSpeed"),
+            PreloadedBytes = element.ReadInt64("preloaded_bytes", "PreloadedBytes", "preloadedBytes", "preload_size", "PreloadSize", "preloadSize"),
+            DownloadSpeed = element.ReadDouble("download_speed", "DownloadSpeed", "downloadSpeed", "download_rate", "DownloadRate", "downloadRate"),
+            UploadSpeed = element.ReadDouble("upload_speed", "UploadSpeed", "uploadSpeed", "upload_rate", "UploadRate", "uploadRate"),
             Progress = progress,
-            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders", "connected_seeders", "ConnectedSeeders"),
-            Peers = element.ReadInt32("peer", "Peer", "peers", "Peers", "total_peers", "TotalPeers"),
-            Status = element.ReadString("status", "Status", "stat_string", "StatString", "stat", "Stat")
+            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders", "connected_seeders", "ConnectedSeeders", "connectedSeeders"),
+            Peers = element.ReadInt32("peer", "Peer", "peers", "Peers", "total_peers", "TotalPeers", "totalPeers"),
+            Status = element.ReadString("status", "Status", "stat_string", "StatString", "statString", "stat", "Stat")
         };
 
         if (element.TryGetProperty("files", out var files) || element.TryGetProperty("Files", out files))
@@ -266,7 +266,7 @@ public sealed class TorrentFile
         {
             Id = element.ReadInt32("id", "Id", "index", "Index"),
             Path = path,
-            SizeBytes = element.ReadInt64("size", "Size", "length", "Length"),
+            SizeBytes = element.ReadInt64("size", "Size", "sizeBytes", "SizeBytes", "length", "Length"),
             MimeType = element.ReadString("mime", "Mime", "mime_type", "MimeType"),
             Resolution = ResolveResolution(
                 path,
@@ -386,17 +386,30 @@ public sealed class SearchResult
 
     public static SearchResult FromTorrServerJson(JsonElement element, string providerName)
     {
+        var link = element.ReadString("link", "Link", "downloadUrl", "DownloadUrl", "download_url", "url", "Url");
+        var magnet = element.ReadString("magnet", "Magnet", "magnetUrl", "MagnetUrl", "magnet_url");
+
         return new SearchResult
         {
             ProviderName = FirstNotEmpty(element.ReadString("tracker", "Tracker"), providerName),
             Title = FirstNotEmpty(element.ReadString("title", "Title"), element.ReadString("name", "Name")),
-            Link = element.ReadString("link", "Link"),
-            Magnet = element.ReadString("magnet", "Magnet"),
-            SizeBytes = ParseSizeBytes(element.ReadString("size", "Size")),
-            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders"),
-            Leechers = element.ReadInt32("peer", "Peer", "leechers", "Leechers", "peers", "Peers"),
-            Category = element.ReadString("categories", "Categories", "category", "Category"),
-            PublishedAt = ParsePublishedAt(element.ReadString("createDate", "CreateDate", "pubDate", "PubDate"))
+            Link = NonMagnetValue(link),
+            Magnet = FirstNotEmpty(magnet, MagnetValue(link)),
+            SizeBytes = ParseSizeBytes(element.ReadString("size", "Size", "sizeBytes", "SizeBytes", "length", "Length")),
+            Seeders = element.ReadInt32("seed", "Seed", "seeders", "Seeders", "seeds", "Seeds"),
+            Leechers = element.ReadInt32("peer", "Peer", "leechers", "Leechers", "peers", "Peers", "leeches", "Leeches"),
+            Category = element.ReadString("categories", "Categories", "category", "Category", "cat", "Cat"),
+            PublishedAt = ParsePublishedAt(element.ReadString(
+                "createDate",
+                "CreateDate",
+                "pubDate",
+                "PubDate",
+                "publishedAt",
+                "PublishedAt",
+                "publishDate",
+                "PublishDate",
+                "date",
+                "Date"))
         };
     }
 
@@ -411,7 +424,7 @@ public sealed class SearchResult
                 : null;
     }
 
-    private static long ParseSizeBytes(string value)
+    internal static long ParseSizeBytes(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -473,6 +486,16 @@ public sealed class SearchResult
     private static string FirstNotEmpty(params string[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static string MagnetValue(string value)
+    {
+        return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? value : string.Empty;
+    }
+
+    private static string NonMagnetValue(string value)
+    {
+        return value.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) ? string.Empty : value;
     }
 }
 

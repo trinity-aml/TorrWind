@@ -156,6 +156,55 @@ public sealed class TorrServerClientTorrentTests
         Assert.Equal("3", file.EpisodeText);
     }
 
+    [Fact]
+    public async Task GetTorrentsAsync_ParsesCamelCaseTorrentFields()
+    {
+        using var client = CreateClient(_ => Json("""
+            [
+              {
+                "infoHash": "camel",
+                "title": "Camel Show",
+                "sourceLink": "magnet:?xt=urn:btih:camel",
+                "torrsHash": "source-camel",
+                "torrentSize": 2000,
+                "loadedBytes": 500,
+                "preloadedBytes": 125,
+                "downloadSpeed": "2048.5",
+                "uploadRate": 1024,
+                "connectedSeeders": 8,
+                "totalPeers": 9,
+                "statString": "buffering",
+                "files": [
+                  {
+                    "id": 3,
+                    "path": "Camel.Show.S01E03.720p.mkv",
+                    "sizeBytes": 1000
+                  }
+                ]
+              }
+            ]
+            """));
+
+        var torrent = Assert.Single(await client.GetTorrentsAsync());
+
+        Assert.Equal("camel", torrent.Hash);
+        Assert.Equal("Camel Show", torrent.Title);
+        Assert.Equal("magnet:?xt=urn:btih:camel", torrent.SourceLink);
+        Assert.Equal("source-camel", torrent.TorrsHash);
+        Assert.Equal(2000, torrent.SizeBytes);
+        Assert.Equal(500, torrent.LoadedBytes);
+        Assert.Equal(125, torrent.PreloadedBytes);
+        Assert.Equal(2048.5, torrent.DownloadSpeed);
+        Assert.Equal(1024, torrent.UploadSpeed);
+        Assert.Equal(25, torrent.Progress);
+        Assert.Equal(8, torrent.Seeders);
+        Assert.Equal(9, torrent.Peers);
+        Assert.Equal("buffering", torrent.Status);
+        var file = Assert.Single(torrent.Files);
+        Assert.Equal(3, file.Id);
+        Assert.Equal(1000, file.SizeBytes);
+    }
+
     [Theory]
     [InlineData("movie.mkv", "", true)]
     [InlineData("movie", "video/x-matroska; charset=utf-8", true)]
