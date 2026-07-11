@@ -82,6 +82,23 @@ public sealed class AppSettingsStoreTests
     }
 
     [Fact]
+    public async Task LoadAsync_RestoresSettingsFromBackupWhenMainSettingsAreMissing()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var filePath = Path.Combine(directory.Path, "settings.json");
+        await File.WriteAllTextAsync(
+            filePath + ".bak",
+            JsonSerializer.Serialize(new AppSettings { Language = "ru" }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
+        var settings = await new AppSettingsStore(filePath).LoadAsync();
+
+        Assert.Equal("ru", settings.Language);
+        Assert.True(File.Exists(filePath));
+        var restored = await new AppSettingsStore(filePath).LoadExistingAsync();
+        Assert.Equal("ru", restored.Language);
+    }
+
+    [Fact]
     public async Task LoadExistingAsync_NormalizesNullCollectionsAndCreatesLocalServer()
     {
         using var directory = TemporaryDirectory.Create();
@@ -278,6 +295,25 @@ public sealed class AppSettingsStoreTests
 
         await store.SaveAsync(new AppSettings { Language = "en" });
         await store.SaveAsync(new AppSettings { Language = "ru" });
+
+        var current = await new AppSettingsStore(filePath).LoadExistingAsync();
+        var backup = await new AppSettingsStore(filePath + ".bak").LoadExistingAsync();
+
+        Assert.Equal("ru", current.Language);
+        Assert.Equal("en", backup.Language);
+    }
+
+    [Fact]
+    public async Task SaveAsync_DoesNotOverwriteValidBackupWhenCurrentSettingsAreCorrupt()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var filePath = Path.Combine(directory.Path, "settings.json");
+        await File.WriteAllTextAsync(filePath, "{ not-json");
+        await File.WriteAllTextAsync(
+            filePath + ".bak",
+            JsonSerializer.Serialize(new AppSettings { Language = "en" }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
+        await new AppSettingsStore(filePath).SaveAsync(new AppSettings { Language = "ru" });
 
         var current = await new AppSettingsStore(filePath).LoadExistingAsync();
         var backup = await new AppSettingsStore(filePath + ".bak").LoadExistingAsync();

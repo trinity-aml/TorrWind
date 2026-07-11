@@ -22,6 +22,21 @@ public sealed class AppSettingsStore
     {
         if (!File.Exists(_filePath))
         {
+            var backupPath = GetBackupPath();
+            if (File.Exists(backupPath))
+            {
+                try
+                {
+                    var recoveredSettings = await LoadFromFileAsync(backupPath, cancellationToken).ConfigureAwait(false);
+                    await SaveAsync(recoveredSettings, cancellationToken).ConfigureAwait(false);
+                    return recoveredSettings;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // A missing primary settings file should not make startup fail if the backup is unusable.
+                }
+            }
+
             var defaultSettings = AppSettings.CreateDefault();
             await SaveAsync(defaultSettings, cancellationToken);
             return defaultSettings;
@@ -67,7 +82,7 @@ public sealed class AppSettingsStore
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            if (File.Exists(_filePath))
+            if (File.Exists(_filePath) && await IsReadableSettingsFileAsync(_filePath, cancellationToken).ConfigureAwait(false))
             {
                 File.Copy(_filePath, GetBackupPath(), overwrite: true);
             }
@@ -110,6 +125,20 @@ public sealed class AppSettingsStore
     private string GetBackupPath()
     {
         return _filePath + ".bak";
+    }
+
+    private static async Task<bool> IsReadableSettingsFileAsync(string filePath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = File.OpenRead(filePath);
+            return await JsonSerializer.DeserializeAsync<AppSettings>(stream, SerializerOptions, cancellationToken)
+                .ConfigureAwait(false) is not null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     private static async Task<AppSettings> LoadFromFileAsync(string filePath, CancellationToken cancellationToken)
