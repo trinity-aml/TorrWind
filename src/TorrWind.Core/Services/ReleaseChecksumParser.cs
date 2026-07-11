@@ -8,6 +8,9 @@ internal static class ReleaseChecksumParser
     private static readonly Regex Sha256Regex = new(
         "(?:sha256:)?(?<hash>[a-f0-9]{64})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex CandidateTokenRegex = new(
+        "[^\\s\"'()=,;<>]+",
+        RegexOptions.Compiled);
 
     public static string NormalizeSha256(string? value)
     {
@@ -47,18 +50,15 @@ internal static class ReleaseChecksumParser
             return false;
         }
 
-        foreach (var token in line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        var decodedLine = WebUtility.HtmlDecode(WebUtility.UrlDecode(line));
+        foreach (Match match in CandidateTokenRegex.Matches(decodedLine))
         {
-            var candidate = WebUtility.UrlDecode(token)
-                .Trim()
-                .Trim('*', '"', '\'', '(', ')');
-            if (string.IsNullOrWhiteSpace(candidate))
+            var fileName = ExtractCandidateFileName(match.Value);
+            if (string.IsNullOrWhiteSpace(fileName))
             {
                 continue;
             }
 
-            candidate = candidate.Replace('\\', '/');
-            var fileName = candidate[(candidate.LastIndexOf('/') + 1)..];
             if (string.Equals(fileName, assetName, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -66,5 +66,27 @@ internal static class ReleaseChecksumParser
         }
 
         return false;
+    }
+
+    private static string ExtractCandidateFileName(string token)
+    {
+        var candidate = token
+            .Trim()
+            .Trim('*', '"', '\'', '(', ')', '[', ']', '{', '}', '<', '>', ',', ';');
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return string.Empty;
+        }
+
+        candidate = candidate.Replace('\\', '/');
+        var queryIndex = candidate.IndexOfAny(['?', '#']);
+        if (queryIndex >= 0)
+        {
+            candidate = candidate[..queryIndex];
+        }
+
+        return candidate[(candidate.LastIndexOf('/') + 1)..]
+            .Trim()
+            .Trim('*', '"', '\'', '(', ')', '[', ']', '{', '}', '<', '>', ',', ';');
     }
 }

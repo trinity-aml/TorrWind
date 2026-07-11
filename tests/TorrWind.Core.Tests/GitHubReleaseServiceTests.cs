@@ -114,6 +114,43 @@ public sealed class GitHubReleaseServiceTests
     }
 
     [Fact]
+    public async Task GetLatestTorrServerReleaseAsync_ParsesHtmlAssetLinksOutsideListItems()
+    {
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            if (request.RequestUri?.AbsoluteUri == "https://api.github.com/repos/YouROK/TorrServer/releases/latest")
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            if (request.Method == HttpMethod.Head)
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK);
+                response.Content = new ByteArrayContent([]);
+                response.Content.Headers.ContentLength = 12345;
+                return response;
+            }
+
+            return Html("""
+                <html>
+                  <body>
+                    <a href="/YouROK/TorrServer/releases/tag/MatriX.142">MatriX.142</a>
+                    <relative-time datetime="2026-07-03T19:25:30Z"></relative-time>
+                    <div>
+                      <a href="/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-windows-amd64.exe">plain</a>
+                    </div>
+                  </body>
+                </html>
+                """);
+        }));
+
+        var release = await new GitHubReleaseService(httpClient).GetLatestTorrServerReleaseAsync();
+
+        Assert.Equal("TorrServer-windows-amd64.exe", release.AssetName);
+        Assert.Equal(12345, release.SizeBytes);
+    }
+
+    [Fact]
     public async Task GetLatestTorrServerReleaseAsync_SendsCurrentTorrWindUserAgent()
     {
         string? userAgent = null;
@@ -198,6 +235,29 @@ public sealed class GitHubReleaseServiceTests
             {new string('2', 64)}  TorrServer-windows-amd64.exe.sig
             {expected}  {fileNameToken}
             """)));
+        var release = new TorrServerRelease(
+            "MatriX.142",
+            "TorrServer-windows-amd64.exe",
+            new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
+            100,
+            default,
+            false,
+            ChecksumDownloadUrl: new Uri("https://example.invalid/SHA256SUMS.txt"));
+
+        var actual = await new GitHubReleaseService(httpClient).GetExpectedSha256Async(release);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData("SHA256(TorrServer-windows-amd64.exe)={0}")]
+    [InlineData("https://github.com/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-windows-amd64.exe?download=1 {0}")]
+    [InlineData("https://github.com/YouROK/TorrServer/releases/download/MatriX.142/TorrServer-windows-amd64.exe?download=1&amp;raw=1 {0}")]
+    public async Task GetExpectedSha256Async_MatchesChecksumAssetInCommonUrlAndDigestFormats(string lineFormat)
+    {
+        var expected = new string('4', 64);
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ =>
+            Text(string.Format(lineFormat, expected))));
         var release = new TorrServerRelease(
             "MatriX.142",
             "TorrServer-windows-amd64.exe",

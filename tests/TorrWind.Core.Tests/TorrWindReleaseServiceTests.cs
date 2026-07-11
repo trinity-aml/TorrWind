@@ -129,6 +129,43 @@ public sealed class TorrWindReleaseServiceTests
     }
 
     [Fact]
+    public async Task GetLatestReleaseAsync_ParsesHtmlAssetLinksOutsideListItems()
+    {
+        using var httpClient = new HttpClient(new StaticResponseHandler(request =>
+        {
+            if (request.RequestUri?.AbsoluteUri == "https://api.github.com/repos/trinity-aml/TorrWind/releases/latest")
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            }
+
+            if (request.Method == HttpMethod.Head)
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK);
+                response.Content = new ByteArrayContent([]);
+                response.Content.Headers.ContentLength = 54321;
+                return response;
+            }
+
+            return Html("""
+                <html>
+                  <body>
+                    <a href="/trinity-aml/TorrWind/releases/tag/v1.0.4">v1.0.4</a>
+                    <relative-time datetime="2026-07-10T10:15:00Z"></relative-time>
+                    <div>
+                      <a href="/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64.exe">installer</a>
+                    </div>
+                  </body>
+                </html>
+                """);
+        }));
+
+        var release = await new TorrWindReleaseService(httpClient).GetLatestReleaseAsync();
+
+        Assert.Equal("TorrWind-1.0.4-win-x64.exe", release.PackageName);
+        Assert.Equal(54321, release.SizeBytes);
+    }
+
+    [Fact]
     public async Task GetLatestReleaseAsync_SendsCurrentTorrWindUserAgent()
     {
         string? userAgent = null;
@@ -215,6 +252,30 @@ public sealed class TorrWindReleaseServiceTests
             {new string('2', 64)}  TorrWind-1.0.4-win-x64.exe.sig
             {expected}  {fileNameToken}
             """)));
+        var release = new TorrWindRelease(
+            "v1.0.4",
+            "TorrWind-1.0.4-win-x64.exe",
+            new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
+            100,
+            default,
+            false,
+            "Installer",
+            ChecksumDownloadUrl: new Uri("https://example.invalid/SHA256SUMS.txt"));
+
+        var actual = await new TorrWindReleaseService(httpClient).GetExpectedSha256Async(release);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData("SHA256(TorrWind-1.0.4-win-x64.exe)={0}")]
+    [InlineData("https://github.com/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64.exe?download=1 {0}")]
+    [InlineData("https://github.com/trinity-aml/TorrWind/releases/download/v1.0.4/TorrWind-1.0.4-win-x64.exe?download=1&amp;raw=1 {0}")]
+    public async Task GetExpectedSha256Async_MatchesChecksumPackageInCommonUrlAndDigestFormats(string lineFormat)
+    {
+        var expected = new string('4', 64);
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ =>
+            Text(string.Format(lineFormat, expected))));
         var release = new TorrWindRelease(
             "v1.0.4",
             "TorrWind-1.0.4-win-x64.exe",

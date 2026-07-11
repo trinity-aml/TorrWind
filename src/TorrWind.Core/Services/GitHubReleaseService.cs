@@ -368,21 +368,34 @@ public sealed class GitHubReleaseService
                 continue;
             }
 
-            var href = WebUtility.HtmlDecode(hrefMatch.Groups["href"].Value);
-            var downloadUrl = new Uri(new Uri(GitHubBaseUrl), href);
-            if (!seen.Add(downloadUrl.AbsoluteUri))
-            {
-                continue;
-            }
+            AddReleaseAsset(assets, seen, hrefMatch.Groups["href"].Value);
+        }
 
-            var name = ExtractAssetName(href);
-            if (!string.IsNullOrWhiteSpace(name))
+        if (assets.Count == 0)
+        {
+            foreach (Match hrefMatch in AssetHrefRegex.Matches(html))
             {
-                assets.Add(new ReleaseAsset(name, downloadUrl, 0));
+                AddReleaseAsset(assets, seen, hrefMatch.Groups["href"].Value);
             }
         }
 
         return assets;
+    }
+
+    private static void AddReleaseAsset(List<ReleaseAsset> assets, HashSet<string> seen, string hrefValue)
+    {
+        var href = WebUtility.HtmlDecode(hrefValue);
+        var downloadUrl = new Uri(new Uri(GitHubBaseUrl), href);
+        if (!seen.Add(downloadUrl.AbsoluteUri))
+        {
+            return;
+        }
+
+        var name = ExtractAssetName(href);
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            assets.Add(new ReleaseAsset(name, downloadUrl, 0));
+        }
     }
 
     private static string? TryExtractReleaseTag(Uri uri)
