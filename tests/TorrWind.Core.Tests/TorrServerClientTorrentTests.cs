@@ -262,6 +262,38 @@ public sealed class TorrServerClientTorrentTests
         Assert.Equal(4096, file.SizeBytes);
     }
 
+    [Fact]
+    public async Task GetTorrentsAsync_ParsesHumanReadableTorrentAndFileSizes()
+    {
+        using var client = CreateClient(_ => Json("""
+            [
+              {
+                "hash": "sizes",
+                "title": "Human Sizes",
+                "size": "2 GiB",
+                "loadedSize": "1 GiB",
+                "preloadedBytes": "512 MiB",
+                "files": [
+                  {
+                    "id": 1,
+                    "path": "Human.Sizes.1080p.mkv",
+                    "size": "1.5 GiB"
+                  }
+                ]
+              }
+            ]
+            """));
+
+        var torrent = Assert.Single(await client.GetTorrentsAsync());
+
+        Assert.Equal(2147483648, torrent.SizeBytes);
+        Assert.Equal(1073741824, torrent.LoadedBytes);
+        Assert.Equal(536870912, torrent.PreloadedBytes);
+        Assert.Equal(50, torrent.Progress);
+        var file = Assert.Single(torrent.Files);
+        Assert.Equal(1610612736, file.SizeBytes);
+    }
+
     [Theory]
     [InlineData("movie.mkv", "", true)]
     [InlineData("movie", "video/x-matroska; charset=utf-8", true)]

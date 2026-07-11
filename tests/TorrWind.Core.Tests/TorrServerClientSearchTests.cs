@@ -233,6 +233,44 @@ public sealed class TorrServerClientSearchTests
     }
 
     [Fact]
+    public async Task SearchServerTorznabAsync_ParsesUnixPublishedTimestamps()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              { "title": "Unix Seconds", "publishedAt": 1783773000 },
+              { "title": "Unix Milliseconds", "publishedAt": 1783773000000 }
+            ]
+            """));
+
+        var results = await client.SearchServerTorznabAsync("timestamp");
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal(2026, results[0].PublishedAt?.Year);
+        Assert.Equal(7, results[0].PublishedAt?.Month);
+        Assert.Equal(11, results[0].PublishedAt?.Day);
+        Assert.Equal(2026, results[1].PublishedAt?.Year);
+        Assert.Equal(7, results[1].PublishedAt?.Month);
+        Assert.Equal(11, results[1].PublishedAt?.Day);
+    }
+
+    [Fact]
+    public async Task SearchServerTorznabAsync_JoinsPrimitiveCategoryArrays()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              {
+                "title": "Category Array",
+                "categories": [5000, "5030"]
+              }
+            ]
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("category"));
+
+        Assert.Equal("5000,5030", result.Category);
+    }
+
+    [Fact]
     public async Task SearchServerTorznabAsync_ReturnsEmptyForUnsupportedJsonShape()
     {
         using var client = CreateClient("Home", _ => Json("""

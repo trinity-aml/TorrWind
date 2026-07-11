@@ -54,8 +54,8 @@ public sealed class TorrentItem
 
     public static TorrentItem FromJson(JsonElement element)
     {
-        var sizeBytes = element.ReadInt64("size", "Size", "sizeBytes", "SizeBytes", "length", "Length", "torrent_size", "TorrentSize", "torrentSize");
-        var loadedBytes = element.ReadInt64("loaded_size", "LoadedSize", "loadedSize", "loaded_bytes", "LoadedBytes", "loadedBytes", "loaded", "Loaded");
+        var sizeBytes = element.ReadSizeBytes("size", "Size", "sizeBytes", "SizeBytes", "length", "Length", "torrent_size", "TorrentSize", "torrentSize");
+        var loadedBytes = element.ReadSizeBytes("loaded_size", "LoadedSize", "loadedSize", "loaded_bytes", "LoadedBytes", "loadedBytes", "loaded", "Loaded");
         var progress = element.ReadDouble("progress", "Progress");
         if (progress <= 0 && sizeBytes > 0 && loadedBytes > 0)
         {
@@ -73,7 +73,7 @@ public sealed class TorrentItem
             TorrsHash = element.ReadString("torrs_hash", "TorrsHash", "torrsHash"),
             SizeBytes = sizeBytes,
             LoadedBytes = loadedBytes,
-            PreloadedBytes = element.ReadInt64("preloaded_bytes", "PreloadedBytes", "preloadedBytes", "preload_size", "PreloadSize", "preloadSize"),
+            PreloadedBytes = element.ReadSizeBytes("preloaded_bytes", "PreloadedBytes", "preloadedBytes", "preload_size", "PreloadSize", "preloadSize"),
             DownloadSpeed = element.ReadDouble("download_speed", "DownloadSpeed", "downloadSpeed", "download_rate", "DownloadRate", "downloadRate"),
             UploadSpeed = element.ReadDouble("upload_speed", "UploadSpeed", "uploadSpeed", "upload_rate", "UploadRate", "uploadRate"),
             Progress = progress,
@@ -267,7 +267,7 @@ public sealed class TorrentFile
         {
             Id = element.ReadInt32("id", "Id", "index", "Index"),
             Path = path,
-            SizeBytes = element.ReadInt64("size", "Size", "sizeBytes", "SizeBytes", "length", "Length"),
+            SizeBytes = element.ReadSizeBytes("size", "Size", "sizeBytes", "SizeBytes", "length", "Length"),
             MimeType = element.ReadString("mime", "Mime", "mime_type", "MimeType"),
             Resolution = ResolveResolution(
                 path,
@@ -414,10 +414,25 @@ public sealed class SearchResult
         };
     }
 
-    private static DateTimeOffset? ParsePublishedAt(string value)
+    internal static DateTimeOffset? ParsePublishedAt(string value)
     {
+        var trimmed = value.Trim();
+        if (long.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var timestamp))
+        {
+            try
+            {
+                return trimmed.Length > 10
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp)
+                    : DateTimeOffset.FromUnixTimeSeconds(timestamp);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return null;
+            }
+        }
+
         return DateTimeOffset.TryParse(
-            value,
+            trimmed,
             CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal,
             out var publishedAt)
@@ -467,7 +482,9 @@ public sealed class SearchResult
         }
 
         var unit = unitText.Trim().ToUpperInvariant();
-        var baseValue = unit.Contains('I', StringComparison.Ordinal) || unit.Contains('C', StringComparison.Ordinal)
+        var baseValue = unit.Contains('I', StringComparison.Ordinal) ||
+            unit.Contains('\u0418', StringComparison.Ordinal) ||
+            unit.Contains('C', StringComparison.Ordinal)
             ? 1024D
             : 1000D;
         var exponent = unit.Length == 0
@@ -514,12 +531,29 @@ internal static class JsonElementExtensions
                     JsonValueKind.Number => property.GetRawText(),
                     JsonValueKind.True => "true",
                     JsonValueKind.False => "false",
+                    JsonValueKind.Array => JoinPrimitiveArrayValues(property),
                     _ => string.Empty
                 };
             }
         }
 
         return string.Empty;
+    }
+
+    private static string JoinPrimitiveArrayValues(JsonElement array)
+    {
+        return string.Join(
+            ",",
+            array.EnumerateArray()
+                .Select(item => item.ValueKind switch
+                {
+                    JsonValueKind.String => item.GetString() ?? string.Empty,
+                    JsonValueKind.Number => item.GetRawText(),
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    _ => string.Empty
+                })
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     public static int ReadInt32(this JsonElement element, params string[] names)
@@ -566,6 +600,11 @@ internal static class JsonElementExtensions
         }
 
         return 0;
+    }
+
+    public static long ReadSizeBytes(this JsonElement element, params string[] names)
+    {
+        return SearchResult.ParseSizeBytes(element.ReadString(names));
     }
 
     public static double ReadDouble(this JsonElement element, params string[] names)

@@ -82,13 +82,11 @@ public sealed class TorznabSearchClient
                     Seeders = ParseInt(FirstNotEmpty(AttributeValue(item, "seeders"), ElementValue(item, "seeders"), ElementValue(item, "seeds"))),
                     Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"), ElementValue(item, "leechers"), ElementValue(item, "peers"), ElementValue(item, "leeches"))),
                     Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValue(item, "category")),
-                    PublishedAt = DateTimeOffset.TryParse(
+                    PublishedAt = SearchResult.ParsePublishedAt(FirstNotEmpty(
                         ElementValue(item, "pubDate"),
-                        CultureInfo.InvariantCulture,
-                        DateTimeStyles.AssumeUniversal,
-                        out var publishedAt)
-                        ? publishedAt
-                        : null
+                        ElementValue(item, "publishedAt"),
+                        ElementValue(item, "publishDate"),
+                        ElementValue(item, "date")))
                 };
             })
             .Where(result => !string.IsNullOrWhiteSpace(result.Title))

@@ -224,12 +224,18 @@ public sealed class TorznabSearchClientTests
                   <link>http://indexer.local/download/1</link>
                   <size>1.5 GiB</size>
                 </item>
+                <item>
+                  <title>Movie Human Size Ru</title>
+                  <link>http://indexer.local/download/2</link>
+                  <size>1 МиБ</size>
+                </item>
               </channel>
             </rss>
             """, "Indexer");
 
-        var result = Assert.Single(results);
-        Assert.Equal(1610612736, result.SizeBytes);
+        Assert.Equal(2, results.Count);
+        Assert.Equal(1610612736, results[0].SizeBytes);
+        Assert.Equal(1048576, results[1].SizeBytes);
     }
 
     [Fact]
@@ -256,6 +262,27 @@ public sealed class TorznabSearchClientTests
         Assert.Equal(31, result.Seeders);
         Assert.Equal(6, result.Leechers);
         Assert.Equal("5030", result.Category);
+    }
+
+    [Fact]
+    public void Parse_ReadsUnixPublishedTimestamps()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss>
+              <channel>
+                <item>
+                  <title>Unix RSS Date</title>
+                  <link>http://indexer.local/download/1</link>
+                  <publishedAt>1783773000</publishedAt>
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
+        Assert.Equal(2026, result.PublishedAt?.Year);
+        Assert.Equal(7, result.PublishedAt?.Month);
+        Assert.Equal(11, result.PublishedAt?.Day);
     }
 
     [Fact]
