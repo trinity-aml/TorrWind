@@ -42,7 +42,16 @@ public sealed class FileEventLog
             return [];
         }
 
-        var lines = await File.ReadAllLinesAsync(LogFilePath, cancellationToken).ConfigureAwait(false);
+        string[] lines;
+        try
+        {
+            lines = await ReadAllLinesSharedAsync(LogFilePath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+
         return lines
             .AsEnumerable()
             .Reverse()
@@ -113,6 +122,25 @@ public sealed class FileEventLog
         File.Move(LogFilePath, archivePath);
     }
 
+    private static async Task<string[]> ReadAllLinesSharedAsync(string filePath, CancellationToken cancellationToken)
+    {
+        var lines = new List<string>();
+        await using var stream = new FileStream(
+            filePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 16 * 1024,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var reader = new StreamReader(stream);
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            lines.Add(line);
+        }
+
+        return lines.ToArray();
+    }
+
     private AppLogEntry? Parse(string line)
     {
         if (string.IsNullOrWhiteSpace(line))
@@ -128,6 +156,7 @@ public sealed class FileEventLog
                 entry.LogFile = LogFilePath;
             }
 
+            NormalizeEntry(entry);
             return entry;
         }
         catch
@@ -141,5 +170,20 @@ public sealed class FileEventLog
                 LogFile = LogFilePath
             };
         }
+    }
+
+    private static void NormalizeEntry(AppLogEntry? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        entry.Level ??= string.Empty;
+        entry.Source ??= string.Empty;
+        entry.Message ??= string.Empty;
+        entry.Details ??= string.Empty;
+        entry.Exception ??= string.Empty;
+        entry.LogFile ??= string.Empty;
     }
 }

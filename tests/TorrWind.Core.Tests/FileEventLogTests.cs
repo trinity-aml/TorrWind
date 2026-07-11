@@ -58,6 +58,40 @@ public sealed class FileEventLogTests
     }
 
     [Fact]
+    public async Task ReadLatestAsync_ReadsLogWhileFileIsOpenForWriting()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var logPath = Path.Combine(directory.Path, "gui.jsonl");
+        await using var stream = new FileStream(logPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+        await using var writer = new StreamWriter(stream);
+        await writer.WriteLineAsync("""{"level":"Info","source":"App","message":"Open"}""");
+        await writer.FlushAsync();
+
+        var entry = Assert.Single(await new FileEventLog(logPath).ReadLatestAsync());
+
+        Assert.Equal("Open", entry.Message);
+    }
+
+    [Fact]
+    public async Task ReadLatestAsync_NormalizesNullJsonStringFields()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var logPath = Path.Combine(directory.Path, "gui.jsonl");
+        await File.WriteAllTextAsync(logPath, """
+            {"level":null,"source":null,"message":null,"details":null,"exception":null,"logFile":null}
+            """);
+
+        var entry = Assert.Single(await new FileEventLog(logPath).ReadLatestAsync());
+
+        Assert.Equal(string.Empty, entry.Level);
+        Assert.Equal(string.Empty, entry.Source);
+        Assert.Equal(string.Empty, entry.Message);
+        Assert.Equal(string.Empty, entry.Details);
+        Assert.Equal(string.Empty, entry.Exception);
+        Assert.Equal(logPath, entry.LogFile);
+    }
+
+    [Fact]
     public async Task Clear_LeavesEmptyLogFile()
     {
         using var directory = TemporaryDirectory.Create();
