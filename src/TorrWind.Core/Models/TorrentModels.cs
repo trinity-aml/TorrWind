@@ -392,7 +392,15 @@ public sealed class SearchResult
 
         return new SearchResult
         {
-            ProviderName = FirstNotEmpty(element.ReadString("tracker", "Tracker"), providerName),
+            ProviderName = FirstNotEmpty(element.ReadString(
+                "tracker",
+                "Tracker",
+                "provider",
+                "Provider",
+                "indexer",
+                "Indexer",
+                "source",
+                "Source"), providerName),
             Title = FirstNotEmpty(element.ReadString("title", "Title"), element.ReadString("name", "Name")),
             Link = NonMagnetValue(link),
             Magnet = FirstNotEmpty(magnet, MagnetValue(link)),

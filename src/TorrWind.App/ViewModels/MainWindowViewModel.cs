@@ -3497,8 +3497,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             ? SearchMaxSizeGb * 1024L * 1024L * 1024L
             : 0;
 
-        var categories = SearchCategories
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        var categories = SplitSearchCategories(SearchCategories)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         return results
@@ -3517,9 +3516,14 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             return true;
         }
 
-        return result.Category
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Any(selectedCategories.Contains);
+        return SplitSearchCategories(result.Category).Any(selectedCategories.Contains);
+    }
+
+    private static IEnumerable<string> SplitSearchCategories(string categories)
+    {
+        char[] separators = [',', ';', '|', ' ', '\t', '\r', '\n'];
+
+        return categories.Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private bool IsWithinPublishedDateRange(SearchResult result)

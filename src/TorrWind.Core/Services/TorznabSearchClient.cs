@@ -81,7 +81,7 @@ public sealed class TorznabSearchClient
                     SizeBytes = SearchResult.ParseSizeBytes(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
                     Seeders = ParseInt(FirstNotEmpty(AttributeValue(item, "seeders"), ElementValue(item, "seeders"), ElementValue(item, "seeds"))),
                     Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"), ElementValue(item, "leechers"), ElementValue(item, "peers"), ElementValue(item, "leeches"))),
-                    Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValues(item, "category")),
+                    Category = FirstNotEmpty(AttributeValues(item, "category"), ElementValues(item, "category")),
                     PublishedAt = SearchResult.ParsePublishedAt(FirstNotEmpty(
                         ElementValue(item, "pubDate"),
                         ElementValue(item, "publishedAt"),
@@ -127,7 +127,7 @@ public sealed class TorznabSearchClient
         var selectedCategories = FirstNotEmpty(categories, provider.Categories);
         if (!string.IsNullOrWhiteSpace(selectedCategories))
         {
-            parameters["cat"] = selectedCategories.Trim();
+            parameters["cat"] = NormalizeCategoryList(selectedCategories);
         }
 
         if (!TryNormalizeProviderUrl(provider.Url, out var providerUri))
@@ -207,6 +207,17 @@ public sealed class TorznabSearchClient
         return result;
     }
 
+    private static string NormalizeCategoryList(string categories)
+    {
+        char[] separators = [',', ';', '|', ' ', '\t', '\r', '\n'];
+
+        return string.Join(
+            ",",
+            categories
+                .Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
     private static string ElementValue(XElement parent, string localName)
     {
         return parent
@@ -240,6 +251,22 @@ public sealed class TorznabSearchClient
             ?.Attribute("value")
             ?.Value
             .Trim() ?? string.Empty;
+    }
+
+    private static string AttributeValues(XElement item, string attrName)
+    {
+        return string.Join(
+            ",",
+            item
+                .Descendants()
+                .Where(element => string.Equals(element.Name.LocalName, "attr", StringComparison.OrdinalIgnoreCase))
+                .Where(element => string.Equals(
+                    (string?)element.Attribute("name"),
+                    attrName,
+                    StringComparison.OrdinalIgnoreCase))
+                .Select(element => element.Attribute("value")?.Value.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
     private static string EnclosureValue(XElement item, string attrName)

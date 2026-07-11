@@ -111,6 +111,28 @@ public sealed class TorznabSearchClientTests
     }
 
     [Fact]
+    public async Task SearchAsync_NormalizesCategorySeparators()
+    {
+        Uri? requestedUri = null;
+        var client = CreateClient(request =>
+        {
+            requestedUri = request.RequestUri;
+            return Rss("<rss><channel /></rss>");
+        });
+
+        await client.SearchAsync(
+            new SearchProviderSettings
+            {
+                Url = "http://indexer.local/api",
+                Categories = "5000; 5030|5040 5000"
+            },
+            "query",
+            "");
+
+        AssertQuery(requestedUri!, "cat", "5000,5030,5040");
+    }
+
+    [Fact]
     public async Task SearchAsync_ReturnsEmptyWhenProviderUrlIsBlank()
     {
         var client = CreateClient(_ => throw new InvalidOperationException("HTTP must not be used."));
@@ -295,6 +317,27 @@ public sealed class TorznabSearchClientTests
 
         var result = Assert.Single(results);
         Assert.Equal("Fallback Name", result.Title);
+        Assert.Equal("5000,5030", result.Category);
+    }
+
+    [Fact]
+    public void Parse_JoinsMultipleTorznabCategoryAttributes()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss xmlns:torznab="http://torznab.com/schemas/2015/feed">
+              <channel>
+                <item>
+                  <title>Torznab Category Attrs</title>
+                  <link>http://indexer.local/download/categories</link>
+                  <torznab:attr name="category" value="5000" />
+                  <torznab:attr name="category" value="5030" />
+                  <torznab:attr name="category" value="5000" />
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
         Assert.Equal("5000,5030", result.Category);
     }
 

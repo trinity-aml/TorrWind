@@ -184,6 +184,26 @@ public sealed class TorrServerClientSearchTests
         Assert.Equal(2026, result.PublishedAt?.Year);
     }
 
+    [Theory]
+    [InlineData("provider")]
+    [InlineData("indexer")]
+    [InlineData("source")]
+    public async Task SearchServerTorznabAsync_ParsesAlternativeProviderNameFields(string fieldName)
+    {
+        using var client = CreateClient("Home", _ => Json($$"""
+            [
+              {
+                "title": "Provider Field",
+                "{{fieldName}}": "Indexer Name"
+              }
+            ]
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("provider"));
+
+        Assert.Equal("Indexer Name", result.ProviderName);
+    }
+
     [Fact]
     public async Task SearchServerTorznabAsync_TreatsMagnetLinkAsMagnet()
     {
