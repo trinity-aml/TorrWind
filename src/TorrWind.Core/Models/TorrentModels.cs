@@ -447,7 +447,7 @@ public sealed class SearchResult
             return 0;
         }
 
-        var trimmed = value.Trim();
+        var trimmed = value.Trim().Replace('\u00A0', ' ');
         if (long.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bytes))
         {
             return bytes;
@@ -457,7 +457,21 @@ public sealed class SearchResult
         var numericText = parts.Length > 0 ? parts[0] : string.Empty;
         var unitText = parts.Length > 1 ? parts[1] : "B";
 
-        if (parts.Length == 1)
+        if (parts.Length > 1)
+        {
+            var lastPart = parts[^1];
+            if (parts.Take(parts.Length - 1).All(IsIntegerGroup) && !IsIntegerGroup(lastPart))
+            {
+                numericText = string.Concat(parts.Take(parts.Length - 1));
+                unitText = lastPart;
+            }
+            else if (parts.All(IsIntegerGroup))
+            {
+                numericText = string.Concat(parts);
+                unitText = "B";
+            }
+        }
+        else
         {
             var unitStart = 0;
             while (unitStart < trimmed.Length &&
@@ -499,6 +513,11 @@ public sealed class SearchResult
             };
 
         return (long)Math.Round(numericValue * Math.Pow(baseValue, exponent));
+    }
+
+    private static bool IsIntegerGroup(string value)
+    {
+        return value.All(char.IsDigit);
     }
 
     private static string FirstNotEmpty(params string[] values)
@@ -570,9 +589,21 @@ internal static class JsonElementExtensions
                 return value;
             }
 
-            if (property.ValueKind == JsonValueKind.String && int.TryParse(property.GetString(), out value))
+            if (property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out var number))
+            {
+                return ClampToInt32(number);
+            }
+
+            if (property.ValueKind == JsonValueKind.String &&
+                int.TryParse(property.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
             {
                 return value;
+            }
+
+            if (property.ValueKind == JsonValueKind.String &&
+                double.TryParse(property.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+            {
+                return ClampToInt32(number);
             }
         }
 
@@ -593,13 +624,65 @@ internal static class JsonElementExtensions
                 return value;
             }
 
-            if (property.ValueKind == JsonValueKind.String && long.TryParse(property.GetString(), out value))
+            if (property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out var number))
+            {
+                return ClampToInt64(number);
+            }
+
+            if (property.ValueKind == JsonValueKind.String &&
+                long.TryParse(property.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
             {
                 return value;
+            }
+
+            if (property.ValueKind == JsonValueKind.String &&
+                double.TryParse(property.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+            {
+                return ClampToInt64(number);
             }
         }
 
         return 0;
+    }
+
+    private static int ClampToInt32(double value)
+    {
+        if (double.IsNaN(value))
+        {
+            return 0;
+        }
+
+        if (value >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        if (value <= int.MinValue)
+        {
+            return int.MinValue;
+        }
+
+        return (int)value;
+    }
+
+    private static long ClampToInt64(double value)
+    {
+        if (double.IsNaN(value))
+        {
+            return 0;
+        }
+
+        if (value >= long.MaxValue)
+        {
+            return long.MaxValue;
+        }
+
+        if (value <= long.MinValue)
+        {
+            return long.MinValue;
+        }
+
+        return (long)value;
     }
 
     public static long ReadSizeBytes(this JsonElement element, params string[] names)

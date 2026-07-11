@@ -271,6 +271,25 @@ public sealed class TorrServerClientSearchTests
     }
 
     [Fact]
+    public async Task SearchServerTorznabAsync_TruncatesFractionalIntegerFields()
+    {
+        using var client = CreateClient("Home", _ => Json("""
+            [
+              {
+                "title": "Fractional Integers",
+                "seeders": 12.9,
+                "leechers": "3.7"
+              }
+            ]
+            """));
+
+        var result = Assert.Single(await client.SearchServerTorznabAsync("fractional"));
+
+        Assert.Equal(12, result.Seeders);
+        Assert.Equal(3, result.Leechers);
+    }
+
+    [Fact]
     public async Task SearchServerTorznabAsync_ReturnsEmptyForUnsupportedJsonShape()
     {
         using var client = CreateClient("Home", _ => Json("""

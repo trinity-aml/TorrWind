@@ -3505,11 +3505,21 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             .Where(result => SearchMinSeeders <= 0 || result.Seeders >= SearchMinSeeders)
             .Where(result => maxSizeBytes <= 0 || result.SizeBytes <= 0 || result.SizeBytes <= maxSizeBytes)
             .Where(IsWithinPublishedDateRange)
-            .Where(result => categories.Count == 0 ||
-                string.IsNullOrWhiteSpace(result.Category) ||
-                categories.Contains(result.Category))
+            .Where(result => MatchesSearchCategories(result, categories))
             .OrderByDescending(result => result.Seeders)
             .ThenByDescending(result => result.PublishedAt);
+    }
+
+    private static bool MatchesSearchCategories(SearchResult result, HashSet<string> selectedCategories)
+    {
+        if (selectedCategories.Count == 0 || string.IsNullOrWhiteSpace(result.Category))
+        {
+            return true;
+        }
+
+        return result.Category
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(selectedCategories.Contains);
     }
 
     private bool IsWithinPublishedDateRange(SearchResult result)

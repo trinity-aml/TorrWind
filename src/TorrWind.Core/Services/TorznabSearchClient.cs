@@ -64,7 +64,7 @@ public sealed class TorznabSearchClient
                 return new SearchResult
                 {
                     ProviderName = providerName,
-                    Title = ElementValue(item, "title"),
+                    Title = FirstNotEmpty(ElementValue(item, "title"), ElementValue(item, "name")),
                     Link = FirstNotEmpty(
                         NonMagnetValue(link),
                         NonMagnetValue(ElementValue(item, "downloadUrl")),
@@ -81,7 +81,7 @@ public sealed class TorznabSearchClient
                     SizeBytes = SearchResult.ParseSizeBytes(FirstNotEmpty(ElementValue(item, "size"), AttributeValue(item, "size"), EnclosureValue(item, "length"))),
                     Seeders = ParseInt(FirstNotEmpty(AttributeValue(item, "seeders"), ElementValue(item, "seeders"), ElementValue(item, "seeds"))),
                     Leechers = ParseInt(FirstNotEmpty(AttributeValue(item, "leechers"), AttributeValue(item, "peers"), ElementValue(item, "leechers"), ElementValue(item, "peers"), ElementValue(item, "leeches"))),
-                    Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValue(item, "category")),
+                    Category = FirstNotEmpty(AttributeValue(item, "category"), ElementValues(item, "category")),
                     PublishedAt = SearchResult.ParsePublishedAt(FirstNotEmpty(
                         ElementValue(item, "pubDate"),
                         ElementValue(item, "publishedAt"),
@@ -216,6 +216,18 @@ public sealed class TorznabSearchClient
             .Trim() ?? string.Empty;
     }
 
+    private static string ElementValues(XElement parent, string localName)
+    {
+        return string.Join(
+            ",",
+            parent
+                .Elements()
+                .Where(element => string.Equals(element.Name.LocalName, localName, StringComparison.OrdinalIgnoreCase))
+                .Select(element => element.Value.Trim())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
     private static string AttributeValue(XElement item, string attrName)
     {
         return item
@@ -269,7 +281,28 @@ public sealed class TorznabSearchClient
 
     private static int ParseInt(string value)
     {
-        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : 0;
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+        {
+            return result;
+        }
+
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ||
+            double.IsNaN(number))
+        {
+            return 0;
+        }
+
+        if (number >= int.MaxValue)
+        {
+            return int.MaxValue;
+        }
+
+        if (number <= int.MinValue)
+        {
+            return int.MinValue;
+        }
+
+        return (int)number;
     }
 
 }

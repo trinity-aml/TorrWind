@@ -229,13 +229,25 @@ public sealed class TorznabSearchClientTests
                   <link>http://indexer.local/download/2</link>
                   <size>1 МиБ</size>
                 </item>
+                <item>
+                  <title>Movie Grouped Size</title>
+                  <link>http://indexer.local/download/3</link>
+                  <size>1 024 KiB</size>
+                </item>
+                <item>
+                  <title>Movie Non Breaking Space Size</title>
+                  <link>http://indexer.local/download/4</link>
+                  <size>1 024</size>
+                </item>
               </channel>
             </rss>
             """, "Indexer");
 
-        Assert.Equal(2, results.Count);
+        Assert.Equal(4, results.Count);
         Assert.Equal(1610612736, results[0].SizeBytes);
         Assert.Equal(1048576, results[1].SizeBytes);
+        Assert.Equal(1048576, results[2].SizeBytes);
+        Assert.Equal(1024, results[3].SizeBytes);
     }
 
     [Fact]
@@ -262,6 +274,49 @@ public sealed class TorznabSearchClientTests
         Assert.Equal(31, result.Seeders);
         Assert.Equal(6, result.Leechers);
         Assert.Equal("5030", result.Category);
+    }
+
+    [Fact]
+    public void Parse_UsesNameAsTitleFallbackAndJoinsMultipleCategories()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss>
+              <channel>
+                <item>
+                  <name>Fallback Name</name>
+                  <link>http://indexer.local/download/name</link>
+                  <category>5000</category>
+                  <category>5030</category>
+                  <category>5000</category>
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
+        Assert.Equal("Fallback Name", result.Title);
+        Assert.Equal("5000,5030", result.Category);
+    }
+
+    [Fact]
+    public void Parse_TruncatesFractionalIntegerFields()
+    {
+        var results = TorznabSearchClient.Parse("""
+            <rss>
+              <channel>
+                <item>
+                  <title>Fractional RSS Integers</title>
+                  <link>http://indexer.local/download/fractional</link>
+                  <seeders>9.8</seeders>
+                  <leechers>2.4</leechers>
+                </item>
+              </channel>
+            </rss>
+            """, "Indexer");
+
+        var result = Assert.Single(results);
+        Assert.Equal(9, result.Seeders);
+        Assert.Equal(2, result.Leechers);
     }
 
     [Fact]
