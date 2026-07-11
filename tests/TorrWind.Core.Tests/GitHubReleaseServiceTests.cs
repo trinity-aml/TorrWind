@@ -252,6 +252,7 @@ public sealed class GitHubReleaseServiceTests
         await new GitHubReleaseService(httpClient).DownloadAsync(
             new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
             destination,
+            payload.Length,
             new Progress<long>(bytes => progressReports.Add(bytes)));
 
         Assert.Equal(payload, await File.ReadAllBytesAsync(destination));
@@ -272,6 +273,28 @@ public sealed class GitHubReleaseServiceTests
                 new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
                 destination));
 
+        Assert.False(File.Exists(destination));
+        Assert.False(File.Exists(destination + ".download"));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_RemovesTemporaryFileWhenDownloadedSizeDoesNotMatchExpectedSize()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var destination = Path.Combine(directory.Path, "TorrServer-windows-amd64.exe");
+        var payload = Encoding.UTF8.GetBytes("short");
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(payload)
+        }));
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            new GitHubReleaseService(httpClient).DownloadAsync(
+                new Uri("https://example.invalid/TorrServer-windows-amd64.exe"),
+                destination,
+                expectedSizeBytes: payload.Length + 1));
+
+        Assert.Contains("size mismatch", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(destination));
         Assert.False(File.Exists(destination + ".download"));
     }

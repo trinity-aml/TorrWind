@@ -57,9 +57,19 @@ public sealed class TorrWindReleaseService
         }
     }
 
+    public Task DownloadAsync(
+        Uri url,
+        string destinationFile,
+        IProgress<long>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        return DownloadAsync(url, destinationFile, expectedSizeBytes: 0, progress, cancellationToken);
+    }
+
     public async Task DownloadAsync(
         Uri url,
         string destinationFile,
+        long expectedSizeBytes,
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -90,6 +100,12 @@ public sealed class TorrWindReleaseService
                     await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                     total += read;
                     progress?.Report(total);
+                }
+
+                if (expectedSizeBytes > 0 && total != expectedSizeBytes)
+                {
+                    throw new InvalidDataException(
+                        $"Downloaded file size mismatch. Expected {expectedSizeBytes} bytes, got {total} bytes.");
                 }
             }
 

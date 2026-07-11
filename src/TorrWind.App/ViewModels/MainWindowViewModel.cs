@@ -3913,7 +3913,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 TorrentItem.FormatBytes(release.SizeBytes));
         });
 
-        await releases.DownloadAsync(release.DownloadUrl, destination, progress).ConfigureAwait(true);
+        await releases.DownloadAsync(release.DownloadUrl, destination, release.SizeBytes, progress).ConfigureAwait(true);
         var expectedSha256 = await releases.GetExpectedSha256Async(release).ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(expectedSha256))
         {
@@ -4055,7 +4055,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 TorrentItem.FormatBytes(release.SizeBytes));
         });
 
-        await releases.DownloadAsync(release.DownloadUrl, destination, progress).ConfigureAwait(true);
+        await releases.DownloadAsync(release.DownloadUrl, destination, release.SizeBytes, progress).ConfigureAwait(true);
         var expectedSha256 = await releases.GetExpectedSha256Async(release).ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(expectedSha256))
         {

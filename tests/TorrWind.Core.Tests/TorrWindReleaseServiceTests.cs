@@ -271,6 +271,7 @@ public sealed class TorrWindReleaseServiceTests
         await new TorrWindReleaseService(httpClient).DownloadAsync(
             new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
             destination,
+            payload.Length,
             new Progress<long>(bytes => progressReports.Add(bytes)));
 
         Assert.Equal(payload, await File.ReadAllBytesAsync(destination));
@@ -291,6 +292,28 @@ public sealed class TorrWindReleaseServiceTests
                 new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
                 destination));
 
+        Assert.False(File.Exists(destination));
+        Assert.False(File.Exists(destination + ".download"));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_RemovesTemporaryFileWhenDownloadedSizeDoesNotMatchExpectedSize()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var destination = Path.Combine(directory.Path, "TorrWind-1.0.4-win-x64.exe");
+        var payload = Encoding.UTF8.GetBytes("short");
+        using var httpClient = new HttpClient(new StaticResponseHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(payload)
+        }));
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            new TorrWindReleaseService(httpClient).DownloadAsync(
+                new Uri("https://example.invalid/TorrWind-1.0.4-win-x64.exe"),
+                destination,
+                expectedSizeBytes: payload.Length + 1));
+
+        Assert.Contains("size mismatch", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(destination));
         Assert.False(File.Exists(destination + ".download"));
     }
