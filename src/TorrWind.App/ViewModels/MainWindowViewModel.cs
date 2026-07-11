@@ -800,15 +800,15 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 .ConfigureAwait(true);
             await AddTextEntryAsync(archive, "manifest.txt", BuildSupportBundleManifest(), cancellationToken)
                 .ConfigureAwait(true);
-            await AddFileEntryIfExistsAsync(archive, AppPaths.UserLogFile, "logs/gui.jsonl", cancellationToken)
+            await AddRedactedFileEntryIfExistsAsync(archive, AppPaths.UserLogFile, "logs/gui.jsonl", cancellationToken)
                 .ConfigureAwait(true);
-            await AddFileEntryIfExistsAsync(archive, AppPaths.UserLogFile + ".1", "logs/gui.jsonl.1", cancellationToken)
+            await AddRedactedFileEntryIfExistsAsync(archive, AppPaths.UserLogFile + ".1", "logs/gui.jsonl.1", cancellationToken)
                 .ConfigureAwait(true);
-            await AddFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile, "logs/service.jsonl", cancellationToken)
+            await AddRedactedFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile, "logs/service.jsonl", cancellationToken)
                 .ConfigureAwait(true);
-            await AddFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile + ".1", "logs/service.jsonl.1", cancellationToken)
+            await AddRedactedFileEntryIfExistsAsync(archive, AppPaths.ServiceLogFile + ".1", "logs/service.jsonl.1", cancellationToken)
                 .ConfigureAwait(true);
-            await AddFileEntryIfExistsAsync(archive, AppPaths.MpvPlayerLogFile, "logs/mpv-player.log", cancellationToken)
+            await AddRedactedFileEntryIfExistsAsync(archive, AppPaths.MpvPlayerLogFile, "logs/mpv-player.log", cancellationToken)
                 .ConfigureAwait(true);
 
             StatusMessage = string.Format(L["StatusSupportBundleSaved"], filePath);
@@ -2896,7 +2896,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         await writer.WriteAsync(content.AsMemory(), cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task AddFileEntryIfExistsAsync(
+    private static async Task AddRedactedFileEntryIfExistsAsync(
         ZipArchive archive,
         string filePath,
         string entryName,
@@ -2912,7 +2912,12 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
             await using var entryStream = entry.Open();
             await using var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            await fileStream.CopyToAsync(entryStream, cancellationToken).ConfigureAwait(false);
+            using var reader = new StreamReader(fileStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            await using var writer = new StreamWriter(entryStream, Encoding.UTF8);
+            while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+            {
+                await writer.WriteLineAsync(SensitiveValueRedactor.RedactText(line)).ConfigureAwait(false);
+            }
         }
         catch (Exception exception)
         {
@@ -2932,7 +2937,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             [
                 "TorrWind support bundle",
                 "Created: " + DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss zzz"),
-                "Sensitive values in settings.sanitized.json are redacted.",
+                "Sensitive values in settings.sanitized.json and included logs are redacted.",
                 string.Empty,
                 "Entries:",
                 "- diagnostics.txt",
@@ -2957,7 +2962,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 server.Id,
                 server.Name,
-                BaseUrl = RedactUrl(server.BaseUrl),
+                BaseUrl = SensitiveValueRedactor.RedactUrl(server.BaseUrl),
                 HasUsername = !string.IsNullOrWhiteSpace(server.Username),
                 HasPassword = !string.IsNullOrWhiteSpace(server.Password),
                 server.IsLocal,
@@ -3014,7 +3019,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
             {
                 provider.Id,
                 provider.Name,
-                Url = RedactUrl(provider.Url),
+                Url = SensitiveValueRedactor.RedactUrl(provider.Url),
                 HasApiKey = !string.IsNullOrWhiteSpace(provider.ApiKey),
                 provider.Categories,
                 provider.Enabled,
@@ -3041,46 +3046,6 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 .Replace('\r', '\n')
                 .Split('\n')
                 .Count(line => !string.IsNullOrWhiteSpace(line));
-    }
-
-    private static string RedactUrl(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || !value.Contains('?', StringComparison.Ordinal))
-        {
-            return value;
-        }
-
-        var hashIndex = value.IndexOf('#', StringComparison.Ordinal);
-        var withoutFragment = hashIndex >= 0 ? value[..hashIndex] : value;
-        var fragment = hashIndex >= 0 ? value[hashIndex..] : string.Empty;
-        var queryIndex = withoutFragment.IndexOf('?', StringComparison.Ordinal);
-        if (queryIndex < 0)
-        {
-            return value;
-        }
-
-        var prefix = withoutFragment[..(queryIndex + 1)];
-        var query = withoutFragment[(queryIndex + 1)..];
-        var parts = query.Split('&');
-        for (var i = 0; i < parts.Length; i++)
-        {
-            var separatorIndex = parts[i].IndexOf('=', StringComparison.Ordinal);
-            var key = separatorIndex >= 0 ? parts[i][..separatorIndex] : parts[i];
-            if (IsSensitiveName(key))
-            {
-                parts[i] = separatorIndex >= 0 ? key + "=<redacted>" : key;
-            }
-        }
-
-        return prefix + string.Join("&", parts) + fragment;
-    }
-
-    private static bool IsSensitiveName(string name)
-    {
-        return name.Contains("key", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("token", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("pass", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddApplicationDiagnostics()

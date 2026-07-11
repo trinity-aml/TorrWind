@@ -280,7 +280,7 @@ Data\logs\service.jsonl
 Data\logs\mpv-player.log
 ```
 
-The support bundle redacts sensitive values from settings, but it is still a good idea to review the report before sharing it.
+The support bundle redacts sensitive values from settings and included logs, but it is still a good idea to review the report before sharing it.
 
 ## Common Problems
 
