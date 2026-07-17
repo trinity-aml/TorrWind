@@ -779,26 +779,17 @@
                                  TextWrapping="Wrap"
                                  VerticalAlignment="Center" />
                     </DockPanel>
-                    <Grid IsEnabled="{Binding CanEditTorrServerSettings}">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="220" />
-                      <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                    <TabControl IsEnabled="{Binding CanEditTorrServerSettings}" Margin="0,0,0,14">
+                      <TabItem Header="{Binding L[SettingsTabCache]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldCache]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <Grid Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
@@ -832,8 +823,24 @@
                       <Button Grid.Column="2" Content="{Binding L[ActionOpenFolder]}" Command="{Binding OpenLocalServerCacheFolderCommand}" Margin="10,0,0,0" />
                     </Grid>
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldTorrentRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,8,0,10">
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabGeneral]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTorrentRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldTorrentDisconnectTimeout]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="90" Text="{Binding TorrServerRuntimeSettings.TorrentDisconnectTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldTorrentConnections]}" VerticalAlignment="Center" Margin="14,0,8,0" />
@@ -848,23 +855,23 @@
                                 SelectedValue="{Binding TorrServerRuntimeSettings.RetrackersMode}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldListen]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
                       <TextBox Width="150" Text="{Binding TorrServerRuntimeSettings.ListenAddress, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBox Width="90" Text="{Binding TorrServerRuntimeSettings.Port, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" />
                       <CheckBox Content="{Binding L[FieldLan]}" IsChecked="{Binding TorrServerRuntimeSettings.AllowLanAccess}" Margin="14,0,0,0" />
                     </StackPanel>
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldLimits]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldLimits]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldDownloadLimitKb]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="110" Text="{Binding TorrServerRuntimeSettings.DownloadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldUploadLimitKb]}" VerticalAlignment="Center" Margin="14,0,8,0" />
                       <TextBox Width="110" Text="{Binding TorrServerRuntimeSettings.UploadSpeedLimitKb, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
 
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <WrapPanel Grid.Row="5" Grid.Column="1" Margin="0,8,0,10">
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldFeatures]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="3" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldAuth]}" IsChecked="{Binding TorrServerRuntimeSettings.UseHttpAuth}" />
                       <CheckBox Content="{Binding L[FieldSsl]}" IsChecked="{Binding TorrServerRuntimeSettings.UseSsl}" />
                       <CheckBox Content="{Binding L[FieldDlna]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableDlna}" />
@@ -873,8 +880,23 @@
                       <TextBox Width="220" Text="{Binding TorrServerRuntimeSettings.FriendlyName, UpdateSourceTrigger=PropertyChanged}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <WrapPanel Grid.Row="6" Grid.Column="1" Margin="0,8,0,10">
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabAccessSsl]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldAuthCredentials]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,8,0,10">
                       <TextBlock Text="{Binding L[FieldUsername]}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <TextBox Width="180" Text="{Binding TorrServerRuntimeSettings.Username, UpdateSourceTrigger=PropertyChanged}" />
                       <TextBlock Text="{Binding L[FieldPassword]}" VerticalAlignment="Center" Margin="14,0,8,0" />
@@ -882,8 +904,8 @@
                       <CheckBox Content="{Binding L[FieldSearchWithoutAuth]}" IsChecked="{Binding TorrServerRuntimeSettings.AllowSearchWithoutAuth}" Margin="14,0,0,0" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Top" Margin="0,16,12,10" />
-                    <Grid Grid.Row="7" Grid.Column="1" Margin="0,16,0,10">
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldSslSettings]}" VerticalAlignment="Top" Margin="0,16,12,10" />
+                    <Grid Grid.Row="1" Grid.Column="1" Margin="0,16,0,10">
                       <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -914,15 +936,29 @@
                       </Grid>
                     </Grid>
 
-                    <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <WrapPanel Grid.Row="8" Grid.Column="1" Margin="0,8,0,10">
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldSecurity]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldReadOnlyDatabase]}" IsChecked="{Binding TorrServerRuntimeSettings.ReadOnlyDatabase}" />
                       <CheckBox Content="{Binding L[FieldForceEncrypt]}" IsChecked="{Binding TorrServerRuntimeSettings.ForceEncrypt}" />
                       <CheckBox Content="{Binding L[FieldDebug]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableDebug}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <WrapPanel Grid.Row="9" Grid.Column="1" Margin="0,8,0,10">
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabBitTorrent]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldBtProtocol]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldEnableIPv6]}" IsChecked="{Binding TorrServerRuntimeSettings.EnableIPv6}" />
                       <CheckBox Content="{Binding L[FieldDisableTcp]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableTcp}" />
                       <CheckBox Content="{Binding L[FieldDisableUtp]}" IsChecked="{Binding TorrServerRuntimeSettings.DisableUtp}" />
@@ -934,8 +970,8 @@
                       <CheckBox Content="{Binding L[FieldLpdIPv6]}" IsChecked="{Binding TorrServerRuntimeSettings.LpdIPv6}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <WrapPanel Grid.Row="10" Grid.Column="1" Margin="0,8,0,10">
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldAdvancedRuntime]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <WrapPanel Grid.Row="1" Grid.Column="1" Margin="0,8,0,10">
                       <CheckBox Content="{Binding L[FieldResponsiveMode]}" IsChecked="{Binding TorrServerRuntimeSettings.ResponsiveMode}" />
                       <CheckBox Content="{Binding L[FieldShowFsActiveTorrents]}" IsChecked="{Binding TorrServerRuntimeSettings.ShowFsActiveTorrents}" />
                       <CheckBox Content="{Binding L[FieldStoreSettingsInJson]}" IsChecked="{Binding TorrServerRuntimeSettings.StoreSettingsInJson}" />
@@ -943,8 +979,21 @@
                       <CheckBox Content="{Binding L[FieldTrackTimecode]}" IsChecked="{Binding TorrServerRuntimeSettings.TrackTimecode}" />
                     </WrapPanel>
 
-                    <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,8,12,10" />
-                    <Grid Grid.Row="11" Grid.Column="1" Margin="0,8,0,10">
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabTmdb]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTmdb]}" VerticalAlignment="Center" Margin="0,8,12,10" />
+                    <Grid Grid.Row="0" Grid.Column="1" Margin="0,8,0,10">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -965,11 +1014,14 @@
                       <TextBox Grid.Row="1" Grid.Column="3" MinWidth="180" Text="{Binding TorrServerRuntimeSettings.TmdbImageUrlRu, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
 
-                    <StackPanel Grid.Row="12" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
+                        </Grid>
+                      </TabItem>
+                    </TabControl>
+
+                    <StackPanel Orientation="Horizontal" Margin="220,6,0,0" IsEnabled="{Binding CanEditTorrServerSettings}">
                       <Button Content="{Binding L[ActionSave]}" Command="{Binding ApplyLocalServerSettingsCommand}" Style="{StaticResource PrimaryButton}" />
                       <Button Content="{Binding L[ActionApplyRuntimeSettings]}" Command="{Binding ApplyLocalServerSettingsCommand}" />
                     </StackPanel>
-                    </Grid>
                   </StackPanel>
                 </Border>
               </ScrollViewer>
@@ -978,22 +1030,20 @@
             <TabItem Header="{Binding L[NavServiceSettings]}">
               <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto">
                 <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18">
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="220" />
-                      <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                      <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                  <StackPanel>
+                    <TabControl Margin="0,0,0,14">
+                      <TabItem Header="{Binding L[SettingsTabLocalServer]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTorrServerExe]}" VerticalAlignment="Center" Margin="0,0,12,10" />
                     <Grid Grid.Row="0" Grid.Column="1" Margin="0,0,0,10">
@@ -1021,8 +1071,38 @@
                       <Button Grid.Column="2" Content="{Binding L[ActionOpenFolder]}" Command="{Binding OpenLocalServerDataFolderCommand}" Margin="10,0,0,0" />
                     </Grid>
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldService]}" VerticalAlignment="Center" Margin="0,0,12,14" />
-                    <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,14">
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding L[FieldWhiteList]}" VerticalAlignment="Top" Margin="0,8,12,10" />
+                    <TextBox Grid.Row="2"
+                             Grid.Column="1"
+                             Text="{Binding LocalServer.WhiteList, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True"
+                             MinHeight="72"
+                             VerticalScrollBarVisibility="Auto"
+                             Margin="0,8,0,10" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding L[FieldBlackList]}" VerticalAlignment="Top" Margin="0,8,12,0" />
+                    <TextBox Grid.Row="3"
+                             Grid.Column="1"
+                             Text="{Binding LocalServer.BlackList, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True"
+                             MinHeight="72"
+                             VerticalScrollBarVisibility="Auto"
+                             Margin="0,8,0,0" />
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabWindowsService]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldService]}" VerticalAlignment="Center" Margin="0,0,12,14" />
+                    <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,14">
                       <CheckBox Content="{Binding L[FieldRunAsService]}" IsChecked="{Binding LocalServer.RunAsWindowsService}" />
                       <Button Content="{Binding L[ActionInstallService]}" Command="{Binding InstallServiceCommand}" />
                       <Button Content="{Binding L[ActionUninstallService]}" Command="{Binding UninstallServiceCommand}" />
@@ -1032,7 +1112,12 @@
                       <TextBlock Text="{Binding ServiceStatusText}" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" Margin="10,0,0,0" />
                     </WrapPanel>
 
-                    <Grid Grid.Row="3" Grid.Column="1" Margin="0,0,0,10">
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabTorrServerVersions]}">
+
+                    <Grid Margin="0,14,0,10">
                       <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -1081,8 +1166,21 @@
                       </ListView>
                     </Grid>
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L[FieldPlayer]}" VerticalAlignment="Center" Margin="0,0,12,10" />
-                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabPlayer]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldPlayer]}" VerticalAlignment="Center" Margin="0,0,12,10" />
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
                       <ComboBox Width="220"
                                 ItemsSource="{Binding PlayerKindOptions}"
                                 DisplayMemberPath="Name"
@@ -1091,8 +1189,8 @@
                       <CheckBox Content="{Binding L[FieldPreferDirectStream]}" IsChecked="{Binding Player.PreferDirectStreamUrl}" Margin="14,0,0,0" />
                     </StackPanel>
 
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L[FieldCustomPlayer]}" VerticalAlignment="Center" Margin="0,0,12,14" />
-                    <Grid Grid.Row="5" Grid.Column="1" Margin="0,0,0,14">
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L[FieldCustomPlayer]}" VerticalAlignment="Center" Margin="0,0,12,14" />
+                    <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,14">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -1101,14 +1199,21 @@
                       <Button Grid.Column="1" Content="{Binding L[ActionBrowse]}" Click="OnBrowseCustomPlayer" Margin="10,0,0,0" />
                     </Grid>
 
-                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
-                      <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" />
-                      <Button Content="{Binding L[ActionExportSettings]}" Click="OnExportSettings" />
-                      <Button Content="{Binding L[ActionImportSettings]}" Click="OnImportSettings" />
-                    </StackPanel>
+                        </Grid>
+                      </TabItem>
 
-                    <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding L[FieldSettingsBackups]}" VerticalAlignment="Top" Margin="0,8,12,0" />
-                    <Grid Grid.Row="7" Grid.Column="1" Margin="0,10,0,0">
+                      <TabItem Header="{Binding L[SettingsTabBackups]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldSettingsBackups]}" VerticalAlignment="Top" Margin="0,8,12,0" />
+                    <Grid Grid.Row="0" Grid.Column="1" Margin="0,10,0,0">
                       <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="150" />
@@ -1136,8 +1241,21 @@
                       </ListView>
                     </Grid>
 
-                    <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding L[FieldTorrWindUpdate]}" VerticalAlignment="Top" Margin="0,18,12,0" />
-                    <Grid Grid.Row="8" Grid.Column="1" Margin="0,18,0,0">
+                        </Grid>
+                      </TabItem>
+
+                      <TabItem Header="{Binding L[SettingsTabTorrWindUpdate]}">
+                        <Grid Margin="0,14,0,0">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                          </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L[FieldTorrWindUpdate]}" VerticalAlignment="Top" Margin="0,0,12,0" />
+                    <Grid Grid.Row="0" Grid.Column="1">
                       <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -1150,7 +1268,17 @@
                       </WrapPanel>
                       <TextBlock Grid.Row="1" Text="{Binding TorrWindUpdateText}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     </Grid>
-                  </Grid>
+
+                        </Grid>
+                      </TabItem>
+                    </TabControl>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                      <Button Content="{Binding L[ActionSave]}" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" />
+                      <Button Content="{Binding L[ActionExportSettings]}" Click="OnExportSettings" />
+                      <Button Content="{Binding L[ActionImportSettings]}" Click="OnImportSettings" />
+                    </StackPanel>
+                  </StackPanel>
                 </Border>
               </ScrollViewer>
             </TabItem>
