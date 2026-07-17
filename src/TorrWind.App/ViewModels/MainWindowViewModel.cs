@@ -3062,7 +3062,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         var assembly = Assembly.GetEntryAssembly() ?? typeof(MainWindowViewModel).Assembly;
         return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
-            ?? "1.0.3";
+            ?? "1.0.6";
     }
 
     private async Task AddServerDiagnosticsAsync(ServerProfile server)

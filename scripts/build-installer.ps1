@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.0.3",
+    [string]$Version = "1.0.6",
     [string]$Configuration = "Release",
     [string]$InnoCompilerPath = "",
     [string]$WinePrefix = "",

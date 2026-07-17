@@ -183,7 +183,7 @@ public sealed class TorrWindReleaseServiceTests
 
         await new TorrWindReleaseService(httpClient).GetLatestReleaseAsync();
 
-        Assert.Equal("TorrWind/1.0.3", userAgent);
+        Assert.Equal("TorrWind/1.0.6", userAgent);
     }
 
     [Fact]

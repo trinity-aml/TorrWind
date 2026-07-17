@@ -168,7 +168,7 @@ public sealed class GitHubReleaseServiceTests
 
         await new GitHubReleaseService(httpClient).GetLatestTorrServerReleaseAsync();
 
-        Assert.Equal("TorrWind/1.0.3", userAgent);
+        Assert.Equal("TorrWind/1.0.6", userAgent);
     }
 
     [Fact]

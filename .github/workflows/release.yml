@@ -10,7 +10,7 @@ on:
       version:
         description: "Release version without leading v"
         required: true
-        default: "1.0.3"
+        default: "1.0.6"
       prerelease:
         description: "Mark GitHub release as prerelease"
         required: true
