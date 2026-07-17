@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using TorrWind.Core.Models;
 
@@ -5,6 +6,8 @@ namespace TorrWind.Core.Services;
 
 public static class LocalTorrServerConfigurationWriter
 {
+    private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -48,8 +51,14 @@ public static class LocalTorrServerConfigurationWriter
             [settings.Username.Trim()] = settings.Password
         };
 
-        await using var stream = File.Create(authPath);
-        await JsonSerializer.SerializeAsync(stream, accounts, JsonOptions, cancellationToken)
+        await WriteFileAtomicallyAsync(
+                authPath,
+                async (stream, token) =>
+                {
+                    await JsonSerializer.SerializeAsync(stream, accounts, JsonOptions, token)
+                        .ConfigureAwait(false);
+                },
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -64,8 +73,51 @@ public static class LocalTorrServerConfigurationWriter
             return;
         }
 
-        await File.WriteAllTextAsync(filePath, NormalizeLines(content), cancellationToken)
+        var bytes = Utf8WithoutBom.GetBytes(NormalizeLines(content));
+        await WriteFileAtomicallyAsync(
+                filePath,
+                async (stream, token) =>
+                {
+                    await stream.WriteAsync(bytes.AsMemory(), token).ConfigureAwait(false);
+                },
+                cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static async Task WriteFileAtomicallyAsync(
+        string filePath,
+        Func<Stream, CancellationToken, Task> writeAsync,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var directory = Path.GetDirectoryName(filePath);
+        var tempPath = Path.Combine(
+            string.IsNullOrWhiteSpace(directory) ? "." : directory,
+            Path.GetFileName(filePath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+
+        try
+        {
+            await using (var stream = new FileStream(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 16 * 1024,
+                FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await writeAsync(stream, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(tempPath, filePath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
+        }
     }
 
     private static string NormalizeLines(string content)
@@ -85,6 +137,17 @@ public static class LocalTorrServerConfigurationWriter
         if (File.Exists(filePath))
         {
             File.Delete(filePath);
+        }
+    }
+
+    private static void TryDelete(string filePath)
+    {
+        try
+        {
+            DeleteIfExists(filePath);
+        }
+        catch
+        {
         }
     }
 }

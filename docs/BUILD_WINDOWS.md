@@ -64,7 +64,7 @@ Installer tasks:
 - Install `TorrWindService`.
 - Optionally start `TorrWindService` after installation.
 
-The installer also grants normal users modify access to `{app}\Data`, so the GUI and service can share settings, logs, backups, playlists, and downloaded TorrServer binaries inside the install directory.
+The installer grants normal users modify access to `{app}\Data`. Service installation additionally grants the `LocalService` SID inherited modify access to this directory, so the GUI and the low-privilege service can share settings, logs, backups, playlists, and downloaded TorrServer binaries. Interactive users receive only query/start/stop rights on `TorrWindService`; UAC remains limited to service installation and removal.
 
 Build all release artifacts and SHA256 checksums:
 

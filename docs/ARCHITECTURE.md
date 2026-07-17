@@ -85,6 +85,8 @@ Before starting a local TorrServer process or service child process, TorrWind wr
 - `wip.txt` for IP whitelist entries.
 - `bip.txt` for IP blacklist entries.
 
+Each managed file is written to a uniquely named temporary file in the same directory and atomically replaced only after the new content has been flushed. Cancellation or a failed replacement leaves the previous file intact and removes the temporary file.
+
 The launch argument builder maps supported local settings to TorrServer flags such as `--httpauth`, `--ssl`, `--sslport`, `--sslcert`, `--sslkey`, `--force-https`, `--rdb`, `--searchwa`, and `--webdav`.
 
 The settings UI keeps path editing as plain text fields but adds Windows file/folder pickers for the local TorrServer executable, data/cache directories, SSL certificate/key files, and custom external player executable. Folder-open commands create managed TorrWind directories when needed, then ask Windows Shell/Explorer to open them.
@@ -93,7 +95,9 @@ Runtime settings that live in TorrServer's settings database are applied through
 
 ## Service Management
 
-`WindowsServiceManager` shells out through `TorrWind.Service.exe` for install, uninstall, start, and stop. These actions use `Verb = runas`; status query runs directly through `sc.exe`.
+`WindowsServiceManager` shells out through `TorrWind.Service.exe` with `Verb = runas` only for installation and removal. Start, stop, and status query run directly through `sc.exe` without elevation.
+
+The elevated install command configures `TorrWindService` to run as the built-in low-privilege `NT AUTHORITY\LocalService` account instead of `LocalSystem`. It grants the LocalService SID inherited modify access to the application `Data` directory and extends the existing service DACL with only query/start/stop rights for interactive users. Reinstalling an existing service reapplies this account and ACL migration without deleting its settings.
 
 The settings screen exposes service install/uninstall/start/stop/status. Before service start, the GUI saves current settings so the service can read `<TorrWind.exe directory>\Data\settings.json`.
 

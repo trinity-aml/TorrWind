@@ -108,6 +108,89 @@ public sealed class LocalTorrServerConfigurationWriterTests
         Assert.False(File.Exists(blackListPath));
     }
 
+    [Fact]
+    public async Task WriteAsync_OverwritesManagedFilesWithoutLeavingTemporaryFiles()
+    {
+        using var directory = TemporaryDirectory.Create();
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "accs.db"), "{\"old\":\"value\"}");
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "wip.txt"), "old whitelist");
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "bip.txt"), "old blacklist");
+
+        await LocalTorrServerConfigurationWriter.WriteAsync(new LocalServerSettings
+        {
+            DataDirectory = directory.Path,
+            UseHttpAuth = true,
+            Username = "new-user",
+            Password = "new-password",
+            WhiteList = "127.0.0.1",
+            BlackList = "10.0.0.1"
+        });
+
+        using (var authDocument = JsonDocument.Parse(
+                   await File.ReadAllTextAsync(Path.Combine(directory.Path, "accs.db"))))
+        {
+            Assert.Equal("new-password", authDocument.RootElement.GetProperty("new-user").GetString());
+            Assert.False(authDocument.RootElement.TryGetProperty("old", out _));
+        }
+
+        Assert.Equal(
+            "127.0.0.1" + Environment.NewLine,
+            await File.ReadAllTextAsync(Path.Combine(directory.Path, "wip.txt")));
+        Assert.Equal(
+            "10.0.0.1" + Environment.NewLine,
+            await File.ReadAllTextAsync(Path.Combine(directory.Path, "bip.txt")));
+        Assert.Empty(Directory.EnumerateFiles(directory.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task WriteAsync_CanceledWriteKeepsExistingFiles()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var authPath = Path.Combine(directory.Path, "accs.db");
+        var whiteListPath = Path.Combine(directory.Path, "wip.txt");
+        var blackListPath = Path.Combine(directory.Path, "bip.txt");
+        await File.WriteAllTextAsync(authPath, "{\"old\":\"value\"}");
+        await File.WriteAllTextAsync(whiteListPath, "old whitelist");
+        await File.WriteAllTextAsync(blackListPath, "old blacklist");
+
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            LocalTorrServerConfigurationWriter.WriteAsync(new LocalServerSettings
+            {
+                DataDirectory = directory.Path,
+                UseHttpAuth = true,
+                Username = "new-user",
+                Password = "new-password",
+                WhiteList = "127.0.0.1",
+                BlackList = "10.0.0.1"
+            }, cancellation.Token));
+
+        Assert.Equal("{\"old\":\"value\"}", await File.ReadAllTextAsync(authPath));
+        Assert.Equal("old whitelist", await File.ReadAllTextAsync(whiteListPath));
+        Assert.Equal("old blacklist", await File.ReadAllTextAsync(blackListPath));
+        Assert.Empty(Directory.EnumerateFiles(directory.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task WriteAsync_RemovesTemporaryFileWhenTargetCannotBeReplaced()
+    {
+        using var directory = TemporaryDirectory.Create();
+        Directory.CreateDirectory(Path.Combine(directory.Path, "accs.db"));
+
+        await Assert.ThrowsAnyAsync<IOException>(() =>
+            LocalTorrServerConfigurationWriter.WriteAsync(new LocalServerSettings
+            {
+                DataDirectory = directory.Path,
+                UseHttpAuth = true,
+                Username = "user",
+                Password = "password"
+            }));
+
+        Assert.Empty(Directory.EnumerateFiles(directory.Path, "*.tmp"));
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         private TemporaryDirectory(string path)

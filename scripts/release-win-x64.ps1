@@ -9,6 +9,11 @@ param(
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
+$Version = $Version -replace "^[vV]", ""
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$') {
+    throw "Release version '$Version' is not a supported semantic version."
+}
+
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $InstallerPath = Join-Path $Root "artifacts\installer\TorrWind-$Version-win-x64.exe"
 $PortablePath = Join-Path $Root "artifacts\portable\TorrWind-$Version-win-x64-portable.zip"

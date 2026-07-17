@@ -44,29 +44,9 @@ public sealed class WindowsServiceManager
         return RunScAsync(cancellationToken, "start", ServiceName);
     }
 
-    public Task StartAsync(string serviceExecutablePath, CancellationToken cancellationToken = default)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new PlatformNotSupportedException("Windows service management is supported only on Windows.");
-        }
-
-        return RunServiceHelperElevatedAsync(serviceExecutablePath, cancellationToken, "start");
-    }
-
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         return RunScAsync(cancellationToken, "stop", ServiceName);
-    }
-
-    public Task StopAsync(string serviceExecutablePath, CancellationToken cancellationToken = default)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new PlatformNotSupportedException("Windows service management is supported only on Windows.");
-        }
-
-        return RunServiceHelperElevatedAsync(serviceExecutablePath, cancellationToken, "stop");
     }
 
     public async Task<WindowsServiceStatus> QueryStatusAsync(CancellationToken cancellationToken = default)

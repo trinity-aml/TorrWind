@@ -1,12 +1,16 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using TorrWind.Core;
 using TorrWind.Core.Services;
 
 namespace TorrWind.Service;
 
 public static class ServiceCommandRunner
 {
+    private const string LocalServiceAccount = @"NT AUTHORITY\LocalService";
+    private const string LocalServiceSid = "*S-1-5-19";
+
     public static async Task<bool> TryRunAsync(string[] args)
     {
         if (args.Length == 0)
@@ -89,6 +93,8 @@ public static class ServiceCommandRunner
             Quote(executable),
             "start=",
             "auto",
+            "obj=",
+            LocalServiceAccount,
             "DisplayName=",
             WindowsServiceManager.DisplayName).ConfigureAwait(false);
 
@@ -97,6 +103,42 @@ public static class ServiceCommandRunner
                 WindowsServiceManager.ServiceName,
                 "Runs the configured local TorrServer instance for TorrWind.")
             .ConfigureAwait(false);
+
+        await GrantLocalServiceDataAccessAsync().ConfigureAwait(false);
+        await GrantInteractiveServiceControlAsync().ConfigureAwait(false);
+    }
+
+    private static async Task GrantLocalServiceDataAccessAsync()
+    {
+        var result = await RunProcessCaptureAsync(
+                "icacls.exe",
+                AppPaths.DataDirectory,
+                "/grant",
+                LocalServiceSid + ":(OI)(CI)M",
+                "/T",
+                "/Q")
+            .ConfigureAwait(false);
+
+        if (result.ExitCode != 0)
+        {
+            throw CreateCommandException("icacls.exe", result);
+        }
+    }
+
+    private static async Task GrantInteractiveServiceControlAsync()
+    {
+        var result = await RunScCaptureAsync("sdshow", WindowsServiceManager.ServiceName).ConfigureAwait(false);
+        if (result.ExitCode != 0)
+        {
+            throw CreateCommandException("sc.exe", result);
+        }
+
+        var currentDescriptor = WindowsServiceSecurityDescriptor.ExtractFromScOutput(result.Output);
+        var updatedDescriptor = WindowsServiceSecurityDescriptor.GrantInteractiveStartStop(currentDescriptor);
+        if (!string.Equals(currentDescriptor, updatedDescriptor, StringComparison.Ordinal))
+        {
+            await RunScAsync("sdset", WindowsServiceManager.ServiceName, updatedDescriptor).ConfigureAwait(false);
+        }
     }
 
     private static async Task StopIfInstalledAsync()
@@ -126,9 +168,23 @@ public static class ServiceCommandRunner
 
     private static async Task RunScAsync(params string[] args)
     {
+        var result = await RunScCaptureAsync(args).ConfigureAwait(false);
+        if (result.ExitCode != 0)
+        {
+            throw CreateCommandException("sc.exe", result);
+        }
+    }
+
+    private static Task<CommandResult> RunScCaptureAsync(params string[] args)
+    {
+        return RunProcessCaptureAsync("sc.exe", args);
+    }
+
+    private static async Task<CommandResult> RunProcessCaptureAsync(string fileName, params string[] args)
+    {
         var startInfo = new ProcessStartInfo
         {
-            FileName = "sc.exe",
+            FileName = fileName,
             UseShellExecute = false,
             RedirectStandardError = true,
             RedirectStandardOutput = true,
@@ -146,19 +202,26 @@ public static class ServiceCommandRunner
 
         if (process is null)
         {
-            throw new InvalidOperationException("Failed to start sc.exe.");
+            throw new InvalidOperationException($"Failed to start {fileName}.");
         }
 
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync().ConfigureAwait(false);
 
-        if (process.ExitCode != 0)
-        {
-            var output = await outputTask.ConfigureAwait(false);
-            var error = await errorTask.ConfigureAwait(false);
-            throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? output : error);
-        }
+        return new CommandResult(
+            process.ExitCode,
+            await outputTask.ConfigureAwait(false),
+            await errorTask.ConfigureAwait(false));
+    }
+
+    private static InvalidOperationException CreateCommandException(string command, CommandResult result)
+    {
+        var message = string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error;
+        return new InvalidOperationException(
+            string.IsNullOrWhiteSpace(message)
+                ? $"{command} exited with code {result.ExitCode}."
+                : message.Trim());
     }
 
     private static string Quote(string value)
@@ -179,4 +242,5 @@ public static class ServiceCommandRunner
         }
     }
 
+    private sealed record CommandResult(int ExitCode, string Output, string Error);
 }

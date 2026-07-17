@@ -82,6 +82,86 @@ public sealed class JsonLocalizationServiceTests
     }
 
     [Fact]
+    public async Task LoadAsync_DoesNotResolveLanguageOutsideLocalesDirectory()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var localesDirectory = Path.Combine(directory.Path, "locales");
+        Directory.CreateDirectory(localesDirectory);
+        await File.WriteAllTextAsync(Path.Combine(localesDirectory, "en.json"), """
+            {
+              "Shared": "English"
+            }
+            """);
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "outside.json"), """
+            {
+              "Shared": "Outside"
+            }
+            """);
+        var localization = new JsonLocalizationService(localesDirectory);
+
+        await localization.LoadAsync("../outside");
+
+        Assert.Equal("en", localization.CurrentLanguage);
+        Assert.Equal("English", localization["Shared"]);
+    }
+
+    [Fact]
+    public async Task LoadAsync_UsesActualFilePathForCaseInsensitiveLanguageMatch()
+    {
+        using var directory = TemporaryDirectory.Create();
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "RU.json"), """
+            {
+              "Shared": "Russian"
+            }
+            """);
+        var localization = new JsonLocalizationService(directory.Path);
+
+        await localization.LoadAsync("ru");
+
+        Assert.Equal("RU", localization.CurrentLanguage);
+        Assert.Equal("Russian", localization["Shared"]);
+    }
+
+    [Fact]
+    public async Task LoadAsync_KeepsCurrentStringsWhenAllLocaleFilesBecomeInvalid()
+    {
+        using var directory = TemporaryDirectory.Create();
+        var englishPath = Path.Combine(directory.Path, "en.json");
+        await File.WriteAllTextAsync(englishPath, """
+            {
+              "Shared": "English"
+            }
+            """);
+        var localization = new JsonLocalizationService(directory.Path);
+        await localization.LoadAsync("en");
+        await File.WriteAllTextAsync(englishPath, "{ not-json");
+
+        await localization.LoadAsync("en");
+
+        Assert.Equal("en", localization.CurrentLanguage);
+        Assert.Equal("English", localization["Shared"]);
+    }
+
+    [Fact]
+    public async Task LoadAsync_IgnoresBlankKeysAndNullValues()
+    {
+        using var directory = TemporaryDirectory.Create();
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "en.json"), """
+            {
+              "": "Blank key",
+              "NullValue": null,
+              "Shared": "English"
+            }
+            """);
+        var localization = new JsonLocalizationService(directory.Path);
+
+        await localization.LoadAsync("en");
+
+        Assert.Equal("English", localization["Shared"]);
+        Assert.Equal("NullValue", localization["NullValue"]);
+    }
+
+    [Fact]
     public void GetAvailableLanguages_ReturnsSortedJsonFileNamesOnly()
     {
         using var directory = TemporaryDirectory.Create();

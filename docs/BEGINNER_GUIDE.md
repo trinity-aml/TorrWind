@@ -69,7 +69,7 @@ Use the service mode if TorrServer should run without an open TorrWind window or
 6. Click `Start service`.
 7. Check the state with `Service status`.
 
-Elevation is required only for installing, uninstalling, starting, and stopping the service. Normal TorrWind use does not require administrator rights.
+Elevation is required only for installing or uninstalling the service. Installation configures the service to run as `LocalService` and lets the interactive desktop user query, start, and stop it without another UAC prompt. Click `Install service` once after upgrading an older TorrWind installation to apply this migration.
 
 If you use the service, do not start the same TorrServer as a second process on the same port.
 

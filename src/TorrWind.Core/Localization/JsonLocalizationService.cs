@@ -22,25 +22,21 @@ public sealed class JsonLocalizationService : INotifyPropertyChanged
 
     public IReadOnlyList<string> GetAvailableLanguages()
     {
-        if (!Directory.Exists(_localesDirectory))
-        {
-            return [];
-        }
-
-        return Directory.EnumerateFiles(_localesDirectory, "*.json")
-            .Select(Path.GetFileNameWithoutExtension)
-            .Where(language => !string.IsNullOrWhiteSpace(language))
-            .Cast<string>()
+        return GetAvailableLanguageFiles()
+            .Keys
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
     public async Task LoadSystemLanguageAsync(CancellationToken cancellationToken = default)
     {
-        var cultureName = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-        var selected = GetAvailableLanguages().Contains(cultureName, StringComparer.OrdinalIgnoreCase)
-            ? cultureName
-            : "en";
+        var languages = GetAvailableLanguages();
+        var culture = CultureInfo.CurrentUICulture;
+        var selected = languages.FirstOrDefault(language =>
+                string.Equals(language, culture.Name, StringComparison.OrdinalIgnoreCase)) ??
+            languages.FirstOrDefault(language =>
+                string.Equals(language, culture.TwoLetterISOLanguageName, StringComparison.OrdinalIgnoreCase)) ??
+            "en";
 
         await LoadAsync(selected, cancellationToken).ConfigureAwait(false);
     }
@@ -54,26 +50,45 @@ public sealed class JsonLocalizationService : INotifyPropertyChanged
         }
 
         var requestedLanguage = string.IsNullOrWhiteSpace(language) ? "en" : language.Trim();
-        var selectedFilePath = Path.Combine(_localesDirectory, requestedLanguage + ".json");
-        var languageExists = File.Exists(selectedFilePath);
-        if (!languageExists)
+        var languageFiles = GetAvailableLanguageFiles();
+        languageFiles.TryGetValue("en", out var fallbackFilePath);
+        if (!languageFiles.TryGetValue(requestedLanguage, out var selectedFilePath))
         {
             requestedLanguage = "en";
-            selectedFilePath = Path.Combine(_localesDirectory, "en.json");
+            selectedFilePath = fallbackFilePath;
+        }
+        else
+        {
+            requestedLanguage = Path.GetFileNameWithoutExtension(selectedFilePath);
+        }
+
+        var loadedStrings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var fallbackLoaded = await TryLoadFileIntoAsync(fallbackFilePath, loadedStrings, cancellationToken)
+            .ConfigureAwait(false);
+
+        var selectedLoaded = fallbackLoaded && string.Equals(
+            selectedFilePath,
+            fallbackFilePath,
+            StringComparison.OrdinalIgnoreCase);
+        if (!selectedLoaded && !string.IsNullOrWhiteSpace(selectedFilePath))
+        {
+            selectedLoaded = await TryLoadFileIntoAsync(selectedFilePath, loadedStrings, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (!selectedLoaded && fallbackLoaded)
+        {
+            requestedLanguage = "en";
+        }
+        else if (!selectedLoaded)
+        {
+            return;
         }
 
         _strings.Clear();
-
-        var fallbackFilePath = Path.Combine(_localesDirectory, "en.json");
-        await TryLoadFileIntoAsync(fallbackFilePath, cancellationToken).ConfigureAwait(false);
-
-        if (!string.Equals(requestedLanguage, "en", StringComparison.OrdinalIgnoreCase))
+        foreach (var (key, value) in loadedStrings)
         {
-            var selectedLoaded = await TryLoadFileIntoAsync(selectedFilePath, cancellationToken).ConfigureAwait(false);
-            if (!selectedLoaded)
-            {
-                requestedLanguage = "en";
-            }
+            _strings[key] = value;
         }
 
         CurrentLanguage = requestedLanguage;
@@ -81,18 +96,57 @@ public sealed class JsonLocalizationService : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentLanguage)));
     }
 
-    private async Task<bool> TryLoadFileIntoAsync(string filePath, CancellationToken cancellationToken)
+    private Dictionary<string, string> GetAvailableLanguageFiles()
     {
-        if (!File.Exists(filePath))
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!Directory.Exists(_localesDirectory))
+        {
+            return files;
+        }
+
+        try
+        {
+            foreach (var filePath in Directory
+                         .EnumerateFiles(_localesDirectory, "*.json", SearchOption.TopDirectoryOnly)
+                         .Order(StringComparer.OrdinalIgnoreCase))
+            {
+                var language = Path.GetFileNameWithoutExtension(filePath);
+                if (!string.IsNullOrWhiteSpace(language))
+                {
+                    files.TryAdd(language, filePath);
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return files;
+    }
+
+    private static async Task<bool> TryLoadFileIntoAsync(
+        string? filePath,
+        Dictionary<string, string> target,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             return false;
         }
 
-        Dictionary<string, string>? values;
+        Dictionary<string, string?>? values;
         try
         {
-            await using var stream = File.OpenRead(filePath);
-            values = await JsonSerializer.DeserializeAsync<Dictionary<string, string>>(stream, cancellationToken: cancellationToken)
+            await using var stream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                bufferSize: 4 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            values = await JsonSerializer.DeserializeAsync<Dictionary<string, string?>>(
+                    stream,
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -107,7 +161,10 @@ public sealed class JsonLocalizationService : INotifyPropertyChanged
 
         foreach (var (key, value) in values)
         {
-            _strings[key] = value;
+            if (!string.IsNullOrWhiteSpace(key) && value is not null)
+            {
+                target[key] = value;
+            }
         }
 
         return true;

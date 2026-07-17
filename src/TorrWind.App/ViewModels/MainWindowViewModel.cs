@@ -4298,8 +4298,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await SaveSettingsAsync().ConfigureAwait(true);
-            var serviceExe = Path.Combine(AppContext.BaseDirectory, "TorrWind.Service.exe");
-            await new WindowsServiceManager().StartAsync(serviceExe).ConfigureAwait(true);
+            await new WindowsServiceManager().StartAsync().ConfigureAwait(true);
             await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceStarted"];
             LogInfo("Service", "Windows service start requested.");
@@ -4315,8 +4314,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var serviceExe = Path.Combine(AppContext.BaseDirectory, "TorrWind.Service.exe");
-            await new WindowsServiceManager().StopAsync(serviceExe).ConfigureAwait(true);
+            await new WindowsServiceManager().StopAsync().ConfigureAwait(true);
             await UpdateServiceStatusAsync(updateStatusMessage: false).ConfigureAwait(true);
             StatusMessage = L["StatusServiceStopped"];
             LogInfo("Service", "Windows service stop requested.");

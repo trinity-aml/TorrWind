@@ -74,7 +74,7 @@ The first usable version should cover:
 
 ## Phase 2
 
-- Signature verification when TorrServer release metadata provides a signature and trust material.
+- Signature verification when official TorrServer release metadata provides a documented signature format and trust material suitable for key pinning. Until then, TorrWind verifies the SHA256 digest exposed by GitHub release metadata or checksum assets. See `ROADMAP.md`.
 
 ## Data Locations
 
