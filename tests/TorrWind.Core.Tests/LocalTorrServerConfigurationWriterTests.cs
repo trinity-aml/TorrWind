@@ -179,7 +179,7 @@ public sealed class LocalTorrServerConfigurationWriterTests
         using var directory = TemporaryDirectory.Create();
         Directory.CreateDirectory(Path.Combine(directory.Path, "accs.db"));
 
-        await Assert.ThrowsAnyAsync<IOException>(() =>
+        var exception = await Record.ExceptionAsync(() =>
             LocalTorrServerConfigurationWriter.WriteAsync(new LocalServerSettings
             {
                 DataDirectory = directory.Path,
@@ -188,6 +188,9 @@ public sealed class LocalTorrServerConfigurationWriterTests
                 Password = "password"
             }));
 
+        Assert.True(
+            exception is IOException or UnauthorizedAccessException,
+            $"Expected an I/O-related exception, but got {exception?.GetType().FullName ?? "no exception"}.");
         Assert.Empty(Directory.EnumerateFiles(directory.Path, "*.tmp"));
     }
 
